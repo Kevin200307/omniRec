@@ -23,5 +23,11 @@
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
     </dependency>
+    <dependency>
+      <!-- Used programmatically (RetryTemplate) by CatalogSyncServiceImpl, not via @Retryable/@EnableRetry -->
+      <!-- see the class javadoc for why: AOP self-invocation pitfalls and Spring-context-free unit testing. -->
+      <groupId>org.springframework.retry</groupId>
+      <artifactId>spring-retry</artifactId>
+    </dependency>
   </dependencies>
 </project>

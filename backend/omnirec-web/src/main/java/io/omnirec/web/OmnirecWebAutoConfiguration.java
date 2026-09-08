@@ -1,5 +1,8 @@
 package io.omnirec.web;
 
+import io.omnirec.catalog.CatalogProvider;
+import io.omnirec.catalog.CatalogSyncService;
+import io.omnirec.catalog.CatalogSyncServiceImpl;
 import io.omnirec.core.fake.InMemoryCacheProvider;
 import io.omnirec.core.fake.InMemoryRecommendationProvider;
 import io.omnirec.core.fake.InMemorySearchProvider;
@@ -7,21 +10,26 @@ import io.omnirec.core.provider.CacheProvider;
 import io.omnirec.core.provider.RecommendationProvider;
 import io.omnirec.core.provider.SearchProvider;
 import io.omnirec.core.service.PersonalizationService;
+import io.omnirec.web.config.OmnirecCatalogProperties;
 import io.omnirec.web.config.OmnirecCorsProperties;
 import io.omnirec.web.controller.IngestionController;
 import io.omnirec.web.controller.RecentlyViewedController;
 import io.omnirec.web.controller.RecommendationController;
 import io.omnirec.web.controller.SearchController;
 import io.omnirec.web.enrichment.RequestContextEnricher;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.web.servlet.WebMvcAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.retry.support.RetryTemplate;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.util.List;
+import java.util.concurrent.Executor;
 
 /**
  * Wires the REST layer plus a zero-config fallback: if no real
@@ -41,7 +49,7 @@ import java.util.List;
                 "io.omnirec.redis.OmnirecRedisAutoConfiguration"
         }
 )
-@EnableConfigurationProperties(OmnirecCorsProperties.class)
+@EnableConfigurationProperties({OmnirecCorsProperties.class, OmnirecCatalogProperties.class})
 public class OmnirecWebAutoConfiguration {
 
     @Bean
@@ -96,6 +104,39 @@ public class OmnirecWebAutoConfiguration {
     @Bean
     public RecentlyViewedController recentlyViewedController(PersonalizationService service) {
         return new RecentlyViewedController(service);
+    }
+
+    /**
+     * Dedicated, bounded pool for CatalogSyncServiceImpl's fan-out — kept
+     * separate from any @Async executor the host app may already define
+     * (and from ForkJoinPool.commonPool(), which CompletableFuture.runAsync
+     * defaults to and which a library has no business monopolizing).
+     */
+    @Bean(name = "omnirecCatalogSyncExecutor")
+    @ConditionalOnMissingBean(name = "omnirecCatalogSyncExecutor")
+    public Executor omnirecCatalogSyncExecutor(OmnirecCatalogProperties props) {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setThreadNamePrefix("omnirec-catalog-sync-");
+        executor.setCorePoolSize(props.getThreadPoolSize());
+        executor.setMaxPoolSize(props.getThreadPoolSize());
+        executor.initialize();
+        return executor;
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public RetryTemplate catalogSyncRetryTemplate() {
+        return CatalogSyncServiceImpl.defaultRetryTemplate();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public CatalogSyncService catalogSyncService(
+            List<CatalogProvider> catalogProviders,
+            @Qualifier("omnirecCatalogSyncExecutor") Executor omnirecCatalogSyncExecutor,
+            RetryTemplate catalogSyncRetryTemplate
+    ) {
+        return new CatalogSyncServiceImpl(catalogProviders, omnirecCatalogSyncExecutor, catalogSyncRetryTemplate);
     }
 
     @Bean

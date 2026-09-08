@@ -74,6 +74,17 @@
       <artifactId>junit-jupiter</artifactId>
       <scope>test</scope>
     </dependency>
+    <!-- Shared across modules since every provider adapter's mapper test mocks its SDK client rather than making live calls. -->
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.mockito</groupId>
+      <artifactId>mockito-junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
@@ -85,6 +96,18 @@
           <configuration>
             <!-- Required for Spring MVC to resolve @RequestParam/@PathVariable names via reflection without explicit value= on every annotation. spring-boot-starter-parent sets this by default; we don't extend it, so it's set here instead. -->
             <parameters>true</parameters>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <configuration>
+            <!-- Mockito's inline mock maker (Byte Buddy) officially supports up to Java 23; running
+                 tests on a newer JDK needs this flag, per Mockito's own error message, to mock
+                 interfaces/final classes (e.g. PersonalizeEventsClient, SearchClient) rather than
+                 failing with "Byte Buddy could not instrument all classes". Safe to remove once the
+                 resolved Mockito/Byte Buddy version has caught up to whatever JDK is running tests. -->
+            <argLine>-Dnet.bytebuddy.experimental=true</argLine>
           </configuration>
         </plugin>
       </plugins>

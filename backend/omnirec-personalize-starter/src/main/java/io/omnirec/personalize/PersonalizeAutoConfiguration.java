@@ -1,5 +1,6 @@
 package io.omnirec.personalize;
 
+import io.omnirec.catalog.providers.personalize.PersonalizeCatalogProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -52,5 +53,12 @@ public class PersonalizeAutoConfiguration {
     public AmazonPersonalizeProvider amazonPersonalizeProvider(
             PersonalizeRuntimeClient runtimeClient, PersonalizeEventsClient eventsClient, PersonalizeProperties props) {
         return new AmazonPersonalizeProvider(runtimeClient, eventsClient, props);
+    }
+
+    /** Registered under the same enabled flag as recommendations — see AmazonPersonalizeProvider's bean method note above for why this isn't @ConditionalOnMissingBean(CatalogProvider.class). */
+    @Bean
+    @ConditionalOnMissingBean(PersonalizeCatalogProvider.class)
+    public PersonalizeCatalogProvider personalizeCatalogProvider(PersonalizeEventsClient eventsClient, PersonalizeProperties props) {
+        return new PersonalizeCatalogProvider(eventsClient, props);
     }
 }
