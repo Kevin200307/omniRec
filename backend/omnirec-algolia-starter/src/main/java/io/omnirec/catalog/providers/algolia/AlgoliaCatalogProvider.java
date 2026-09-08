@@ -4,6 +4,10 @@ import com.algolia.api.SearchClient;
 import io.omnirec.algolia.AlgoliaProperties;
 import io.omnirec.catalog.CatalogItem;
 import io.omnirec.catalog.CatalogProvider;
+import io.omnirec.catalog.RejectedItem;
+import io.omnirec.catalog.SyncResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -15,8 +19,20 @@ import java.util.Map;
  * bean and same index (catalog sync writes the records; search reads them
  * back), so no separate Algolia config is needed beyond what
  * AlgoliaProperties already holds for search.
+ *
+ * Algolia is schema-less, so there's no per-item validation feedback the
+ * way Google's Content API has (e.g. "missing GTIN") — a chunk either
+ * saves or it throws. Each chunk's exception is caught here and reported
+ * as a single RejectedItem for that chunk (productId "*", per SyncResult's
+ * whole-batch convention) rather than propagated, so one bad chunk doesn't
+ * cost the accepted count of chunks that already succeeded, and doesn't
+ * trigger CatalogSyncServiceImpl's retry for what's usually a permanent
+ * failure (bad credentials, malformed index name) rather than a transient
+ * one.
  */
 public class AlgoliaCatalogProvider implements CatalogProvider {
+
+    private static final Logger log = LoggerFactory.getLogger(AlgoliaCatalogProvider.class);
 
     /**
      * Algolia's documented per-batch limit is 1000 records (also capped at
@@ -39,18 +55,40 @@ public class AlgoliaCatalogProvider implements CatalogProvider {
     }
 
     @Override
-    public void upsertItems(List<CatalogItem> items) {
+    public SyncResult upsertItems(List<CatalogItem> items) {
+        int accepted = 0;
+        List<RejectedItem> rejections = new ArrayList<>();
+
         for (List<CatalogItem> chunk : partition(items, BATCH_SIZE)) {
-            List<Map<String, Object>> records = chunk.stream().map(this::toAlgoliaRecord).toList();
-            client.saveObjects(properties.getIndexName(), records);
+            try {
+                List<Map<String, Object>> records = chunk.stream().map(this::toAlgoliaRecord).toList();
+                client.saveObjects(properties.getIndexName(), records);
+                accepted += chunk.size();
+            } catch (Exception e) {
+                log.warn("Algolia saveObjects failed for a chunk of {} item(s): {}", chunk.size(), e.getMessage());
+                rejections.add(new RejectedItem("*", "chunk of " + chunk.size() + " item(s) failed: " + e.getMessage()));
+            }
         }
+
+        return new SyncResult(getProviderName(), accepted, items.size() - accepted, rejections);
     }
 
     @Override
-    public void removeItems(List<String> productIds) {
+    public SyncResult removeItems(List<String> productIds) {
+        int accepted = 0;
+        List<RejectedItem> rejections = new ArrayList<>();
+
         for (List<String> chunk : partition(productIds, BATCH_SIZE)) {
-            client.deleteObjects(properties.getIndexName(), chunk);
+            try {
+                client.deleteObjects(properties.getIndexName(), chunk);
+                accepted += chunk.size();
+            } catch (Exception e) {
+                log.warn("Algolia deleteObjects failed for a chunk of {} id(s): {}", chunk.size(), e.getMessage());
+                rejections.add(new RejectedItem("*", "chunk of " + chunk.size() + " id(s) failed: " + e.getMessage()));
+            }
         }
+
+        return new SyncResult(getProviderName(), accepted, productIds.size() - accepted, rejections);
     }
 
     /**

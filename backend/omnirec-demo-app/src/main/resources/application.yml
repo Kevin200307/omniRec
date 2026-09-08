@@ -15,6 +15,7 @@ omnirec:
       region: ${AWS_REGION:us-east-1}
       campaign-arn: ${PERSONALIZE_CAMPAIGN_ARN:}
       tracking-id: ${PERSONALIZE_TRACKING_ID:}
+      items-dataset-arn: ${PERSONALIZE_ITEMS_DATASET_ARN:}
     google-rec-ai:
       enabled: ${GOOGLE_RECAI_ENABLED:false}
       project-number: ${GOOGLE_PROJECT_NUMBER:}
@@ -35,6 +36,25 @@ omnirec:
       enabled: ${REDIS_ENABLED:false}
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+
+  providers:
+    google-merchant:
+      enabled: ${GOOGLE_MERCHANT_ENABLED:false}
+      mode: ${GOOGLE_MERCHANT_MODE:push}
+      merchant-id: ${GOOGLE_MERCHANT_ID:}
+      credentials-file: ${GOOGLE_MERCHANT_CREDENTIALS_FILE:}
+      product-url-template: ${GOOGLE_MERCHANT_PRODUCT_URL_TEMPLATE:}
+      feed-format: tsv
+      feed-output-path: ${GOOGLE_MERCHANT_FEED_OUTPUT_PATH:}
+    openai-feed:
+      enabled: ${OPENAI_FEED_ENABLED:false}
+      endpoint: ${OPENAI_FEED_ENDPOINT:}
+      format: json
+      api-key: ${OPENAI_FEED_API_KEY:}
+
+  catalog:
+    feed-sync-enabled: ${FEED_SYNC_ENABLED:false}
+    feed-refresh-interval: PT15M
 
 logging:
   level:

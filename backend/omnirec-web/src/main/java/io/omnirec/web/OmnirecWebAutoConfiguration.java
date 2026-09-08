@@ -1,8 +1,13 @@
 package io.omnirec.web;
 
 import io.omnirec.catalog.CatalogProvider;
+import io.omnirec.catalog.CatalogSource;
 import io.omnirec.catalog.CatalogSyncService;
 import io.omnirec.catalog.CatalogSyncServiceImpl;
+import io.omnirec.catalog.FeedFileProvider;
+import io.omnirec.catalog.ScheduledFeedPublisher;
+import io.omnirec.catalog.diagnostics.FeedDiagnostic;
+import io.omnirec.catalog.diagnostics.FeedDiagnosticRunner;
 import io.omnirec.core.fake.InMemoryCacheProvider;
 import io.omnirec.core.fake.InMemoryRecommendationProvider;
 import io.omnirec.core.fake.InMemorySearchProvider;
@@ -20,9 +25,11 @@ import io.omnirec.web.enrichment.RequestContextEnricher;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.web.servlet.WebMvcAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Profile;
 import org.springframework.retry.support.RetryTemplate;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
@@ -46,7 +53,9 @@ import java.util.concurrent.Executor;
                 "io.omnirec.personalize.PersonalizeAutoConfiguration",
                 "io.omnirec.algolia.AlgoliaAutoConfiguration",
                 "io.omnirec.googlerecai.GoogleRecAiAutoConfiguration",
-                "io.omnirec.redis.OmnirecRedisAutoConfiguration"
+                "io.omnirec.redis.OmnirecRedisAutoConfiguration",
+                "io.omnirec.googlemerchant.GoogleMerchantAutoConfiguration",
+                "io.omnirec.openaifeed.OpenAIFeedAutoConfiguration"
         }
 )
 @EnableConfigurationProperties({OmnirecCorsProperties.class, OmnirecCatalogProperties.class})
@@ -137,6 +146,30 @@ public class OmnirecWebAutoConfiguration {
             RetryTemplate catalogSyncRetryTemplate
     ) {
         return new CatalogSyncServiceImpl(catalogProviders, omnirecCatalogSyncExecutor, catalogSyncRetryTemplate);
+    }
+
+    /**
+     * Only registered when a developer explicitly opts in — and only then
+     * does it require a CatalogSource bean, which the developer must supply
+     * themselves (see CatalogSource's javadoc for why a missing-bean
+     * failure here is the correct behavior, not a silent no-op).
+     */
+    @Bean
+    @ConditionalOnProperty(prefix = "omnirec.catalog", name = "feed-sync-enabled", havingValue = "true")
+    @ConditionalOnMissingBean
+    public ScheduledFeedPublisher scheduledFeedPublisher(
+            List<FeedFileProvider> feedProviders,
+            CatalogSource catalogSource,
+            OmnirecCatalogProperties props
+    ) {
+        return new ScheduledFeedPublisher(feedProviders, catalogSource, props.getFeedRefreshInterval());
+    }
+
+    /** See FeedDiagnosticRunner's javadoc for why this is a @Bean here rather than a @Component in that class. */
+    @Bean
+    @Profile("feed-diagnose")
+    public FeedDiagnosticRunner feedDiagnosticRunner(List<FeedDiagnostic> diagnostics) {
+        return new FeedDiagnosticRunner(diagnostics);
     }
 
     @Bean

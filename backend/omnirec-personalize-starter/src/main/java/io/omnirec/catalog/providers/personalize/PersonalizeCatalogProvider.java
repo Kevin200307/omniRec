@@ -3,6 +3,8 @@ package io.omnirec.catalog.providers.personalize;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.omnirec.catalog.CatalogItem;
 import io.omnirec.catalog.CatalogProvider;
+import io.omnirec.catalog.RejectedItem;
+import io.omnirec.catalog.SyncResult;
 import io.omnirec.personalize.PersonalizeProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,18 +52,31 @@ public class PersonalizeCatalogProvider implements CatalogProvider {
     }
 
     @Override
-    public void upsertItems(List<CatalogItem> items) {
+    public SyncResult upsertItems(List<CatalogItem> items) {
         if (properties.getItemsDatasetArn() == null) {
             log.warn("omnirec.recommendation.aws-personalize.items-dataset-arn is not set — skipping catalog sync");
-            return;
+            return new SyncResult(getProviderName(), 0, items.size(),
+                    List.of(new RejectedItem("*", "items-dataset-arn is not configured")));
         }
+
+        int accepted = 0;
+        List<RejectedItem> rejections = new ArrayList<>();
+
         for (List<CatalogItem> chunk : partition(items, PUT_ITEMS_BATCH_SIZE)) {
-            List<Item> mapped = chunk.stream().map(this::toPersonalizeItem).toList();
-            eventsClient.putItems(PutItemsRequest.builder()
-                    .datasetArn(properties.getItemsDatasetArn())
-                    .items(mapped)
-                    .build());
+            try {
+                List<Item> mapped = chunk.stream().map(this::toPersonalizeItem).toList();
+                eventsClient.putItems(PutItemsRequest.builder()
+                        .datasetArn(properties.getItemsDatasetArn())
+                        .items(mapped)
+                        .build());
+                accepted += chunk.size();
+            } catch (Exception e) {
+                log.warn("PutItems failed for a chunk of {} item(s): {}", chunk.size(), e.getMessage());
+                rejections.add(new RejectedItem("*", "chunk of " + chunk.size() + " item(s) failed: " + e.getMessage()));
+            }
         }
+
+        return new SyncResult(getProviderName(), accepted, items.size() - accepted, rejections);
     }
 
     /**
@@ -72,16 +87,19 @@ public class PersonalizeCatalogProvider implements CatalogProvider {
      * attribute you maintain yourself (e.g. upsert items with an
      * "available": false attribute via sync(), then filter recommendations
      * on it) rather than to fabricate a delete call this API doesn't support.
-     * This logs and no-ops rather than silently pretending removal happened.
+     * Returns every id as rejected — with the "why" explained — rather than
+     * silently reporting success for something that never happened.
      */
     @Override
-    public void removeItems(List<String> productIds) {
+    public SyncResult removeItems(List<String> productIds) {
         log.warn(
                 "PersonalizeCatalogProvider.removeItems is a no-op: AWS Personalize has no real-time item-deletion API. " +
                         "Exclude these {} item(s) via a Personalize Filter on an item attribute instead (e.g. re-sync them " +
                         "with an \"available\": false attribute and filter on it in your campaign/recommender).",
                 productIds.size()
         );
+        return new SyncResult(getProviderName(), 0, productIds.size(),
+                List.of(new RejectedItem("*", "AWS Personalize has no real-time item-deletion API — use a Personalize Filter instead")));
     }
 
     /**

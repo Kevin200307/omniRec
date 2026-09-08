@@ -3,6 +3,7 @@ package io.omnirec.catalog.providers.algolia;
 import com.algolia.api.SearchClient;
 import io.omnirec.algolia.AlgoliaProperties;
 import io.omnirec.catalog.CatalogItem;
+import io.omnirec.catalog.SyncResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -52,15 +53,19 @@ class AlgoliaCatalogProviderTest {
     }
 
     @Test
-    void upsertItemsSendsToTheConfiguredIndex() {
+    void upsertItemsSendsToTheConfiguredIndexAndReportsAllAccepted() {
         AlgoliaCatalogProvider provider = new AlgoliaCatalogProvider(client, properties());
 
-        provider.upsertItems(List.of(item("sku-1"), item("sku-2")));
+        SyncResult result = provider.upsertItems(List.of(item("sku-1"), item("sku-2")));
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<Map<String, Object>>> captor = ArgumentCaptor.forClass(List.class);
         verify(client).saveObjects(eq("products"), captor.capture());
         assertEquals(2, captor.getValue().size());
+        assertEquals("algolia", result.providerName());
+        assertEquals(2, result.accepted());
+        assertEquals(0, result.rejected());
+        assertTrue(result.rejections().isEmpty());
     }
 
     @Test
@@ -71,18 +76,42 @@ class AlgoliaCatalogProviderTest {
             items.add(item("sku-" + i));
         }
 
-        provider.upsertItems(items);
+        SyncResult result = provider.upsertItems(items);
 
         // 1000 + 500 — Algolia's documented per-batch limit is 1000 records.
         verify(client, times(2)).saveObjects(eq("products"), anyList());
+        assertEquals(1500, result.accepted());
     }
 
     @Test
-    void removeItemsDeletesByObjectIdFromTheConfiguredIndex() {
+    void aChunkThatThrowsIsReportedAsRejectedWithoutLosingOtherChunksAcceptedCount() {
+        AlgoliaCatalogProvider provider = new AlgoliaCatalogProvider(client, properties());
+        List<CatalogItem> items = new ArrayList<>();
+        for (int i = 0; i < 1500; i++) {
+            items.add(item("sku-" + i));
+        }
+        // First saveObjects call (chunk of 1000) fails; second (chunk of 500) succeeds.
+        doThrow(new RuntimeException("network timeout"))
+                .doReturn(List.of())
+                .when(client).saveObjects(eq("products"), anyList());
+
+        SyncResult result = provider.upsertItems(items);
+
+        assertEquals(500, result.accepted(), "the chunk that succeeded must still count, even though the other threw");
+        assertEquals(1000, result.rejected());
+        assertEquals(1, result.rejections().size());
+        assertEquals("*", result.rejections().get(0).productId());
+        assertTrue(result.rejections().get(0).reason().contains("network timeout"));
+    }
+
+    @Test
+    void removeItemsDeletesByObjectIdFromTheConfiguredIndexAndReportsAccepted() {
         AlgoliaCatalogProvider provider = new AlgoliaCatalogProvider(client, properties());
 
-        provider.removeItems(List.of("sku-1", "sku-2"));
+        SyncResult result = provider.removeItems(List.of("sku-1", "sku-2"));
 
         verify(client).deleteObjects("products", List.of("sku-1", "sku-2"));
+        assertEquals(2, result.accepted());
+        assertEquals(0, result.rejected());
     }
 }

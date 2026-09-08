@@ -43,6 +43,16 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
+      <groupId>io.omnirec</groupId>
+      <artifactId>omnirec-google-merchant-starter</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.omnirec</groupId>
+      <artifactId>omnirec-openai-feed-starter</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-web</artifactId>
     </dependency>

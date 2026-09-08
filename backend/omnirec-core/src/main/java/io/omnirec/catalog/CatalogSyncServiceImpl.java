@@ -9,22 +9,25 @@ import org.springframework.retry.support.RetryTemplate;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.function.Consumer;
+import java.util.function.Function;
 
 /**
  * Fans out to every currently-enabled CatalogProvider bean — Spring injects
  * only the ones whose @ConditionalOnProperty check passed, so this class
- * never knows or cares whether Algolia, Personalize, both, or neither are
- * active. Retry is deliberately centralized here (via RetryTemplate, used
- * programmatically rather than Spring's @Retryable) rather than duplicated
- * in each provider adapter:
- *   - @Retryable relies on AOP proxying and silently no-ops on
- *     self-invocation; a hand-rolled RetryTemplate call has no such trap.
- *   - It means AlgoliaCatalogProvider / PersonalizeCatalogProvider / a
- *     future GoogleRecAiCatalogProvider only ever implement the mapping +
- *     the raw SDK call — resilience policy is a single, uniformly-applied
- *     concern, not something every new adapter has to remember to add.
- *   - It's unit-testable with plain Mockito, no Spring context required.
+ * never knows or cares whether Algolia, Personalize, Google Merchant push
+ * mode, all three, or none are active. FeedFileProvider beans are never
+ * touched here — see ScheduledFeedPublisher.
+ *
+ * Retry (RetryTemplate, used programmatically — see the original design
+ * rationale in this class's git history for why not @Retryable) fires only
+ * on a *thrown* exception from a provider call, e.g. a network timeout.
+ * A provider that returns a SyncResult with rejections — even a lot of
+ * them — is not retried; those are permanent, already-decided outcomes
+ * (retrying "missing GTIN" doesn't fix it), and each adapter is responsible
+ * for catching its own per-chunk failures and reporting them as
+ * RejectedItems rather than throwing. Retry here is a backstop for
+ * transient, whole-call failures, not a substitute for adapters reporting
+ * accurately.
  */
 public class CatalogSyncServiceImpl implements CatalogSyncService {
 
@@ -41,54 +44,56 @@ public class CatalogSyncServiceImpl implements CatalogSyncService {
     }
 
     @Override
-    public CompletableFuture<Void> sync(List<CatalogItem> items) {
+    public CompletableFuture<List<SyncResult>> sync(List<CatalogItem> items) {
         if (items == null || items.isEmpty()) {
-            return CompletableFuture.completedFuture(null);
+            return CompletableFuture.completedFuture(List.of());
         }
-        return dispatch("upsertItems", provider -> provider.upsertItems(items));
+        return dispatch("upsertItems", items.size(), provider -> provider.upsertItems(items));
     }
 
     @Override
-    public CompletableFuture<Void> remove(String... productIds) {
+    public CompletableFuture<List<SyncResult>> remove(String... productIds) {
         if (productIds == null || productIds.length == 0) {
-            return CompletableFuture.completedFuture(null);
+            return CompletableFuture.completedFuture(List.of());
         }
         List<String> ids = List.of(productIds);
-        return dispatch("removeItems", provider -> provider.removeItems(ids));
+        return dispatch("removeItems", ids.size(), provider -> provider.removeItems(ids));
     }
 
     /**
      * Runs {@code operation} against every active provider in parallel on
      * {@code executor} — one CompletableFuture per provider, so a slow or
      * retrying provider never delays another. The returned future is the
-     * join of all of them but, critically, never completes exceptionally:
-     * a provider that exhausts its retries is caught, logged, and skipped
-     * inside runWithRetry — by the time allOf() sees these futures, every
-     * one of them has already completed normally.
+     * join of all of them but, critically, never completes exceptionally —
+     * runWithRetry always resolves to a SyncResult, even for a provider
+     * that fails every retry attempt (see its javadoc for the synthetic
+     * whole-batch-failure result it produces in that case).
      */
-    private CompletableFuture<Void> dispatch(String operationName, Consumer<CatalogProvider> operation) {
+    private CompletableFuture<List<SyncResult>> dispatch(String operationName, int batchSize, Function<CatalogProvider, SyncResult> operation) {
         if (providers.isEmpty()) {
             log.debug("No CatalogProvider beans active — {} is a no-op", operationName);
-            return CompletableFuture.completedFuture(null);
+            return CompletableFuture.completedFuture(List.of());
         }
 
-        CompletableFuture<?>[] futures = providers.stream()
-                .map(provider -> CompletableFuture.runAsync(() -> runWithRetry(provider, operationName, operation), executor))
-                .toArray(CompletableFuture[]::new);
+        List<CompletableFuture<SyncResult>> futures = providers.stream()
+                .map(provider -> CompletableFuture.supplyAsync(() -> runWithRetry(provider, operationName, batchSize, operation), executor))
+                .toList();
 
-        return CompletableFuture.allOf(futures);
+        return CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new))
+                .thenApply(v -> futures.stream().map(CompletableFuture::join).toList());
     }
 
-    private void runWithRetry(CatalogProvider provider, String operationName, Consumer<CatalogProvider> operation) {
+    private SyncResult runWithRetry(CatalogProvider provider, String operationName, int batchSize, Function<CatalogProvider, SyncResult> operation) {
         try {
-            retryTemplate.execute(context -> {
-                operation.accept(provider);
-                return null;
-            });
+            return retryTemplate.execute(context -> operation.apply(provider));
         } catch (Exception e) {
             log.error(
-                    "Catalog {} failed for provider [{}] after all retry attempts — skipping this provider for this batch",
+                    "Catalog {} failed for provider [{}] after all retry attempts — nothing in this batch reached it",
                     operationName, provider.getProviderName(), e
+            );
+            return new SyncResult(
+                    provider.getProviderName(), 0, batchSize,
+                    List.of(new RejectedItem("*", "provider unreachable after retries: " + e.getMessage()))
             );
         }
     }
