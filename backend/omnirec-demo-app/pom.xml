@@ -1,0 +1,67 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>io.omnirec</groupId>
+    <artifactId>omnirec-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>omnirec-demo-app</artifactId>
+  <packaging>jar</packaging>
+  <description>
+    Runnable Spring Boot app that bundles every starter. This is the proof-of-DX artifact:
+    with every provider left at enabled:false in application.yml it runs immediately on the
+    in-memory fakes, and flipping one flag (plus real credentials) swaps in a real provider
+    with zero code changes — the same claim IMPLEMENTATION_PLAN.md's Phase 2 exit criteria
+    makes, wired up here so it's actually true rather than just documented.
+  </description>
+
+  <dependencies>
+    <dependency>
+      <groupId>io.omnirec</groupId>
+      <artifactId>omnirec-web</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.omnirec</groupId>
+      <artifactId>omnirec-personalize-starter</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.omnirec</groupId>
+      <artifactId>omnirec-algolia-starter</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.omnirec</groupId>
+      <artifactId>omnirec-google-recai-starter</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.omnirec</groupId>
+      <artifactId>omnirec-redis-starter</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <version>3.3.4</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>repackage</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

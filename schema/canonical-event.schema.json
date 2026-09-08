@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://omnirec.dev/schema/canonical-event.schema.json",
+  "title": "CanonicalEvent",
+  "description": "Omnirec canonical event shape v1. Every signal — explicit, implicit, or contextual — is normalized into this shape before it reaches any provider adapter. Do not add required fields without a schema version bump; every provider mapper depends on this being stable.",
+  "type": "object",
+  "required": ["eventId", "tenantId", "anonymousId", "eventType", "category", "context"],
+  "properties": {
+    "eventId": { "type": "string", "format": "uuid" },
+    "tenantId": { "type": "string" },
+    "userId": { "type": ["string", "null"], "description": "Null until the visitor authenticates; identity merge happens client-side in @omnirec/core." },
+    "anonymousId": { "type": "string" },
+    "sessionId": { "type": "string" },
+    "eventType": {
+      "type": "string",
+      "enum": [
+        "PRODUCT_VIEWED",
+        "PRODUCT_CLICKED",
+        "PRODUCT_DWELL",
+        "SCROLL_DEPTH",
+        "CART_ADD",
+        "CART_REMOVE",
+        "CART_ABANDONED",
+        "WISHLIST_ADD",
+        "SEARCH_QUERY",
+        "REVIEW_SUBMITTED",
+        "PURCHASE_COMPLETED",
+        "PAGE_VIEW"
+      ]
+    },
+    "category": {
+      "type": "string",
+      "enum": ["EXPLICIT", "IMPLICIT", "CONTEXTUAL"]
+    },
+    "payload": {
+      "type": "object",
+      "description": "eventType-specific fields, e.g. { productId, dwellMs } for PRODUCT_DWELL.",
+      "additionalProperties": true
+    },
+    "context": {
+      "type": "object",
+      "description": "Always server-derived at ingestion. Never trust client-supplied values for these fields.",
+      "required": ["timestamp"],
+      "properties": {
+        "ip": { "type": "string" },
+        "deviceType": { "type": "string", "enum": ["desktop", "mobile", "tablet", "unknown"] },
+        "geo": {
+          "type": "object",
+          "properties": {
+            "country": { "type": "string" },
+            "city": { "type": "string" }
+          }
+        },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "season": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

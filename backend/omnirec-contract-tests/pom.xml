@@ -1,0 +1,41 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>io.omnirec</groupId>
+    <artifactId>omnirec-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>omnirec-contract-tests</artifactId>
+  <packaging>jar</packaging>
+  <description>
+    Phase 2 exit criteria, enforced in code: one fixture CanonicalEvent is run through every
+    registered RecommendationProvider's mapper, asserting no required field is silently
+    dropped. This is what catches schema drift between @omnirec/core's OutgoingEvent and any
+    provider's mapping logic before it ships. No live provider credentials are used — only
+    the pure mapper methods (toPersonalizeEvent, toUserEvent) are exercised.
+  </description>
+
+  <dependencies>
+    <dependency>
+      <groupId>io.omnirec</groupId>
+      <artifactId>omnirec-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.omnirec</groupId>
+      <artifactId>omnirec-personalize-starter</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.omnirec</groupId>
+      <artifactId>omnirec-google-recai-starter</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+</project>

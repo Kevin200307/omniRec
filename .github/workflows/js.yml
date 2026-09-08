@@ -1,0 +1,27 @@
+name: js
+
+on:
+  pull_request:
+    paths:
+      - "packages/**"
+      - "examples/**"
+      - "package.json"
+      - "turbo.json"
+      - ".github/workflows/js.yml"
+  push:
+    branches: [main]
+    paths:
+      - "packages/**"
+      - "examples/**"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm install
+      - run: npx turbo run build typecheck

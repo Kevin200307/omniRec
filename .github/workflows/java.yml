@@ -1,0 +1,26 @@
+name: java
+
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/java.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+      # Runs omnirec-contract-tests along with everything else — this is
+      # the check that catches a provider mapper silently dropping a
+      # required canonical event field before it ships.
+      - run: mvn -f backend/pom.xml -B clean install

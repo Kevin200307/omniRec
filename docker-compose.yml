@@ -1,0 +1,21 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/omnirec-demo-app/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      # Everything defaults to false/in-memory — see application.yml.
+      # Flip these (and add real credentials) to swap in a real provider,
+      # no code changes required.
+      REDIS_ENABLED: "true"
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+    depends_on:
+      - redis

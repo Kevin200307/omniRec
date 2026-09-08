@@ -1,0 +1,32 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>io.omnirec</groupId>
+    <artifactId>omnirec-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>omnirec-web</artifactId>
+  <packaging>jar</packaging>
+  <description>REST ingestion + query layer: IngestionController, SearchController, RecommendationController, RecentlyViewedController, server-side context enrichment, and the auto-configuration that wires in-memory fakes as a zero-config fallback.</description>
+
+  <dependencies>
+    <dependency>
+      <groupId>io.omnirec</groupId>
+      <artifactId>omnirec-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-autoconfigure</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-configuration-processor</artifactId>
+      <optional>true</optional>
+    </dependency>
+  </dependencies>
+</project>
