@@ -142,6 +142,7 @@ Logs carry event ids and field *names* — never payloads or field values.
 
 | | |
 |---|---|
+| **[guide.md](docs/guide.md)** | **Start here:** the architecture, and how to use it end to end |
 | [architecture.md](docs/architecture.md) | Modules, pipeline order, failure behaviour |
 | [event-schema.md](docs/event-schema.md) | Taxonomy, validation rules, dwell time, cart abandonment |
 | [identity.md](docs/identity.md) | The three identities and anonymous → registered linking |
