@@ -24,7 +24,7 @@ export interface SearchBarProps {
 
 /**
  * Calls the backend's /v1/search — never a provider SDK directly. Which
- * provider actually serves the query (Algolia, or nothing if search isn't
+ * provider actually serves the query (or nothing, if no search provider is
  * configured) is a backend config decision this component doesn't know
  * about and doesn't need to.
  */

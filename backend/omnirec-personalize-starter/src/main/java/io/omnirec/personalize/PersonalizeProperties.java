@@ -13,8 +13,6 @@ public class PersonalizeProperties {
     private String campaignArn;
     /** Event Tracker ID from the Personalize dataset group, used for putEvents. */
     private String trackingId;
-    /** ARN of the Items dataset specifically (not the dataset *group* ARN) — used for catalog sync via PutItems. A dataset group has separate Users/Items/Interactions datasets, each with its own ARN. */
-    private String itemsDatasetArn;
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -28,6 +26,4 @@ public class PersonalizeProperties {
     public void setCampaignArn(String campaignArn) { this.campaignArn = campaignArn; }
     public String getTrackingId() { return trackingId; }
     public void setTrackingId(String trackingId) { this.trackingId = trackingId; }
-    public String getItemsDatasetArn() { return itemsDatasetArn; }
-    public void setItemsDatasetArn(String itemsDatasetArn) { this.itemsDatasetArn = itemsDatasetArn; }
 }

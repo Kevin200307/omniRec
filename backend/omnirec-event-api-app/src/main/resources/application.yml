@@ -1,0 +1,110 @@
+server:
+  port: 8081
+  # Belt-and-braces with omnirec.events.max-payload-bytes: the container
+  # rejects an oversized body before it is ever parsed into objects.
+  max-http-request-header-size: 16KB
+  tomcat:
+    max-swallow-size: 2MB
+  # Behind a load balancer, resolve the real client address (rate limiting, geo)
+  # from forwarded headers, trusted only from internal proxies:
+  # forward-headers-strategy: native
+
+spring:
+  application:
+    name: omnirec-event-api
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    # Required: the Event API refuses to start without confirms and returns,
+    # because without them a broker nack is invisible and the event is lost.
+    publisher-confirm-type: correlated
+    publisher-returns: true
+
+omnirec:
+  events:
+    # Publishable keys. Safe in frontend code: they authorise event writes for
+    # one tenant and nothing more. Provider credentials are never here.
+    tenants:
+      demo-store:
+        api-key: ${DEMO_STORE_API_KEY:pk_test_demo_store}
+    max-batch-size: 500
+    max-payload-bytes: 1048576
+    deduplication-window: PT24H
+    retain-ip-address: false
+    rate-limit:
+      enabled: true
+      requests-per-window: 300
+      window: PT1M
+    cors:
+      allowed-origins:
+        - http://localhost:3000
+
+  # Shared deduplication + identity links. Required for more than one instance:
+  # the in-memory defaults are per-process, so without this the same event can
+  # be delivered once per instance and identity links are invisible across them.
+  state:
+    redis:
+      enabled: ${REDIS_STATE_ENABLED:false}
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      identity-link-ttl: P365D
+
+  processing:
+    queue-enabled: ${QUEUE_ENABLED:true}
+    max-retries: 5
+    retry-initial-interval: 1s
+    retry-max-interval: 5m
+    delivery-lease: 2m
+    confirm-timeout: 10s
+    concurrency: 2
+    prefetch-count: 10
+    deduplication-window: PT24H
+
+  # Every destination is off by default, so this service boots and the whole
+  # pipeline runs end to end with no cloud account of any kind. Enabling one is
+  # a flag plus that provider's own server-side credentials — never a code change.
+  destinations:
+    amazon-personalize:
+      enabled: ${PERSONALIZE_ENABLED:false}
+      region: ${AWS_REGION:us-east-1}
+      # Credentials come from the AWS default provider chain (IAM role in
+      # production, AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY locally) —
+      # deliberately not configurable here.
+      tracking-id: ${AWS_PERSONALIZE_TRACKING_ID:}
+      # LocalStack or a capture server; leave unset in production.
+      endpoint-override: ${AWS_PERSONALIZE_ENDPOINT:}
+      # Keys from your Item interactions schema to send in `properties`.
+      # Empty by default: Personalize rejects keys its schema does not define.
+      property-keys: []
+    google-retail:
+      enabled: ${GOOGLE_RETAIL_ENABLED:false}
+      project-number: ${GOOGLE_PROJECT_NUMBER:}
+      location: global
+      catalog-id: default_catalog
+      # Authentication uses Application Default Credentials
+      # (GOOGLE_APPLICATION_CREDENTIALS locally, workload identity in production).
+
+    # Feeds the serving app's /v1/recently-viewed. Point it at the Redis the
+    # serving app's omnirec.cache.redis uses, not necessarily the state Redis.
+    recently-viewed:
+      enabled: ${RECENTLY_VIEWED_ENABLED:false}
+      host: ${RECENTLY_VIEWED_REDIS_HOST:localhost}
+      port: ${RECENTLY_VIEWED_REDIS_PORT:6379}
+      password: ${RECENTLY_VIEWED_REDIS_PASSWORD:}
+      # Required when more than one tenant sends events: the serving keys carry no tenant.
+      tenant-id: ${RECENTLY_VIEWED_TENANT_ID:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+
+logging:
+  level:
+    io.omnirec: INFO

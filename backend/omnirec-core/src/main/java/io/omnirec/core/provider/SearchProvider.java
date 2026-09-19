@@ -6,7 +6,7 @@ import io.omnirec.core.model.SearchResult;
 import java.util.List;
 import java.util.Map;
 
-/** Implemented by AlgoliaSearchProvider and InMemorySearchProvider. */
+/** Implemented by InMemorySearchProvider, plus any search starter a deployment adds. */
 public interface SearchProvider {
 
     String id();

@@ -11,21 +11,25 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <spring-boot.version>3.3.4</spring-boot.version>
     <awssdk.version>2.28.16</awssdk.version>
-    <algoliasearch.version>4.1.0</algoliasearch.version>
     <google-cloud-retail.version>2.58.0</google-cloud-retail.version>
-    <google-api-services-content.version>v2.1-rev20260429-2.0.0</google-api-services-content.version>
     <google-auth-library.version>1.30.1</google-auth-library.version>
   </properties>
 
   <modules>
+    <module>omnirec-commerce-core</module>
+    <module>omnirec-event-api</module>
+    <module>omnirec-event-processing</module>
+    <module>omnirec-amazon-personalize-destination</module>
+    <module>omnirec-google-retail-destination</module>
+    <module>omnirec-recently-viewed-destination</module>
+    <module>omnirec-redis-state</module>
+    <module>commerce-tracker-spring-boot</module>
+    <module>omnirec-event-api-app</module>
     <module>omnirec-core</module>
     <module>omnirec-web</module>
     <module>omnirec-personalize-starter</module>
-    <module>omnirec-algolia-starter</module>
     <module>omnirec-google-recai-starter</module>
     <module>omnirec-redis-starter</module>
-    <module>omnirec-google-merchant-starter</module>
-    <module>omnirec-openai-feed-starter</module>
     <module>omnirec-contract-tests</module>
     <module>omnirec-demo-app</module>
   </modules>
@@ -47,6 +51,11 @@
         <scope>import</scope>
       </dependency>
 
+      <dependency>
+        <groupId>io.omnirec</groupId>
+        <artifactId>omnirec-commerce-core</artifactId>
+        <version>${project.version}</version>
+      </dependency>
       <!-- Every starter depends on the core interfaces + canonical DTOs. -->
       <dependency>
         <groupId>io.omnirec</groupId>
@@ -58,21 +67,10 @@
         <artifactId>omnirec-web</artifactId>
         <version>${project.version}</version>
       </dependency>
-
-      <dependency>
-        <groupId>com.algolia</groupId>
-        <artifactId>algoliasearch</artifactId>
-        <version>${algoliasearch.version}</version>
-      </dependency>
       <dependency>
         <groupId>com.google.cloud</groupId>
         <artifactId>google-cloud-retail</artifactId>
         <version>${google-cloud-retail.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>com.google.apis</groupId>
-        <artifactId>google-api-services-content</artifactId>
-        <version>${google-api-services-content.version}</version>
       </dependency>
       <dependency>
         <groupId>com.google.auth</groupId>
@@ -118,7 +116,7 @@
           <configuration>
             <!-- Mockito's inline mock maker (Byte Buddy) officially supports up to Java 23; running
                  tests on a newer JDK needs this flag, per Mockito's own error message, to mock
-                 interfaces/final classes (e.g. PersonalizeEventsClient, SearchClient) rather than
+                 interfaces/final classes (e.g. PersonalizeEventsClient) rather than
                  failing with "Byte Buddy could not instrument all classes". Safe to remove once the
                  resolved Mockito/Byte Buddy version has caught up to whatever JDK is running tests. -->
             <argLine>-Dnet.bytebuddy.experimental=true</argLine>

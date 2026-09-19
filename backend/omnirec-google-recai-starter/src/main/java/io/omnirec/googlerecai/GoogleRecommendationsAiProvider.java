@@ -41,6 +41,9 @@ public class GoogleRecommendationsAiProvider implements RecommendationProvider {
     @Override
     public void putEvents(List<CanonicalEvent> events) {
         for (CanonicalEvent event : events) {
+            if (mapEventType(event.eventType()) == null) {
+                continue; // no genuine Retail counterpart; dropped, not coerced
+            }
             try {
                 userEventClient.writeUserEvent(WriteUserEventRequest.newBuilder()
                         .setParent(properties.eventStoreParent())
@@ -59,10 +62,20 @@ public class GoogleRecommendationsAiProvider implements RecommendationProvider {
      * eventType vocabulary translation (mapEventType) lives.
      */
     public UserEvent toUserEvent(CanonicalEvent event) {
+        String eventType = mapEventType(event.eventType());
+        if (eventType == null) {
+            throw new IllegalArgumentException("No Retail counterpart for " + event.eventType());
+        }
         UserEvent.Builder builder = UserEvent.newBuilder()
-                .setEventType(mapEventType(event.eventType()))
-                .setVisitorId(event.userId() != null ? event.userId() : event.anonymousId())
+                .setEventType(eventType)
+                // visitorId is always the anonymous visitor; the user rides
+                // alongside in userInfo. Putting userId here made one person two
+                // visitors either side of login.
+                .setVisitorId(event.anonymousId())
                 .setSessionId(event.sessionId() != null ? event.sessionId() : "");
+        if (event.userId() != null) {
+            builder.setUserInfo(UserInfo.newBuilder().setUserId(event.userId()).build());
+        }
 
         Object productId = event.payload().get("productId");
         if (productId != null) {
@@ -101,15 +114,19 @@ public class GoogleRecommendationsAiProvider implements RecommendationProvider {
         }
     }
 
-    private String mapEventType(EventType eventType) {
+    /**
+     * Only Retail's documented types, and only where the meaning genuinely
+     * matches. Returns null for everything else, which is then dropped:
+     * "remove-from-cart" and "page-visit" are not valid Retail types, a removal
+     * is not an add, and clicks and dwell would double-count the view.
+     */
+    String mapEventType(EventType eventType) {
         return switch (eventType) {
-            case PRODUCT_VIEWED, PRODUCT_CLICKED, PRODUCT_DWELL -> "detail-page-view";
+            case PRODUCT_VIEWED -> "detail-page-view";
             case CART_ADD -> "add-to-cart";
-            case CART_REMOVE, CART_ABANDONED -> "add-to-cart";
             case PURCHASE_COMPLETED -> "purchase-complete";
             case SEARCH_QUERY -> "search";
-            case PAGE_VIEW -> "home-page-view";
-            default -> "home-page-view";
+            default -> null;
         };
     }
 }

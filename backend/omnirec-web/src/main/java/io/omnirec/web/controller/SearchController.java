@@ -9,9 +9,9 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 /**
- * Backs <SearchBar> from @omnirec/react-ui. Whether this is served by
- * Algolia or the in-memory fallback is decided entirely by which
- * SearchProvider bean(s) are active — this controller never knows.
+ * Backs <SearchBar> from @omnirec/react-ui. Which SearchProvider bean(s)
+ * are active — a real search starter, or the in-memory fallback — is
+ * entirely a config decision this controller never knows about.
  */
 @RestController
 public class SearchController {

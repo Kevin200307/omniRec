@@ -1,7 +1,7 @@
 /**
  * Thin fetch wrapper shared by the react-ui components. This is the only
  * place these components know a backend exists — none of them import a
- * provider SDK or know whether Algolia/Personalize/Google RecAI is behind
+ * provider SDK or know whether Personalize or Google RecAI is behind
  * the response.
  */
 export async function omnirecFetch<T>(endpoint: string, path: string, params: Record<string, string>): Promise<T> {

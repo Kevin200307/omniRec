@@ -4,11 +4,13 @@ on:
   pull_request:
     paths:
       - "backend/**"
+      - "schema/**"
       - ".github/workflows/java.yml"
   push:
     branches: [main]
     paths:
       - "backend/**"
+      - "schema/**"
 
 jobs:
   build:
@@ -20,7 +22,8 @@ jobs:
           distribution: temurin
           java-version: "17"
           cache: maven
-      # Runs omnirec-contract-tests along with everything else — this is
-      # the check that catches a provider mapper silently dropping a
-      # required canonical event field before it ships.
+      # Runs omnirec-contract-tests along with everything else. That module
+      # parses the TypeScript SDK and the JSON schema and fails the build if the
+      # three definitions of the canonical event have drifted apart — which is
+      # what makes maintaining three copies safe.
       - run: mvn -f backend/pom.xml -B clean install

@@ -22,7 +22,7 @@ export interface RecentlyViewedCarouselProps {
  * Backed by CacheProvider (Redis in the default starter) via
  * /v1/recently-viewed — works standalone with no recommendation provider
  * configured at all, proving the cache abstraction doesn't secretly depend
- * on Personalize/Google RecAI/Algolia being present.
+ * on a recommendation provider being present.
  */
 export function RecentlyViewedCarousel({ userId, renderItem, className }: RecentlyViewedCarouselProps) {
   const { endpoint, tenantId } = useOmnirec();

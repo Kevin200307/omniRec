@@ -5,6 +5,8 @@ on:
     paths:
       - "packages/**"
       - "examples/**"
+      - "scripts/**"
+      - "schema/**"
       - "package.json"
       - "turbo.json"
       - ".github/workflows/js.yml"
@@ -13,6 +15,7 @@ on:
     paths:
       - "packages/**"
       - "examples/**"
+      - "scripts/**"
 
 jobs:
   build:
@@ -24,4 +27,8 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm install
-      - run: npx turbo run build typecheck
+      - run: npx turbo run build typecheck test
+      # The architecture's central security claim, enforced rather than asserted:
+      # no provider credential and no provider SDK may reach a browser bundle.
+      - name: Verify no provider credentials reach the browser
+        run: node scripts/verify-bundle-security.mjs

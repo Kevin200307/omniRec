@@ -1,11 +1,9 @@
 export type RecommendationChoice = "aws-personalize" | "google-rec-ai" | "none";
-export type SearchChoice = "algolia" | "none";
 export type CacheChoice = "redis" | "none";
 
 export interface ScaffoldOptions {
   projectName: string;
   recommendation: RecommendationChoice;
-  search: SearchChoice;
   cache: CacheChoice;
 }
 
@@ -94,17 +92,16 @@ export default function HomePage() {
 }
 `;
 
-function starterArtifact(recommendation: RecommendationChoice, search: SearchChoice, cache: CacheChoice): string[] {
+function starterArtifact(recommendation: RecommendationChoice, cache: CacheChoice): string[] {
   const artifacts = ["omnirec-web"];
   if (recommendation === "aws-personalize") artifacts.push("omnirec-personalize-starter");
   if (recommendation === "google-rec-ai") artifacts.push("omnirec-google-recai-starter");
-  if (search === "algolia") artifacts.push("omnirec-algolia-starter");
   if (cache === "redis") artifacts.push("omnirec-redis-starter");
   return artifacts;
 }
 
 export function backendPomXml(opts: ScaffoldOptions): string {
-  const deps = starterArtifact(opts.recommendation, opts.search, opts.cache)
+  const deps = starterArtifact(opts.recommendation, opts.cache)
     .map(
       (artifact) => `    <dependency>
       <groupId>io.omnirec</groupId>
@@ -178,9 +175,6 @@ omnirec:
       enabled: ${opts.recommendation === "aws-personalize"}
     google-rec-ai:
       enabled: ${opts.recommendation === "google-rec-ai"}
-  search:
-    algolia:
-      enabled: ${opts.search === "algolia"}
   cache:
     redis:
       enabled: ${opts.cache === "redis"}
@@ -190,7 +184,7 @@ omnirec:
 export function readmeMd(opts: ScaffoldOptions): string {
   return `# ${opts.projectName}
 
-Scaffolded by \`create-omnirec-app\` — recommendation: **${opts.recommendation}**, search: **${opts.search}**, cache: **${opts.cache}**.
+Scaffolded by \`create-omnirec-app\` — recommendation: ****, cache: ****.
 
 ## Frontend
 

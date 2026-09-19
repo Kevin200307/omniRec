@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** Naive substring match over indexed items — fine for local dev, not meant to compete with Algolia. */
+/** Naive substring match over indexed items — fine for local dev, not meant to compete with a real search engine. */
 public class InMemorySearchProvider implements SearchProvider {
 
     private final Map<String, Item> items = new ConcurrentHashMap<>();

@@ -1,13 +1,5 @@
 package io.omnirec.web;
 
-import io.omnirec.catalog.CatalogProvider;
-import io.omnirec.catalog.CatalogSource;
-import io.omnirec.catalog.CatalogSyncService;
-import io.omnirec.catalog.CatalogSyncServiceImpl;
-import io.omnirec.catalog.FeedFileProvider;
-import io.omnirec.catalog.ScheduledFeedPublisher;
-import io.omnirec.catalog.diagnostics.FeedDiagnostic;
-import io.omnirec.catalog.diagnostics.FeedDiagnosticRunner;
 import io.omnirec.core.fake.InMemoryCacheProvider;
 import io.omnirec.core.fake.InMemoryRecommendationProvider;
 import io.omnirec.core.fake.InMemorySearchProvider;
@@ -15,28 +7,21 @@ import io.omnirec.core.provider.CacheProvider;
 import io.omnirec.core.provider.RecommendationProvider;
 import io.omnirec.core.provider.SearchProvider;
 import io.omnirec.core.service.PersonalizationService;
-import io.omnirec.web.config.OmnirecCatalogProperties;
 import io.omnirec.web.config.OmnirecCorsProperties;
 import io.omnirec.web.controller.IngestionController;
 import io.omnirec.web.controller.RecentlyViewedController;
 import io.omnirec.web.controller.RecommendationController;
 import io.omnirec.web.controller.SearchController;
 import io.omnirec.web.enrichment.RequestContextEnricher;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.web.servlet.WebMvcAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Profile;
-import org.springframework.retry.support.RetryTemplate;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.util.List;
-import java.util.concurrent.Executor;
 
 /**
  * Wires the REST layer plus a zero-config fallback: if no real
@@ -51,14 +36,11 @@ import java.util.concurrent.Executor;
         after = WebMvcAutoConfiguration.class,
         afterName = {
                 "io.omnirec.personalize.PersonalizeAutoConfiguration",
-                "io.omnirec.algolia.AlgoliaAutoConfiguration",
                 "io.omnirec.googlerecai.GoogleRecAiAutoConfiguration",
-                "io.omnirec.redis.OmnirecRedisAutoConfiguration",
-                "io.omnirec.googlemerchant.GoogleMerchantAutoConfiguration",
-                "io.omnirec.openaifeed.OpenAIFeedAutoConfiguration"
+                "io.omnirec.redis.OmnirecRedisAutoConfiguration"
         }
 )
-@EnableConfigurationProperties({OmnirecCorsProperties.class, OmnirecCatalogProperties.class})
+@EnableConfigurationProperties(OmnirecCorsProperties.class)
 public class OmnirecWebAutoConfiguration {
 
     @Bean
@@ -95,8 +77,22 @@ public class OmnirecWebAutoConfiguration {
         return new PersonalizationService(recommendationProviders, searchProviders, cacheProviders);
     }
 
+    /**
+     * Legacy ingestion — off by default.
+     *
+     * This endpoint predates the Event API and bypasses everything it
+     * guarantees: no API-key authentication (it trusts the body's tenantId),
+     * no validation, no deduplication, no queue, and synchronous provider calls
+     * on the request thread. Events belong on omnirec-event-api-app. Enable this
+     * only to keep an old integration alive while migrating it.
+     */
     @Bean
+    @org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+            prefix = "omnirec.web.legacy-ingestion", name = "enabled", havingValue = "true")
     public IngestionController ingestionController(PersonalizationService service, RequestContextEnricher enricher) {
+        org.slf4j.LoggerFactory.getLogger(OmnirecWebAutoConfiguration.class).warn(
+                "omnirec.web.legacy-ingestion.enabled=true: the unauthenticated legacy POST /v1/events is live. "
+                        + "It skips authentication, validation, deduplication and the queue. Migrate to the Event API.");
         return new IngestionController(service, enricher);
     }
 
@@ -113,63 +109,6 @@ public class OmnirecWebAutoConfiguration {
     @Bean
     public RecentlyViewedController recentlyViewedController(PersonalizationService service) {
         return new RecentlyViewedController(service);
-    }
-
-    /**
-     * Dedicated, bounded pool for CatalogSyncServiceImpl's fan-out — kept
-     * separate from any @Async executor the host app may already define
-     * (and from ForkJoinPool.commonPool(), which CompletableFuture.runAsync
-     * defaults to and which a library has no business monopolizing).
-     */
-    @Bean(name = "omnirecCatalogSyncExecutor")
-    @ConditionalOnMissingBean(name = "omnirecCatalogSyncExecutor")
-    public Executor omnirecCatalogSyncExecutor(OmnirecCatalogProperties props) {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setThreadNamePrefix("omnirec-catalog-sync-");
-        executor.setCorePoolSize(props.getThreadPoolSize());
-        executor.setMaxPoolSize(props.getThreadPoolSize());
-        executor.initialize();
-        return executor;
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    public RetryTemplate catalogSyncRetryTemplate() {
-        return CatalogSyncServiceImpl.defaultRetryTemplate();
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
-    public CatalogSyncService catalogSyncService(
-            List<CatalogProvider> catalogProviders,
-            @Qualifier("omnirecCatalogSyncExecutor") Executor omnirecCatalogSyncExecutor,
-            RetryTemplate catalogSyncRetryTemplate
-    ) {
-        return new CatalogSyncServiceImpl(catalogProviders, omnirecCatalogSyncExecutor, catalogSyncRetryTemplate);
-    }
-
-    /**
-     * Only registered when a developer explicitly opts in — and only then
-     * does it require a CatalogSource bean, which the developer must supply
-     * themselves (see CatalogSource's javadoc for why a missing-bean
-     * failure here is the correct behavior, not a silent no-op).
-     */
-    @Bean
-    @ConditionalOnProperty(prefix = "omnirec.catalog", name = "feed-sync-enabled", havingValue = "true")
-    @ConditionalOnMissingBean
-    public ScheduledFeedPublisher scheduledFeedPublisher(
-            List<FeedFileProvider> feedProviders,
-            CatalogSource catalogSource,
-            OmnirecCatalogProperties props
-    ) {
-        return new ScheduledFeedPublisher(feedProviders, catalogSource, props.getFeedRefreshInterval());
-    }
-
-    /** See FeedDiagnosticRunner's javadoc for why this is a @Bean here rather than a @Component in that class. */
-    @Bean
-    @Profile("feed-diagnose")
-    public FeedDiagnosticRunner feedDiagnosticRunner(List<FeedDiagnostic> diagnostics) {
-        return new FeedDiagnosticRunner(diagnostics);
     }
 
     @Bean

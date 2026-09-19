@@ -1,0 +1,6 @@
+# The backend SDK is on the test classpath only so BackendSdkToEventApiTest can
+# drive the API through it. Its auto-configuration would otherwise start inside
+# every test context and (rightly) refuse to run without an endpoint.
+omnirec:
+  tracker:
+    enabled: false

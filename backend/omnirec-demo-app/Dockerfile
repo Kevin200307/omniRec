@@ -7,7 +7,6 @@ COPY backend/pom.xml backend/pom.xml
 COPY backend/omnirec-core/pom.xml backend/omnirec-core/pom.xml
 COPY backend/omnirec-web/pom.xml backend/omnirec-web/pom.xml
 COPY backend/omnirec-personalize-starter/pom.xml backend/omnirec-personalize-starter/pom.xml
-COPY backend/omnirec-algolia-starter/pom.xml backend/omnirec-algolia-starter/pom.xml
 COPY backend/omnirec-google-recai-starter/pom.xml backend/omnirec-google-recai-starter/pom.xml
 COPY backend/omnirec-redis-starter/pom.xml backend/omnirec-redis-starter/pom.xml
 COPY backend/omnirec-contract-tests/pom.xml backend/omnirec-contract-tests/pom.xml

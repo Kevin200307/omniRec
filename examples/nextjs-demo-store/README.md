@@ -27,7 +27,7 @@ Open http://localhost:3000.
 
 ## What you're looking at
 
-- **Search bar** — calls the backend's `/v1/search`. With no Algolia credentials configured it's served by the in-memory fallback (empty until you call `/v1/index` — this demo doesn't seed one, so try clicking products instead).
+- **Search bar** — calls the backend's `/v1/search`. With no search provider configured it's served by the in-memory fallback (empty until you call `/v1/index` — this demo doesn't seed one, so try clicking products instead).
 - **Product grid** — each card is wrapped in `<ProductImpression>`. Click one: that's a `PRODUCT_CLICKED` + `PRODUCT_VIEWED` event, captured automatically (dwell time too, if you leave the card on screen a moment).
 - **Add to cart / Wishlist** — `useOmnirec().trackCartAdd()` and an explicit `track()` call.
 - **Recommended for you** — starts empty; click a few products, then reload. The in-memory `RecommendationProvider` fake ranks by click count until a real provider (AWS Personalize or Google Rec AI) is configured.

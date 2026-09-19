@@ -17,7 +17,6 @@ import software.amazon.awssdk.services.personalizeruntime.model.PredictedItem;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 /**
  * The mapper from CanonicalEvent to Personalize's PutEvents shape, and from
@@ -53,12 +52,16 @@ public class AmazonPersonalizeProvider implements RecommendationProvider {
         }
         for (CanonicalEvent event : events) {
             try {
-                eventsClient.putEvents(PutEventsRequest.builder()
+                PutEventsRequest.Builder request = PutEventsRequest.builder()
                         .trackingId(properties.getTrackingId())
-                        .userId(event.userId() != null ? event.userId() : event.anonymousId())
-                        .sessionId(event.sessionId() != null ? event.sessionId() : UUID.randomUUID().toString())
-                        .eventList(toPersonalizeEvent(event))
-                        .build());
+                        .sessionId(event.sessionId() != null ? event.sessionId() : event.anonymousId())
+                        .eventList(toPersonalizeEvent(event));
+                // Only a real, authenticated user. Sending the anonymousId as
+                // userId minted a throwaway Personalize user per browser.
+                if (event.userId() != null) {
+                    request.userId(event.userId());
+                }
+                eventsClient.putEvents(request.build());
             } catch (Exception e) {
                 log.warn("Failed to send event {} to AWS Personalize: {}", event.eventId(), e.getMessage());
             }

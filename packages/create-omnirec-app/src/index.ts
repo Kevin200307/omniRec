@@ -13,7 +13,6 @@ import {
   readmeMd,
   type ScaffoldOptions,
   type RecommendationChoice,
-  type SearchChoice,
   type CacheChoice,
 } from "./templates.js";
 
@@ -26,7 +25,7 @@ import {
 function parseArgs(argv: string[]): ScaffoldOptions {
   const [projectName, ...flags] = argv;
   if (!projectName || projectName.startsWith("--")) {
-    console.error("Usage: npx create-omnirec-app <project-name> [--recommendation=aws-personalize|google-rec-ai] [--search=algolia] [--cache=redis]");
+    console.error("Usage: npx create-omnirec-app <project-name> [--recommendation=aws-personalize|google-rec-ai] [--cache=redis]");
     process.exit(1);
   }
 
@@ -36,7 +35,6 @@ function parseArgs(argv: string[]): ScaffoldOptions {
   return {
     projectName,
     recommendation: (get("recommendation") as RecommendationChoice) ?? "none",
-    search: (get("search") as SearchChoice) ?? "none",
     cache: (get("cache") as CacheChoice) ?? "none",
   };
 }
@@ -72,7 +70,6 @@ function scaffold(opts: ScaffoldOptions): void {
 
   console.log(`Created ${opts.projectName}/`);
   console.log(`  recommendation: ${opts.recommendation}`);
-  console.log(`  search:         ${opts.search}`);
   console.log(`  cache:          ${opts.cache}`);
   console.log();
   console.log(`Next steps:`);

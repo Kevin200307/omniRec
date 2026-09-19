@@ -9,14 +9,22 @@
   <artifactId>omnirec-contract-tests</artifactId>
   <packaging>jar</packaging>
   <description>
-    Phase 2 exit criteria, enforced in code: one fixture CanonicalEvent is run through every
-    registered RecommendationProvider's mapper, asserting no required field is silently
-    dropped. This is what catches schema drift between @omnirec/core's OutgoingEvent and any
-    provider's mapping logic before it ships. No live provider credentials are used — only
-    the pure mapper methods (toPersonalizeEvent, toUserEvent) are exercised.
+    Cross-language contract enforcement. Two jobs: (1) the canonical CommerceEvent taxonomy is
+    defined in TypeScript, Java, and JSON Schema, and this module fails the build if the three
+    drift apart; (2) one fixture event is run through every provider mapper to assert no required
+    field is silently dropped. No live provider credentials are used — only pure mapper methods.
   </description>
 
   <dependencies>
+    <dependency>
+      <groupId>io.omnirec</groupId>
+      <artifactId>omnirec-commerce-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.omnirec</groupId>
+      <artifactId>omnirec-event-api</artifactId>
+      <version>${project.version}</version>
+    </dependency>
     <dependency>
       <groupId>io.omnirec</groupId>
       <artifactId>omnirec-core</artifactId>

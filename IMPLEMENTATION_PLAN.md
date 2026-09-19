@@ -6,8 +6,8 @@ Goal: ship a working vertical slice fast, prove the abstraction holds by adding 
 
 ## 0. Execution principles (apply throughout, not just phase 0)
 
-1. **Code to the interface before the integration.** `RecommendationProvider` / `SearchProvider` / `CacheProvider` get written — and a trivial `InMemory*` fake implementation shipped — *before* any AWS/Algolia account exists. This unblocks frontend + facade work immediately instead of waiting on Personalize campaign training (which takes hours) or Algolia signup.
-2. **One full vertical slice before breadth.** Phase 1 ships Personalize + Algolia *completely* (frontend → backend → provider → back to UI) before Google Rec AI or Redis are touched. A shallow stub of all four providers is worse than one that fully works.
+1. **Code to the interface before the integration.** `RecommendationProvider` / `SearchProvider` / `CacheProvider` get written — and a trivial `InMemory*` fake implementation shipped — *before* any AWS/GCP account exists. This unblocks frontend + facade work immediately instead of waiting on Personalize campaign training, which takes hours.
+2. **One full vertical slice before breadth.** Phase 1 ships Personalize *completely* (frontend → backend → provider → back to UI) before Google Rec AI or Redis are touched. A shallow stub of all four providers is worse than one that fully works.
 3. **Sync before async.** The Kafka/SQS event pipeline described in the design doc is a Phase 2 concern, not Phase 1. Ship a synchronous dispatch first — it's simpler to debug and the queue is a drop-in swap later because the facade already isolates callers from it.
 4. **The second provider is the real test of the abstraction.** If adding Google Rec AI in Phase 2 requires changing `PersonalizationService`, `IngestionController`, or any frontend component, that's a design bug to fix immediately — not a one-off exception.
 5. **Path-filtered CI from day one.** JS-only changes shouldn't wait on Maven, and vice versa. Set this up in Phase 0 so the monorepo doesn't start feeling slow to work in.
@@ -26,7 +26,6 @@ omniRec/
 │   ├── omnirec-core/              # canonical DTOs, provider interfaces, PersonalizationService
 │   ├── omnirec-web/                # IngestionController, enrichment middleware, REST layer
 │   ├── omnirec-personalize-starter/
-│   ├── omnirec-algolia-starter/
 │   ├── omnirec-google-recai-starter/
 │   └── omnirec-redis-starter/
 ├── schema/                        # canonical event JSON Schema — single source of truth
@@ -68,7 +67,7 @@ omniRec/
 
 **Exit criteria:** `mvn -pl backend -am install` and `pnpm -w build` both pass on an empty-but-wired skeleton.
 
-### Phase 1 — MVP vertical slice: Personalize + Algolia (weeks 1–3)
+### Phase 1 — MVP vertical slice: Personalize (weeks 1–3)
 Frontend:
 - [ ] `@omnirec/core`: anonymous ID (cookie-based) + identity merge on login, event queue (batched, interval + size-triggered flush), transport with `sendBeacon` fallback for unload events
 - [ ] Plugins: `dwellTime` (IntersectionObserver + Page Visibility API), `cart` (inactivity timer + beacon-on-unload for abandonment), `scrollDepth` (25/50/75/100%)
@@ -78,7 +77,6 @@ Frontend:
 Backend:
 - [ ] `IngestionController` (`POST /v1/events`) — enrich server-side: geo-IP, UA-parsed device type, server timestamp (never trust client clock)
 - [ ] `omnirec-personalize-starter`: `PersonalizeProperties`, `AmazonPersonalizeProvider` (event mapper → `PutEvents`, `getRecommendations` → Campaign ARN), `@ConditionalOnProperty` auto-config
-- [ ] `omnirec-algolia-starter`: `AlgoliaProperties`, `AlgoliaSearchProvider` (search + indexItems), auto-config
 - [ ] Synchronous dispatch from facade to active providers (no queue yet)
 
 Proof of DX:
@@ -99,7 +97,7 @@ Proof of DX:
 - [ ] `PRODUCT_VIEWED` event → capped per-user list in Redis (`LPUSH` + `LTRIM`) → `personalizationService.getRecentlyViewed(userId)`
 - [ ] `<RecentlyViewedCarousel>` in `@omnirec/react-ui`
 
-**Exit criteria:** recently-viewed works standalone with *no* Personalize/Algolia/Google config present — proves `CacheProvider` doesn't secretly depend on the recommendation stack.
+**Exit criteria:** recently-viewed works standalone with *no* Personalize/Google config present — proves `CacheProvider` doesn't secretly depend on the recommendation stack.
 
 ### Phase 4 — DX polish & release readiness (weeks 7–8)
 - [ ] `npx create-omnirec-app` scaffolding CLI (Next.js + Spring Boot starter combo, provider flags)
