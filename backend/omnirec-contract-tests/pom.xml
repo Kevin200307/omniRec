@@ -12,7 +12,7 @@
     Cross-language contract enforcement. Two jobs: (1) the canonical CommerceEvent taxonomy is
     defined in TypeScript, Java, and JSON Schema, and this module fails the build if the three
     drift apart; (2) one fixture event is run through every provider mapper to assert no required
-    field is silently dropped. No live provider credentials are used — only pure mapper methods.
+    field is silently dropped. No live provider credentials are used - only pure mapper methods.
   </description>
 
   <dependencies>

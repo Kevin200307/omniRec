@@ -8,7 +8,7 @@
 
   <artifactId>omnirec-redis-starter</artifactId>
   <packaging>jar</packaging>
-  <description>Redis-backed CacheProvider. First consumer is recently-viewed products, built to work with zero recommendation/search providers configured — see Phase 3's exit criteria in IMPLEMENTATION_PLAN.md.</description>
+  <description>Redis-backed CacheProvider. First consumer is recently-viewed products, built to work with zero recommendation/search providers configured - see Phase 3's exit criteria in IMPLEMENTATION_PLAN.md.</description>
 
   <dependencies>
     <dependency>

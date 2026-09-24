@@ -6,6 +6,23 @@
   <version>0.1.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
+  <name>Omnirec</name>
+  <description>Provider-independent commerce event tracking: gateway, queue, destinations, and SDKs.</description>
+  <url>https://github.com/Kevin200307/omniRec</url>
+
+  <licenses>
+    <license>
+      <name>MIT License</name>
+      <url>https://opensource.org/licenses/MIT</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <scm>
+    <url>https://github.com/Kevin200307/omniRec</url>
+    <connection>scm:git:https://github.com/Kevin200307/omniRec.git</connection>
+  </scm>
+
   <properties>
     <maven.compiler.release>17</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

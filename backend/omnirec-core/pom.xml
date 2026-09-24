@@ -8,7 +8,7 @@
 
   <artifactId>omnirec-core</artifactId>
   <packaging>jar</packaging>
-  <description>Canonical event model, provider interfaces (RecommendationProvider/SearchProvider/CacheProvider), the PersonalizationService facade, and in-memory fakes. No provider SDK dependencies — that's the point.</description>
+  <description>Canonical event model, provider interfaces (RecommendationProvider/SearchProvider/CacheProvider), the PersonalizationService facade, and in-memory fakes. No provider SDK dependencies - that's the point.</description>
 
   <dependencies>
     <dependency>

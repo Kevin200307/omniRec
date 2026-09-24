@@ -19,7 +19,7 @@ omnirec:
   events:
     tenants:
       demo-store:
-        api-key: ${DEMO_STORE_API_KEY}    # publishable; safe in frontend code
+        api-key: ${DEMO_STORE_API_KEY}    # publishable, safe in frontend code
         enabled: true
     max-batch-size: 500
     max-payload-bytes: 1048576
@@ -44,7 +44,7 @@ omnirec:
     prefetch-count: 10
     deduplication-window: PT24H
 
-  # Required for more than one instance; see below.
+  # Required for deployments of more than one instance; see below.
   state:
     redis:
       enabled: true
@@ -64,124 +64,128 @@ omnirec:
       catalog-id: default_catalog
     recently-viewed:
       enabled: false
-      host: ${CACHE_REDIS_HOST}     # the serving app's cache Redis
+      host: ${CACHE_REDIS_HOST}     # the serving application's cache Redis
       tenant-id: demo-store
 ```
 
 ### `omnirec.events`
 
-| Property | Default | Notes |
-|---|---|---|
-| `tenants.<id>.api-key` | — | Publishable key for that tenant |
-| `tenants.<id>.enabled` | `true` | |
-| `allow-anonymous-ingestion` | `false` | Disables tenant isolation; **startup fails** outside `dev`/`test`/`local` |
-| `default-tenant-id` | `default` | Only used with the above |
-| `max-batch-size` | 500 | Larger batches get 413 |
-| `max-payload-bytes` | 1048576 | |
-| `deduplication-window` | PT24H | How long an `eventId` is remembered |
-| `retain-ip-address` | `false` | Keep the client IP after geo lookup |
-| `rate-limit.enabled` | `true` | |
-| `rate-limit.requests-per-window` | 300 | Per tenant **per client IP** |
-| `rate-limit.window` | PT1M | |
-| `cors.allowed-origins` | `[]` | Storefront origins |
+| Property | Default | Description |
+| --- | --- | --- |
+| `tenants.<id>.api-key` | none | Publishable key for the tenant |
+| `tenants.<id>.enabled` | `true` | Whether the tenant may submit events |
+| `allow-anonymous-ingestion` | `false` | Disables tenant isolation. Startup fails outside the `dev`, `test`, and `local` profiles |
+| `default-tenant-id` | `default` | Used only with anonymous ingestion |
+| `max-batch-size` | 500 | Larger batches are rejected with 413 |
+| `max-payload-bytes` | 1048576 | Maximum request body size |
+| `deduplication-window` | PT24H | Retention period for an `eventId` |
+| `retain-ip-address` | `false` | Retain the client IP address after geolocation |
+| `rate-limit.enabled` | `true` | Enables rate limiting |
+| `rate-limit.requests-per-window` | 300 | Per tenant, per client address |
+| `rate-limit.window` | PT1M | Rate-limit window |
+| `cors.allowed-origins` | `[]` | Permitted storefront origins |
 
 ### `omnirec.state.redis`
 
-Shared deduplication and identity links. **Required for any deployment running
-more than one Event API instance** — the in-memory defaults are per-process, so
-without this the same event can be delivered once per instance and one
-instance's identity links are invisible to the others. Both in-memory stores log
-a warning when they are the ones active.
+Shared deduplication and identity links. Required for any deployment running
+more than one Event API instance: the in-memory defaults are per-process, so
+without shared state the same event may be delivered once per instance and
+identity links recorded by one instance are not visible to the others. Both
+in-memory stores log a warning when they are active.
 
-| Property | Default | Notes |
-|---|---|---|
-| `enabled` | `false` | |
-| `host` / `port` | `localhost` / 6379 | |
-| `password`, `database` | — | |
-| `identity-link-ttl` | P365D | Links are long-lived by nature; the TTL only ages out abandoned devices |
+| Property | Default | Description |
+| --- | --- | --- |
+| `enabled` | `false` | Enables the shared stores |
+| `host`, `port` | `localhost`, 6379 | Redis connection |
+| `password`, `database` | none | Optional Redis credentials and database index |
+| `identity-link-ttl` | P365D | Links are long-lived; the time-to-live only expires abandoned devices |
 
-Deliberately separate from `omnirec.cache.redis` (the serving-side cache): the
-two may point at different instances, because losing a cached recently-viewed
-list is harmless and losing identity links is not.
+This configuration is deliberately separate from `omnirec.cache.redis`, the
+serving-side cache. The two may address different instances, because the loss of
+a cached recently-viewed list is inconsequential whereas the loss of identity
+links is not.
 
 ### `omnirec.processing`
 
-| Property | Default | Notes |
-|---|---|---|
-| `queue-enabled` | `true` | `false` calls destinations inline — dev only |
-| `max-retries` | 5 | Retry tiers, then the DLQ |
-| `retry-initial-interval` | 1s | Doubles per attempt |
-| `retry-max-interval` | 5m | Cap on the delay |
-| `delivery-lease` | 2m | Must outlast the slowest provider call |
-| `confirm-timeout` | 10s | Wait for the broker's publisher confirm |
+| Property | Default | Description |
+| --- | --- | --- |
+| `queue-enabled` | `true` | When `false`, destinations are called inline. Development only |
+| `max-retries` | 5 | Retry tiers before dead-lettering |
+| `retry-initial-interval` | 1s | Doubles on each attempt |
+| `retry-max-interval` | 5m | Upper bound on the delay |
+| `delivery-lease` | 2m | Must exceed the slowest provider call |
+| `confirm-timeout` | 10s | Wait period for the broker publisher confirm |
 | `concurrency` | 2 | Consumer threads per destination |
-| `prefetch-count` | 10 | Low on purpose; see rabbitmq.md |
-| `deduplication-window` | PT24H | Per destination |
+| `prefetch-count` | 10 | Intentionally low; see rabbitmq.md |
+| `deduplication-window` | PT24H | Applied per destination |
 
-Publisher confirms are required: the Event API refuses to start without
+Publisher confirms are mandatory. The Event API refuses to start unless
 `spring.rabbitmq.publisher-confirm-type=correlated` and
-`spring.rabbitmq.publisher-returns=true`.
+`spring.rabbitmq.publisher-returns=true` are set.
 
 ### Destinations
 
-| Property | Default | Notes |
-|---|---|---|
-| `amazon-personalize.property-keys` | `[]` | Keys from your interactions schema to send in `properties` |
-| `amazon-personalize.endpoint-override` | — | LocalStack or a capture server only |
-| `recently-viewed.enabled` | `false` | Feeds the serving API's `/v1/recently-viewed` |
-| `recently-viewed.host` / `port` / `password` / `database` | `localhost` / `6379` | The **serving app's cache** Redis (`omnirec.cache.redis`), which need not be the state Redis |
-| `recently-viewed.tenant-id` | all tenants | Set it when more than one tenant sends events: the serving keys carry no tenant |
-| `recently-viewed.max-items` / `ttl` | `20` / `P30D` | Match the serving side's list length and retention |
+| Property | Default | Description |
+| --- | --- | --- |
+| `amazon-personalize.property-keys` | `[]` | Keys from the interactions schema to include in `properties` |
+| `amazon-personalize.endpoint-override` | none | For LocalStack or a capture server only |
+| `recently-viewed.enabled` | `false` | Populates the serving API's `/v1/recently-viewed` |
+| `recently-viewed.host`, `port`, `password`, `database` | `localhost`, `6379` | The serving application's cache Redis (`omnirec.cache.redis`), which need not be the state Redis |
+| `recently-viewed.tenant-id` | all tenants | Set when more than one tenant submits events, because the serving keys carry no tenant |
+| `recently-viewed.max-items`, `ttl` | `20`, `P30D` | Match the serving side's list length and retention |
 
-### Behind a load balancer
+### Deployment behind a load balancer
 
 ```yaml
 server:
   forward-headers-strategy: native
 ```
 
-So the rate limit and geo see the real client address, with forwarded headers
-trusted only from internal proxies.
+This allows rate limiting and geolocation to observe the originating client
+address, with forwarded headers trusted only from internal proxy addresses.
 
-### Legacy
+### Legacy properties
 
-| Property | Default | Notes |
-|---|---|---|
-| `omnirec.web.legacy-ingestion.enabled` | `false` | The serving API's old unauthenticated `/v1/events`. See security.md. Recently-viewed no longer needs it: use the `recently-viewed` destination. Don't run both, because the destination rebuilds each list from its own index, so a view written only by the legacy path is dropped at the next write. |
+| Property | Default | Description |
+| --- | --- | --- |
+| `omnirec.web.legacy-ingestion.enabled` | `false` | The serving API's previous unauthenticated `/v1/events` endpoint. See security.md. Recently-viewed no longer depends on it; use the `recently-viewed` destination instead. The two must not be enabled together, because the destination rebuilds each list from its own index, so a view written only by the legacy path is removed at the next write. |
 
 ## Provider credentials
 
-**Never in configuration files.** Each provider uses its own platform mechanism:
+Provider credentials must never be placed in configuration files. Each provider
+uses its own platform mechanism.
 
 ### AWS
 
 ```bash
 AWS_REGION=us-east-1
 AWS_PERSONALIZE_TRACKING_ID=...
-# Local development only — production uses an IAM role:
+# Local development only; production uses an IAM role:
 AWS_ACCESS_KEY_ID=...
 AWS_SECRET_ACCESS_KEY=...
 ```
 
-Resolved by the AWS default provider chain. There is no `access-key` property on
-the destination, so there is no supported way to commit a long-lived secret.
+Credentials are resolved by the AWS default provider chain. The destination
+exposes no `access-key` property, so there is no supported means of committing a
+long-lived secret.
 
 ### Google
 
 ```bash
 GOOGLE_PROJECT_NUMBER=123456789
-# Local development only — production uses workload identity:
+# Local development only; production uses workload identity:
 GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json
 ```
 
-Resolved by Application Default Credentials.
+Credentials are resolved by Application Default Credentials.
 
 ### Secret managers
 
-Both chains already support the production path (IAM roles, workload identity)
-with no code change. For anything else, Spring Cloud AWS Secrets Manager or GCP
-Secret Manager property sources drop in as an additional `PropertySource` — no
-application code is aware of where a value came from.
+Both credential chains already support the production path, namely IAM roles and
+workload identity, without code changes. For other arrangements, the Spring
+Cloud AWS Secrets Manager or GCP Secret Manager property sources can be added as
+an additional `PropertySource`; no application code depends on the origin of a
+value.
 
 ## Frontend
 
@@ -191,10 +195,10 @@ NEXT_PUBLIC_OMNIREC_API_KEY=pk_live_xxxxx
 NEXT_PUBLIC_OMNIREC_TENANT_ID=my-store
 ```
 
-`NEXT_PUBLIC_` is correct: this key is meant to be public. See
-[frontend-sdk.md](frontend-sdk.md) for the full option table.
+The `NEXT_PUBLIC_` prefix is appropriate because the key is intended to be
+public. The complete option table is in [frontend-sdk.md](frontend-sdk.md).
 
-## Backend SDK
+## Server-side SDK
 
 ```yaml
 omnirec:
@@ -213,26 +217,30 @@ See [spring-boot-sdk.md](spring-boot-sdk.md).
 
 ## Production checklist
 
-- [ ] A real `api-key` per tenant; `allow-anonymous-ingestion` off
-- [ ] `cors.allowed-origins` restricted to your storefronts
-- [ ] RabbitMQ reachable, with confirms and returns on
-- [ ] `omnirec.state.redis.enabled=true` if running more than one instance — the
-      in-memory defaults are per-process and both log a warning when active
-- [ ] Provider credentials via IAM role / workload identity, not env vars
-- [ ] `retain-ip-address` left off unless you have a reason and a retention policy
-- [ ] `/actuator/prometheus` scraped — see the counters in the README
-- [ ] Alert on `omnirec.events.failed` and dead-letter queue depth
+- [ ] A distinct `api-key` per tenant, with `allow-anonymous-ingestion` disabled
+- [ ] `cors.allowed-origins` restricted to production storefront origins
+- [ ] RabbitMQ reachable, with publisher confirms and returns enabled
+- [ ] `omnirec.state.redis.enabled=true` for deployments of more than one
+      instance, because the in-memory defaults are per-process and log a warning
+      when active
+- [ ] Provider credentials supplied by IAM role or workload identity rather than
+      environment variables
+- [ ] `retain-ip-address` disabled unless there is a documented requirement and
+      retention policy
+- [ ] `/actuator/prometheus` scraped; see the metric list in the README
+- [ ] Alerts configured on `omnirec.events.failed` and dead-letter queue depth
 
 ## Configuration validation
 
-Bad configuration fails fast, everywhere:
+Invalid configuration fails immediately throughout the system:
 
-- The frontend SDK throws on a missing/secret-looking `apiKey`, a relative
-  `endpoint`, or a non-positive batch size.
-- The backend SDK throws if `endpoint` is unset (set `enabled: false` to disable
-  tracking deliberately).
+- The frontend SDK throws on a missing `apiKey`, an `apiKey` resembling a secret
+  credential, a relative `endpoint`, or a non-positive batch size.
+- The server-side SDK throws if `endpoint` is unset. Set `enabled: false` to
+  disable tracking deliberately.
 - The Event API refuses to start with `allow-anonymous-ingestion` outside a
-  development profile, and warns loudly when no tenant keys are configured.
+  development profile, and logs a prominent warning when no tenant keys are
+  configured.
 
-A component that silently no-ops because of a typo is far worse than one that
-fails while you're looking at it.
+A component that silently performs no operation because of a configuration error
+is considerably worse than one that fails during development.

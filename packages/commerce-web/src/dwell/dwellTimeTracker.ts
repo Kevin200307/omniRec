@@ -28,9 +28,9 @@ const DEFAULT_MAX_DWELL_MS = 30 * 60 * 1000;
  * ## How it works
  * `product.viewed()` starts a timer. The timer pauses when the tab is hidden
  * (Page Visibility API) and resumes when it comes back, so only foreground time
- * counts. When the visitor moves to another product, the page unloads, or
- * `flush()` is called, the accumulated total is emitted as a second
- * `product_viewed` event carrying `dwellTimeMs`.
+ * counts. When measurement ends (see below), the accumulated total is emitted
+ * as a second `product_viewed` event carrying `dwellTimeMs`. The client's
+ * `flush()` only sends buffered events; it does not end a measurement.
  *
  * ## What it cannot tell you
  * - **Attention, only presence.** A focused tab the visitor isn't looking at
@@ -54,6 +54,7 @@ const DEFAULT_MAX_DWELL_MS = 30 * 60 * 1000;
  * - `page.viewed()` / `home.viewed()` is called (an SPA route change);
  * - `product.viewEnded()` is called (a component unmounting — see
  *   `useProductView` in @omnirec/commerce-react);
+ * - the visitor logs out (`logout()`), so the time stays with that session;
  * - the page is hidden-then-unloaded (`pagehide`).
  *
  * ## Lifecycle limits

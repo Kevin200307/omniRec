@@ -1,9 +1,9 @@
 # Architecture
 
-Omnirec collects commerce interactions, standardises them, resolves who they
-belong to, and delivers them to whichever personalisation providers a merchant
-has configured. It is infrastructure, not an analytics product: there is no
-dashboard, no reporting UI, and no model of its own.
+Omnirec collects commerce interactions, standardizes them, resolves the identity
+they belong to, and delivers them to the personalization providers a merchant
+has configured. It is infrastructure rather than an analytics product: it
+provides no dashboard, no reporting interface, and no model of its own.
 
 ```
                 E-COMMERCE APPLICATION
@@ -47,16 +47,17 @@ dashboard, no reporting UI, and no model of its own.
          |               |               |
          v               v               v
    AMAZON ADAPTER   GOOGLE ADAPTER   AZURE ADAPTER
-         |               |            (not built)
+         |               |            (not implemented)
          v               v
    Amazon Personalize  Google Retail
 ```
 
-## The one rule
+## The core constraint
 
-**The core never depends on a provider.** `omnirec-commerce-core` has three
-dependencies — Jackson, its date module, and SLF4J. It has no Spring, no queue,
-and no cloud SDK. Everything provider-specific lives behind one interface:
+The core must never depend on a provider. `omnirec-commerce-core` has three
+dependencies: Jackson, the Jackson date module, and SLF4J. It uses no Spring, no
+queue, and no cloud SDK. All provider-specific behaviour is implemented behind a
+single interface:
 
 ```java
 public interface EventDestination {
@@ -65,96 +66,100 @@ public interface EventDestination {
 }
 ```
 
-Adding Azure means writing one implementation and registering it as a bean.
-Nothing in the core, the gateway, the queue, or either SDK changes. That claim
-is enforced by the module graph, not by discipline: those modules have no
-compile-time path to a provider SDK, so a provider import there won't compile.
+Supporting an additional provider requires one implementation registered as a
+bean. The core, the gateway, the queue layer, and both SDKs remain unchanged.
+The constraint is enforced by the module graph rather than by convention: those
+modules have no compile-time path to a provider SDK, so such an import does not
+compile.
 
 ## Modules
 
 | Module | Responsibility |
-|---|---|
-| `omnirec-commerce-core` | `CommerceEvent`, the taxonomy, validation, identity linking, deduplication, `EventDestination`. No framework. |
-| `omnirec-event-api` | The gateway: API keys, rate limiting, payload caps, normalization, validation, dedup, identity resolution. |
-| `omnirec-event-processing` | RabbitMQ topology, consumers, dispatcher, per-destination idempotency, retry and DLQ. |
-| `omnirec-amazon-personalize-destination` | The only module that knows Personalize exists. |
-| `omnirec-google-retail-destination` | The only module that knows Google Retail exists. |
-| `omnirec-recently-viewed-destination` | Keeps the serving side's recently-viewed lists current from the pipeline. |
-| `omnirec-redis-state` | Redis-backed deduplication and identity-link stores, for multi-instance deployments. |
-| `commerce-tracker-spring-boot` | The SDK a merchant embeds for authoritative business events. |
-| `omnirec-event-api-app` | The standalone deployable: gateway + queue + destinations. |
+| --- | --- |
+| `omnirec-commerce-core` | `CommerceEvent`, the event taxonomy, validation, identity linking, deduplication, and `EventDestination`. No framework dependencies. |
+| `omnirec-event-api` | The gateway: API keys, rate limiting, payload limits, normalization, validation, deduplication, identity resolution. |
+| `omnirec-event-processing` | RabbitMQ topology, consumers, dispatcher, per-destination idempotency, retry tiers, dead-letter queues. |
+| `omnirec-amazon-personalize-destination` | The only module with knowledge of Amazon Personalize. |
+| `omnirec-google-retail-destination` | The only module with knowledge of Google Retail. |
+| `omnirec-recently-viewed-destination` | Maintains the serving side's recently-viewed lists from the pipeline. |
+| `omnirec-redis-state` | Redis-backed deduplication and identity-link stores for multi-instance deployments. |
+| `commerce-tracker-spring-boot` | The SDK embedded by merchants for authoritative business events. |
+| `omnirec-event-api-app` | The deployable service: gateway, queue, and destinations. |
 | `packages/commerce-web` | The browser SDK. No React dependency. |
-| `packages/commerce-react` | ~40 lines of React binding over it. |
+| `packages/commerce-react` | React bindings over the browser SDK. |
 
-Alongside these, the original serving side (`omnirec-core`, `omnirec-web`,
+The original serving side (`omnirec-core`, `omnirec-web`,
 `omnirec-personalize-starter`, `omnirec-google-recai-starter`,
-`omnirec-redis-starter`, `omnirec-demo-app`) still answers
+`omnirec-redis-starter`, and `omnirec-demo-app`) continues to serve
 `/v1/recommendations`, `/v1/search`, and `/v1/recently-viewed`. Recently-viewed
-is fed by the pipeline through `omnirec-recently-viewed-destination`, which writes
-the lists in the format the serving side's Redis cache reads. Reading
-personalisation results is a separate concern from collecting signals, and the
-two deploy independently.
+lists are populated by the pipeline through
+`omnirec-recently-viewed-destination`, which writes them in the format the
+serving side's Redis cache reads. Serving personalization results is a separate
+concern from collecting signals, and the two deploy independently.
 
-## Why the Event API is a separate service
+## Rationale: the Event API as a separate service
 
-The gateway is its own deployable rather than a library a merchant embeds. That
-single decision is what makes the security model work:
+The gateway is an independent deployable rather than a library embedded by
+merchants. This decision underpins the security model:
 
-- **Provider credentials live in exactly one process.** A merchant's storefront
-  and their own backend hold a publishable key and nothing else, so neither can
-  leak an AWS key it never had.
-- **Tenant isolation is real.** The API key determines the tenant; a body field
-  cannot.
-- **One RabbitMQ, not one per merchant.** Durability, retry, and dead-lettering
-  are operated once.
+- **Provider credentials are confined to one process.** The storefront and the
+  merchant backend hold only a publishable key, so neither can disclose a
+  credential it never possessed.
+- **Tenant isolation is enforced.** The API key determines the tenant; a request
+  body field cannot.
+- **A single RabbitMQ deployment serves all merchants.** Durability, retry, and
+  dead-lettering are operated once.
 
-The cost is a network hop from the backend SDK, which is why that SDK delivers
-asynchronously — our latency must never become the merchant's checkout latency.
+The cost is an additional network hop from the server-side SDK, which is why
+that SDK delivers asynchronously: Omnirec latency must not become merchant
+checkout latency.
 
-## Why the pipeline is ordered the way it is
+## Rationale: pipeline ordering
 
 ```
 normalize -> validate -> deduplicate -> resolve identity -> queue
 ```
 
-- **Validate before deduplicate**, so a malformed event never burns a
-  deduplication key. Otherwise a client that sends a broken event, fixes it, and
-  resends under the same `eventId` would have the corrected version silently
-  dropped as a duplicate.
-- **Deduplicate before identity**, so a redelivered `identify` doesn't re-link
-  and duplicate work stops as early as possible.
-- **Resolve identity before queueing**, so the event on the wire already carries
-  the `userId`. Doing it in the consumer would make every destination worker
-  re-query the link store for the same event.
+- **Validation precedes deduplication**, so that a malformed event does not
+  consume a deduplication key. Otherwise a client that submits an invalid event,
+  corrects it, and resubmits it under the same `eventId` would have the
+  corrected version discarded as a duplicate.
+- **Deduplication precedes identity resolution**, so that a redelivered
+  `identify` event does not repeat the link operation, and duplicate work is
+  eliminated as early as possible.
+- **Identity resolution precedes queueing**, so that the queued event already
+  carries the `userId`. Performing resolution in the consumer would require
+  every destination worker to query the link store for the same event.
 
 ## Two layers of deduplication
 
-They guard different failures and neither replaces the other:
+The two layers guard different failure modes, and neither replaces the other.
 
-| Stage | Guards against |
-|---|---|
-| Ingestion (`dedup:ingest:…`) | A client sending the same event twice — an SDK retry after a timeout, a reloaded confirmation page. |
-| Delivery (`dedup:deliver:<destination>:…`) | RabbitMQ's at-least-once redelivery. A consumer that dies after calling Amazon but before acking *will* see the message again. |
+| Stage | Protects against |
+| --- | --- |
+| Ingestion (`dedup:ingest:...`) | A client submitting the same event twice, for example an SDK retry after a timeout or a reloaded confirmation page. |
+| Delivery (`dedup:deliver:<destination>:...`) | RabbitMQ at-least-once redelivery. A consumer that terminates after calling the provider but before acknowledging the message will receive that message again. |
 
-Both use a **lease → complete** protocol: a short lease is taken before the
-work, replaced by a long-lived "done" record only after the work succeeds, and
-released if it fails. A crash mid-work leaves only the lease, which expires, so
-the event is retried instead of being marked done and lost. See
-[rabbitmq.md](rabbitmq.md#at-least-once-so-consumers-are-idempotent).
+Both use a lease-and-complete protocol: a short lease is acquired before the
+work begins, replaced by a long-lived completion record only after the work
+succeeds, and released if the work fails. A failure during processing leaves
+only the lease, which expires, so the event is retried rather than being
+recorded as complete and lost. See
+[rabbitmq.md](rabbitmq.md#at-least-once-delivery-and-consumer-idempotency).
 
 ## Failure behaviour
 
-| Failure | What happens |
-|---|---|
-| Storefront offline | Events buffer in `localStorage` (bounded, oldest dropped) and flush when the network returns. |
-| Event API returns 5xx | SDK retries with exponential backoff and full jitter. |
-| Event API returns 4xx | SDK drops the batch — the payload is wrong and resending identical bytes cannot fix it. |
-| RabbitMQ unreachable, or it nacks | Publisher confirm fails, ingestion returns 503 with Retry-After, the lease is released, the SDK retries. |
-| Same event already being ingested | 503 with Retry-After; the retry then sees it as a duplicate. |
-| Provider unavailable | The message moves to that destination's retry tier for the attempt, waits out its TTL, and comes back automatically. Other destinations keep draining. |
-| Consumer crashes mid-delivery | Unacked message redelivered; the delivery lease expires, and it is delivered once. |
-| Provider still failing after N retries | Dead-lettered with the reason attached, for triage. |
-| Provider rejects permanently | Dead-lettered immediately, skipping retries. |
+| Failure | Behaviour |
+| --- | --- |
+| Storefront offline | Events are buffered in `localStorage`, bounded with oldest-first eviction, and flushed when connectivity returns. |
+| Event API returns 5xx | The SDK retries with exponential backoff and full jitter. |
+| Event API returns 4xx | The SDK discards the batch, because the payload is invalid and resubmitting identical content cannot succeed. |
+| RabbitMQ unreachable or returns a negative acknowledgement | The publisher confirm fails, ingestion returns 503 with `Retry-After`, the lease is released, and the SDK retries. |
+| The same event is already being ingested | 503 with `Retry-After`. The subsequent retry observes it as a duplicate. |
+| Provider unavailable | The message is routed to the retry tier for that attempt, waits for the queue time-to-live, and returns automatically. Other destinations continue to drain. |
+| Consumer terminates during delivery | The unacknowledged message is redelivered, the delivery lease expires, and the event is delivered exactly once. |
+| Provider still failing after the configured retries | The event is dead-lettered with the failure reason attached for triage. |
+| Provider rejects the event permanently | The event is dead-lettered immediately, bypassing retries. |
 
-See [rabbitmq.md](rabbitmq.md) for the topology and [security.md](security.md)
-for the trust boundaries.
+See [rabbitmq.md](rabbitmq.md) for the queue topology and
+[security.md](security.md) for the trust boundaries.

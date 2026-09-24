@@ -1,74 +1,91 @@
 # Omnirec
 
-Provider-independent commerce event tracking. Collect interactions once,
-normalise them, resolve who they belong to, and deliver them to Amazon
-Personalize, Google Cloud Retail, or anything you add later — without the
-browser ever holding a provider credential.
+Provider-independent commerce event tracking. Omnirec collects customer
+interactions once, normalizes them into a canonical schema, resolves the
+identity each event belongs to, and delivers them to Amazon Personalize, Google
+Cloud Retail, or any destination added later, without provider credentials ever
+being present in the browser.
 
 ```
-Track once → Normalize → Resolve identity → Queue → Transform → Deliver
+Capture -> Normalize -> Resolve identity -> Queue -> Transform -> Deliver
 ```
 
-This is infrastructure, not an analytics product. There is no dashboard, no
-reporting UI, and no model of its own.
+Omnirec is infrastructure rather than an analytics product. It provides no
+dashboard, no reporting interface, and no machine learning model of its own.
 
-## What's here
+## Status
+
+Version 0.1.0. The pipeline, both SDKs, and the Amazon Personalize and Google
+Retail adapters are implemented and covered by automated tests, including tests
+that run against a real RabbitMQ broker and a real Redis instance. The provider
+adapters have not yet been executed against live provider accounts; see
+[Known limitations](docs/guide.md#10-known-limitations).
+
+## Repository layout
 
 ```
 packages/
-  commerce-web/         @omnirec/commerce-web   — browser SDK (no React dependency)
-  commerce-react/       @omnirec/commerce-react — ~40-line React binding
-  core/ react/ react-ui/ create-omnirec-app/    — the serving-side packages
+  commerce-web/         @omnirec/commerce-web    browser SDK, no React dependency
+  commerce-react/       @omnirec/commerce-react  React bindings
+  core/ react/ react-ui/ create-omnirec-app/     serving-side packages
 
 backend/
-  omnirec-commerce-core/                    CommerceEvent, taxonomy, validation,
-                                            identity linking, dedup, EventDestination
-  omnirec-event-api/                        the gateway: auth, rate limit, normalize,
-                                            validate, dedup, identity
+  omnirec-commerce-core/                    canonical event, taxonomy, validation,
+                                            identity linking, deduplication,
+                                            EventDestination interface
+  omnirec-event-api/                        gateway: authentication, rate limiting,
+                                            normalization, validation, deduplication,
+                                            identity resolution
   omnirec-event-processing/                 RabbitMQ topology, consumers, dispatcher,
-                                            retry + DLQ
-  omnirec-amazon-personalize-destination/   the only module that knows Personalize exists
-  omnirec-google-retail-destination/        the only module that knows Retail exists
-  omnirec-recently-viewed-destination/      feeds the serving side's recently-viewed lists
-  omnirec-redis-state/                      shared dedup + identity links for multi-instance deploys
-  commerce-tracker-spring-boot/             the SDK merchants embed for business events
-  omnirec-event-api-app/                    the standalone deployable
+                                            retry tiers, dead-letter queues
+  omnirec-amazon-personalize-destination/   Amazon Personalize adapter
+  omnirec-google-retail-destination/        Google Retail adapter
+  omnirec-recently-viewed-destination/      recently-viewed lists for the serving side
+  omnirec-redis-state/                      shared deduplication and identity links
+  commerce-tracker-spring-boot/             server-side SDK for business events
+  omnirec-event-api-app/                    deployable Event API service
 
-  omnirec-core/ omnirec-web/ …              serving side: recommendations, search,
-                                            recently-viewed
-  omnirec-contract-tests/                   cross-language schema parity
+  omnirec-core/ omnirec-web/ and related    serving side: recommendations, search,
+                                            recently viewed
+  omnirec-contract-tests/                   cross-language schema parity tests
 
-examples/nextjs-demo-store/                 working Next.js storefront
+examples/nextjs-demo-store/                 reference Next.js storefront
 schema/commerce-event.schema.json           the wire contract
-scripts/verify-bundle-security.mjs          fails CI if a credential reaches the browser
-scripts/e2e/run.sh                          live end-to-end journey, every component real
-docs/                                       architecture, identity, security, …
+scripts/verify-bundle-security.mjs          fails the build if a credential is bundled
+scripts/e2e/run.sh                          end-to-end verification with live components
+docs/                                       architecture, identity, security, operations
 ```
 
 ## Quick start
 
+Requirements: Docker, Node.js 20 or later, and JDK 17 with Maven for backend
+builds.
+
 ```bash
-docker-compose up -d           # RabbitMQ + Redis + Event API (:8081) + serving API (:8080)
+docker-compose up -d           # RabbitMQ, Redis, Event API (8081), serving API (8080)
 
 npm install
 cd examples/nextjs-demo-store && cp .env.local.example .env.local && cd ../..
 npx turbo run dev --filter=nextjs-demo-store
 ```
 
-Open http://localhost:3000. Click a product, add to cart, log in — the page shows
-the identity it's using and the events it produced. Watch them leave in batches
-in the Network tab, and queue and drain at http://localhost:15672 (guest/guest).
+Open `http://localhost:3000`. The demo storefront displays the identity in use
+and the events produced. Batches are visible in the browser network panel, and
+queue activity in the RabbitMQ management interface at `http://localhost:15672`
+(default credentials `guest` / `guest`).
 
-Every destination is disabled by default, so this runs end to end with **no cloud
-account of any kind**.
+All destinations are disabled by default, so the stack runs end to end without a
+cloud account.
 
-## Track something
+## Usage
+
+Browser:
 
 ```js
 import { createCommerceClient } from "@omnirec/commerce-web";
 
 const commerce = createCommerceClient({
-  apiKey: "pk_live_xxxxx",             // publishable — safe in browser code
+  apiKey: "pk_live_xxxxx",             // publishable key, safe in browser code
   endpoint: "https://events.example.com",
 });
 
@@ -77,10 +94,11 @@ commerce.cart.productAdded({ cartId: "c1", productId: "p123", quantity: 2 });
 commerce.user.loggedIn({ userId: "customer_123" });
 ```
 
-You never pass `anonymousId`, `sessionId`, `eventId`, `timestamp`, or the page
-context. The SDK attaches all of it.
+The caller does not supply `anonymousId`, `sessionId`, `eventId`, `timestamp`,
+or page context. The SDK attaches these fields.
 
-Purchases come from the backend, where the payment result is actually known:
+Purchases are reported from the merchant backend, where the payment result is
+known:
 
 ```java
 commerce.purchase.completed(PurchaseCompleted.builder()
@@ -91,42 +109,50 @@ commerce.purchase.completed(PurchaseCompleted.builder()
         .build());
 ```
 
+See the [guide](docs/guide.md) for complete integration instructions.
+
 ## Design principles
 
-**Credentials never reach the browser.** Not obfuscated — never sent. The
-frontend holds a publishable key that can do one thing: write events for its own
-tenant. `scripts/verify-bundle-security.mjs` fails CI if that ever stops being
-true.
+**Credentials are never present in the browser.** The frontend holds a
+publishable key whose only capability is submitting events for its own tenant.
+`scripts/verify-bundle-security.mjs` fails the build if a provider credential or
+SDK appears in a bundle.
 
-**The core doesn't know providers exist.** `omnirec-commerce-core` depends on
-Jackson and SLF4J. Adding Azure means writing one `EventDestination` and
-registering it as a bean — nothing in the core, gateway, queue, or either SDK
-changes. Enforced by the module graph, not by discipline.
+**The core has no knowledge of providers.** `omnirec-commerce-core` depends only
+on Jackson and SLF4J. Supporting an additional provider requires one
+`EventDestination` implementation registered as a bean; the core, gateway,
+queue layer, and both SDKs are unchanged. The constraint is enforced by the
+module graph rather than by convention.
 
-**History is never rewritten.** Logging in records an `anon → user` link; it does
-not backfill past events. Attribution becomes a join, and what was genuinely
-known at capture time is preserved.
+**History is never rewritten.** Authentication records a link from the anonymous
+identifier to the user identifier. Previously captured events are not modified,
+so attribution is performed as a join and the information genuinely available at
+capture time is preserved.
 
-**No event is lost to a provider outage.** Durable queues, per-destination retry
-queues, dead-letter queues, and idempotent consumers. One provider being down
-backs up only that provider's queue.
+**Provider outages do not cause event loss.** The system uses durable queues,
+per-destination retry queues, dead-letter queues, and idempotent consumers. An
+outage affecting one provider backs up only that provider's queues.
 
-**Business truth comes from the backend.** A confirmation page can be reloaded,
-bookmarked, or never reached. Purchases, refunds, and accepted reviews are
-reported server-side.
+**Authoritative events originate server-side.** A confirmation page may be
+reloaded, bookmarked, or never rendered. Purchases, refunds, and accepted
+reviews are reported from the merchant backend.
 
-## Building
+## Building and testing
 
 ```bash
 npm install && npx turbo run build test typecheck   # 160 frontend tests
 cd backend && mvn clean install                     # 312 backend tests
 node scripts/verify-bundle-security.mjs
+bash scripts/e2e/run.sh                             # end-to-end verification, requires Docker
 ```
+
+Tests that require a real RabbitMQ broker or Redis instance use Testcontainers
+and are skipped automatically when Docker is unavailable. See
+[testing.md](docs/testing.md).
 
 ## Observability
 
-No dashboard — structured logs plus Micrometer counters on
-`/actuator/prometheus`:
+Structured logs and Micrometer metrics are exposed at `/actuator/prometheus`:
 
 ```
 omnirec.events.received        omnirec.events.processed
@@ -136,26 +162,42 @@ omnirec.events.queued          omnirec.provider.delivery.success
                                omnirec.provider.delivery.failure
 ```
 
-Logs carry event ids and field *names* — never payloads or field values.
+Logs record event identifiers and field names only. Payloads and field values
+are never logged.
 
-## Docs
+## Documentation
 
-| | |
-|---|---|
-| **[guide.md](docs/guide.md)** | **Start here:** the architecture, and how to use it end to end |
+| Document | Contents |
+| --- | --- |
+| [guide.md](docs/guide.md) | Recommended starting point: architecture and complete usage instructions |
 | [architecture.md](docs/architecture.md) | Modules, pipeline order, failure behaviour |
-| [event-schema.md](docs/event-schema.md) | Taxonomy, validation rules, dwell time, cart abandonment |
-| [identity.md](docs/identity.md) | The three identities and anonymous → registered linking |
-| [frontend-sdk.md](docs/frontend-sdk.md) | `@omnirec/commerce-web` |
-| [spring-boot-sdk.md](docs/spring-boot-sdk.md) | `commerce-tracker-spring-boot` |
-| [configuration.md](docs/configuration.md) | Every property, production checklist |
-| [amazon-personalize.md](docs/amazon-personalize.md) | Mapping and the anonymous-identity trap |
-| [google-retail.md](docs/google-retail.md) | Mapping and the closed vocabulary |
-| [rabbitmq.md](docs/rabbitmq.md) | Topology, retry, DLQ, scaling |
-| [security.md](docs/security.md) | Trust boundaries, sensitive data, request controls |
-| [testing.md](docs/testing.md) | What's covered and how to add to it |
-| [troubleshooting.md](docs/troubleshooting.md) | Symptom → cause → fix |
-| [AUDIT.md](docs/AUDIT.md) | The audit of this codebase: findings, fixes, and what remains |
+| [event-schema.md](docs/event-schema.md) | Event taxonomy, validation rules, dwell time, cart abandonment |
+| [identity.md](docs/identity.md) | Identity model and anonymous-to-registered linking |
+| [frontend-sdk.md](docs/frontend-sdk.md) | `@omnirec/commerce-web` reference |
+| [spring-boot-sdk.md](docs/spring-boot-sdk.md) | `commerce-tracker-spring-boot` reference |
+| [configuration.md](docs/configuration.md) | Complete property reference and production checklist |
+| [amazon-personalize.md](docs/amazon-personalize.md) | Amazon Personalize mapping and identity constraints |
+| [google-retail.md](docs/google-retail.md) | Google Retail mapping and supported event types |
+| [rabbitmq.md](docs/rabbitmq.md) | Queue topology, retry, dead-lettering, scaling |
+| [security.md](docs/security.md) | Trust boundaries, sensitive data handling, request controls |
+| [testing.md](docs/testing.md) | Test coverage and contribution guidance for tests |
+| [troubleshooting.md](docs/troubleshooting.md) | Symptom-based diagnostics |
+| [AUDIT.md](docs/AUDIT.md) | Audit findings, resolutions, and current status |
 
-[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) is the historical plan for the
-serving side, kept for context.
+[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) records the historical plan for
+the serving side and is retained for context.
+
+## Contributing
+
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) for
+development setup, coding conventions, and the pull request process, and
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for community expectations.
+
+## Security
+
+Do not report security vulnerabilities through public issues. See
+[SECURITY.md](SECURITY.md) for the disclosure process.
+
+## License
+
+Released under the MIT License. See [LICENSE](LICENSE).

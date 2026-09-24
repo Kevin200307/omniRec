@@ -1,7 +1,13 @@
 {
   "name": "@omnirec/core",
   "version": "0.1.0",
-  "description": "Omnirec tracker core — identity, event queue, transport, and plugin system for capturing e-commerce customer signals.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kevin200307/omniRec.git",
+    "directory": "packages/core"
+  },
+  "description": "Omnirec tracker core - identity, event queue, transport, and plugin system for capturing e-commerce customer signals.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

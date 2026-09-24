@@ -1,125 +1,133 @@
 # Troubleshooting
 
-Symptom first, then how to tell what's going on, then the fix.
+Each section begins with the symptom, followed by how to identify the cause and
+the corrective action.
 
 ## No events arrive at the Event API
 
-**Check the browser console with `debug: true`.** Every event is logged as it is
-built, and every refusal is reported through `onError`.
+Enable `debug: true` in the browser SDK and inspect the console. Every event is
+logged as it is constructed, and every refusal is reported through `onError`.
 
-| Console message | Cause | Fix |
-|---|---|---|
-| `invalid "product_viewed" event not sent — commerce.productId: …` | A required field is missing | Pass the field; see the table in [event-schema.md](event-schema.md#validation-rules) |
-| `"cardNumber" looks like sensitive data` | A blocked field name somewhere in the event | Remove it; send only safe metadata such as `paymentMethod` |
-| `apiKey looks like a secret credential` | A secret key was pasted into browser config | Use the publishable `pk_…` key |
-| `dropped N event(s) (rejected)` | The API answered 4xx | Check the Network tab for the status (below) |
-| `dropped N event(s) (expired)` | Buffered offline for more than `maxEventAgeMs` | Expected after a long offline spell |
+| Console message | Cause | Corrective action |
+| --- | --- | --- |
+| `invalid "product_viewed" event not sent: commerce.productId: ...` | A required field is missing | Supply the field; see the table in [event-schema.md](event-schema.md#validation-rules) |
+| `"cardNumber" looks like sensitive data` | A blocked field name appears in the event | Remove it and send only non-sensitive metadata such as `paymentMethod` |
+| `apiKey looks like a secret credential` | A secret key was placed in browser configuration | Use the publishable `pk_...` key |
+| `dropped N event(s) (rejected)` | The API responded with a 4xx status | Inspect the network panel for the status, as described below |
+| `dropped N event(s) (expired)` | The events were buffered offline for longer than `maxEventAgeMs` | Expected after a long offline period |
 
-**Check the Network tab** for `POST /v1/events/batch`:
+Inspect the `POST /v1/events/batch` request in the browser network panel:
 
-| Status | Meaning | Fix |
-|---|---|---|
-| (failed) / CORS error | Origin not allowed | Add the storefront origin to `omnirec.events.cors.allowed-origins` |
+| Status | Meaning | Corrective action |
+| --- | --- | --- |
+| Failed, or a CORS error | The origin is not permitted | Add the storefront origin to `omnirec.events.cors.allowed-origins` |
 | 401 | Unknown or disabled key | Check `omnirec.events.tenants.<id>.api-key` and `enabled` |
-| 413 | Body over `max-payload-bytes`, or more than `max-batch-size` events | Lower `maxBatchSize` in the SDK |
-| 429 | Rate limited | Expected under abuse; behind a proxy, check `server.forward-headers-strategy` (below) |
-| 503 | Broker unavailable, or an event is mid-ingestion elsewhere | The SDK retries on its own; see "Nothing reaches the provider" |
-| 202 with `rejected > 0` | Some events failed validation | `errors[].reason` names the field |
+| 413 | Body exceeds `max-payload-bytes`, or the batch exceeds `max-batch-size` | Lower `maxBatchSize` in the SDK |
+| 429 | Rate limited | Expected under abuse. Behind a proxy, check `server.forward-headers-strategy` (see below) |
+| 503 | The broker is unavailable, or the event is being ingested elsewhere | The SDK retries automatically. See "Events are accepted but nothing reaches the provider" |
+| 202 with `rejected` greater than 0 | Some events failed validation | `errors[].reason` names the offending field |
 
-## Every request from behind a load balancer is rate-limited together
+## All requests behind a load balancer are rate limited together
 
-The limit is keyed per client address. Behind a proxy that address is the proxy's,
-so every shopper shares one budget. Set:
+The rate limit is keyed on the client address. Behind a proxy, that address is
+the proxy's, so every visitor shares a single budget. Set:
 
 ```yaml
 server:
   forward-headers-strategy: native
 ```
 
-Tomcat then resolves the real client address from forwarded headers, trusting
-them only from internal proxy addresses. Do **not** try to key on a raw
-`X-Forwarded-For` header: the client writes it, so rotating a fake value would
-bypass the limit.
+Tomcat then resolves the originating client address from forwarded headers,
+trusting them only from internal proxy addresses. Do not attempt to key the limit
+on a raw `X-Forwarded-For` header: the client controls that value, so rotating a
+forged one would bypass the limit.
 
 ## Events are accepted but nothing reaches the provider
 
-1. **Is the destination enabled?** Startup logs `No EventDestination beans are
-   active` if not. Check `omnirec.destinations.<provider>.enabled`.
-2. **Is the event type one the provider accepts?** Each adapter drops types with no
-   genuine counterpart. Google Retail accepts only seven types, and Personalize
-   skips session and user events. A skipped event is not an error. See
-   [google-retail.md](google-retail.md) and [amazon-personalize.md](amazon-personalize.md).
-3. **Is it waiting in a retry tier?** Check `omnirec.queue.depth{queue="retry-n"}`, or:
+1. **Confirm that the destination is enabled.** Startup logs `No EventDestination
+   beans are active` if none is. Check `omnirec.destinations.<provider>.enabled`.
+2. **Confirm that the provider accepts the event type.** Each adapter drops types
+   that have no genuine counterpart. Google Retail accepts only seven types, and
+   Personalize skips session and user events. A skipped event is not an error. See
+   [google-retail.md](google-retail.md) and
+   [amazon-personalize.md](amazon-personalize.md).
+3. **Check whether the message is waiting in a retry tier.** Inspect
+   `omnirec.queue.depth{queue="retry-n"}`, or run:
    ```bash
    rabbitmqctl list_queues name messages | grep omnirec
    ```
-   Messages in `.retry.n` come back on their own after the tier's delay.
-4. **Is it dead-lettered?** Messages in `.dlq` carry `x-omnirec-failure-reason`.
-   Common reasons:
+   Messages in `.retry.n` return automatically after the tier's delay.
+4. **Check whether the message was dead-lettered.** Messages in `.dlq` carry the
+   `x-omnirec-failure-reason` header. Common reasons:
 
-   | Reason | Fix |
-   |---|---|
-   | `permanent: …tracking-id is not configured` | Set `AWS_PERSONALIZE_TRACKING_ID` |
-   | `permanent: …project-number is not configured` | Set `GOOGLE_PROJECT_NUMBER` |
-   | `Personalize rejected … (HTTP 400)` | Usually a `properties` key your interactions schema doesn't define; check `property-keys` |
-   | `Google Retail rejected … (INVALID_ARGUMENT)` | Often a product missing from the Retail catalog |
-   | `exhausted N retries` | The provider was down longer than the retry schedule; fix it, then replay |
+   | Reason | Corrective action |
+   | --- | --- |
+   | `permanent: ...tracking-id is not configured` | Set `AWS_PERSONALIZE_TRACKING_ID` |
+   | `permanent: ...project-number is not configured` | Set `GOOGLE_PROJECT_NUMBER` |
+   | `Personalize rejected ... (HTTP 400)` | Usually a `properties` key that the interactions schema does not define; check `property-keys` |
+   | `Google Retail rejected ... (INVALID_ARGUMENT)` | Often a product that is missing from the Retail catalog |
+   | `exhausted N retries` | The provider was unavailable for longer than the retry schedule; restore it, then replay |
 
-   Replay by shovelling the DLQ back onto `omnirec.events` with routing key
-   `events.<dest>`. Already-delivered events are skipped, so replay is safe.
+   To replay, move the dead-letter queue contents back onto the `omnirec.events`
+   exchange with routing key `events.<destination>`. Events already delivered are
+   skipped, so replay is safe.
 
-## The Event API won't start
+## The Event API does not start
 
-| Error | Fix |
-|---|---|
+| Error | Corrective action |
+| --- | --- |
 | `RabbitMQ publisher confirms and returns are required` | Set `spring.rabbitmq.publisher-confirm-type=correlated` and `publisher-returns=true` |
 | `PRECONDITION_FAILED - inequivalent arg` | A queue exists with older arguments. See "Upgrading an existing broker" in [rabbitmq.md](rabbitmq.md) |
-| `allow-anonymous-ingestion=true … is only permitted under the dev, test, or local profile` | Configure tenant API keys instead |
+| `allow-anonymous-ingestion=true ... is only permitted under the dev, test, or local profile` | Configure tenant API keys instead |
 | `'recommendationId' is reserved by Personalize` | Remove it from `amazon-personalize.property-keys` |
 
 ## The same event is delivered more than once
 
-- **More than one Event API instance?** Without `omnirec.state.redis.enabled=true`
-  each instance deduplicates only its own traffic. The log says `Using the
-  in-memory deduplication store` at startup when this applies.
-- **Different eventIds?** Deduplication is by eventId. A purchase is only
-  deduplicated across the browser and the backend if both use the SDKs'
-  derived ids (`evt:purchase_completed:<orderId>`).
-- **Resent after more than 24 hours?** The dedup window is
-  `deduplication-window`. The browser SDK drops buffered events older than
-  `maxEventAgeMs` (12h) for exactly this reason; keep it below the window.
+- **Is more than one Event API instance running?** Without
+  `omnirec.state.redis.enabled=true`, each instance deduplicates only its own
+  traffic. Startup logs `Using the in-memory deduplication store` when this
+  applies.
+- **Are the event identifiers different?** Deduplication is by `eventId`. A
+  purchase is deduplicated between the browser and the backend only if both use
+  the SDKs' derived identifiers (`evt:purchase_completed:<orderId>`).
+- **Was the event resubmitted after more than 24 hours?** The deduplication
+  window is `deduplication-window`. The browser SDK discards buffered events older
+  than `maxEventAgeMs` (12 hours) for this reason; keep that value below the
+  window.
 
-## Product views look inflated
+## Product view counts appear inflated
 
-Engagement updates (a `product_viewed` carrying `viewEventId` and `dwellTimeMs`)
-are follow-ups to a view, not views. The Personalize and Retail adapters skip
-them. If you've written your own destination or analytics, filter on
-`CommerceEvent.isEngagementUpdate()`.
+Engagement updates, meaning `product_viewed` events carrying `viewEventId` and
+`dwellTimeMs`, are follow-ups to a view rather than views themselves. The
+Personalize and Retail adapters skip them. A custom destination or analytics
+consumer should filter on `CommerceEvent.isEngagementUpdate()`.
 
-## Dwell times look too long
+## Dwell times appear too long
 
 The timer runs until another product is viewed, `page.viewed()` is called, the
-component unmounts (`product.viewEnded()`, or `useProductView` in React), or the
-page unloads. In an SPA, make sure route changes call `page.viewed()`. Values are
-capped at `maxDwellMs` (30 minutes); treat the cap as "at least".
+component unmounts (through `product.viewEnded()`, or `useProductView` in
+React), or the page unloads. In a single-page application, ensure that route
+changes call `page.viewed()`. Values are capped at `maxDwellMs` (30 minutes) and
+should be interpreted as "at least" the capped value.
 
-## A logged-in user's events have no `userId`
+## A signed-in user's events have no `userId`
 
-- The page never called `identify()` / `user.loggedIn()`, and no earlier link
+- The page never called `identify()` or `user.loggedIn()`, and no earlier link
   exists for that device. Call `identify` on every page load once the user is
-  known; repeat calls are free.
-- Server-side events: pass `userId` (required) and, where you have it, the
-  browser's `anonymousId` from the `omnirec_anonymous_id` cookie.
+  known; repeated calls are inexpensive.
+- For server-side events, supply `userId`, which is required, and where
+  available the browser's `anonymousId` from the `omnirec_anonymous_id` cookie.
 
-## Backend SDK events go missing
+## Server-side SDK events are missing
 
 Check `HttpEventSender.droppedCount()` and the logs:
 
-| Log | Cause |
-|---|---|
-| `Event queue is full` | The API was unreachable long enough to fill `queue-capacity` |
-| `Giving up on N event(s) after M retries` | The API was down longer than the retry schedule (~3 minutes by default) |
-| `permanently rejected … with 401` | Wrong `api-key` |
+| Log message | Cause |
+| --- | --- |
+| `Event queue is full` | The API was unreachable for long enough to fill `queue-capacity` |
+| `Giving up on N event(s) after M retries` | The API was unavailable for longer than the retry schedule (about three minutes by default) |
+| `permanently rejected ... with 401` | Incorrect `api-key` |
 
-For purchases that must not be lost, record them in your own transactional
-outbox and replay from it; the deterministic eventIds make replay safe.
+For purchases that must not be lost, record them in a transactional outbox
+maintained by the merchant application and replay from it. Deterministic event
+identifiers make replay safe.

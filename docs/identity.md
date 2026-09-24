@@ -1,51 +1,56 @@
 # Identity
 
-Three identities, deliberately separate, with one rule connecting them: **history
-is never rewritten**.
+Omnirec uses three separate identifiers, governed by one rule: captured history
+is never rewritten.
 
-## The three
+## The three identifiers
 
-### `anonymousId` — the device
+### `anonymousId`: the device
 
-A UUID in a first-party cookie, one year, `SameSite=Lax`, `Secure` over HTTPS.
-Created on first visit.
+A UUID stored in a first-party cookie with a one-year lifetime, `SameSite=Lax`,
+and the `Secure` attribute over HTTPS. It is created on the first visit.
 
-It is **never rotated by the SDK and never cleared on logout**. A returning
-visitor staying recognisable is the entire value of anonymous behavioural data —
-it's what lets a recommender say something useful before anyone logs in.
+The SDK never rotates this identifier and never clears it on sign-out. The
+ability to recognize a returning visitor is the principal value of anonymous
+behavioural data, because it allows a recommender to produce useful results
+before any authentication has occurred.
 
-Deliberately *not*:
+The following are deliberately not used as device identity:
 
-- **an IP address** — shared by everyone behind a NAT, changes on every mobile
-  handover, and is personal data in most jurisdictions;
-- **a browser fingerprint** — fragile, hostile, and increasingly blocked.
+- **IP addresses**, which are shared by all clients behind network address
+  translation, change on mobile network handover, and constitute personal data
+  in most jurisdictions;
+- **browser fingerprints**, which are unreliable, adversarial, and increasingly
+  blocked by browsers.
 
-### `sessionId` — the visit
+### `sessionId`: the visit
 
-A UUID in `localStorage` with a last-activity timestamp. A new session starts
-when:
+A UUID stored in `localStorage` together with a last-activity timestamp. A new
+session begins when any of the following holds:
 
-1. no session exists, **or**
-2. more than the inactivity timeout (default 30 minutes, configurable via
-   `sessionTimeoutMs`) has passed since the last tracked event, **or**
-3. the merchant calls `logout()`.
+1. no session exists;
+2. the inactivity timeout has elapsed since the last tracked event (30 minutes
+   by default, configurable through `sessionTimeoutMs`);
+3. the application calls `logout()`.
 
-`localStorage`, not `sessionStorage`, is deliberate. `sessionStorage` is per-tab
-and dies on tab close, which would both fragment one visit across tabs and end a
-session the moment someone closes a tab to come back two minutes later. **The
-idle timeout is the policy; tab lifetime is not.**
+`localStorage` is used rather than `sessionStorage` by design. `sessionStorage`
+is scoped to a single tab and is cleared when that tab closes, which would both
+fragment one visit across tabs and terminate a session when a visitor closes a
+tab and returns shortly afterwards. The inactivity timeout defines session
+boundaries; tab lifetime does not.
 
-Sessions start automatically — `session_started` is emitted without the merchant
-calling anything.
+Sessions start automatically. The `session_started` event is emitted without an
+explicit call by the application.
 
-### `userId` — the customer
+### `userId`: the customer
 
-The merchant's own id, supplied through `identify()` or `user.loggedIn()`. **The
-SDK never invents one.** Stored in `localStorage` so it survives a reload.
+The merchant's own customer identifier, supplied through `identify()` or
+`user.loggedIn()`. The SDK never generates one. It is stored in `localStorage`
+so that it survives a page reload.
 
-## Linking anonymous to registered
+## Linking anonymous identity to a registered customer
 
-When a visitor identifies, the SDK emits an `identify` event and the server
+When a visitor is identified, the SDK emits an `identify` event and the server
 records a link:
 
 ```
@@ -57,20 +62,21 @@ userId
 linkedAt
 ```
 
-**Past events are not rewritten.** An event captured anonymously keeps its null
-`userId` forever.
+Previously captured events are not modified. An event captured anonymously
+retains a null `userId` permanently.
 
-Why: rewriting would mean re-reading and re-writing every event a visitor ever
-produced the instant they log in — unbounded work triggered by a login — and it
-would destroy the record of what was genuinely known at capture time. Keeping the
-link separate makes attribution a join instead.
+Rewriting history would require re-reading and re-writing every event a visitor
+had ever produced at the moment of authentication, which is unbounded work
+triggered by a login, and it would destroy the record of what was genuinely
+known at capture time. Storing the link separately makes attribution a join
+operation instead.
 
-What the link does do is let *future* anonymous events be resolved automatically.
-An event arriving with an `anonymousId` that has a known link is enriched with
-the `userId` before it reaches the queue, so a merchant who forgets to call
-`identify()` on one page still gets correct attribution.
+The link resolves future events automatically. An event that arrives with an
+`anonymousId` for which a link exists is enriched with the `userId` before it is
+queued, so attribution remains correct even when a page omits the call to
+`identify()`.
 
-### The journey
+### Example journey
 
 ```
 Day 1   anonymousId = anon_A   sessionId = session_1   userId = null
@@ -81,15 +87,16 @@ Login   anonymousId = anon_A   sessionId = session_3   userId = customer_123
                         identity_link: anon_A -> customer_123
 ```
 
-Day 1 and Day 2's events still say `userId: null`. The link makes them
-attributable to `customer_123`, and everything after it carries the `userId`
-directly.
+The events from day 1 and day 2 continue to record `userId: null`. The link
+makes them attributable to `customer_123`, and all subsequent events carry the
+`userId` directly.
 
-Covered end to end by `EndToEndPipelineTest.linksDaysOfAnonymousBrowsingToTheUserWhoEventuallyLogsIn`.
+This behaviour is verified by
+`EndToEndPipelineTest.linksDaysOfAnonymousBrowsingToTheUserWhoEventuallyLogsIn`.
 
-### Several devices, one shopper
+### Multiple devices for one customer
 
-Many-to-one, by design:
+The relationship is many-to-one by design:
 
 ```
 anon_A (laptop) -> customer_123
@@ -97,56 +104,60 @@ anon_B (phone)  -> customer_123
 ```
 
 `IdentityLinkStore.anonymousIdsFor(tenant, userId)` returns every device known
-for a customer, which is how history is gathered across them.
+for a customer, which is how history is assembled across devices.
 
-### A shared device
+### Shared devices
 
-If one `anonymousId` links to two users — a shared family laptop, or a genuine
-account switch — **the most recent link wins**, because that reflects who is
-actually using the device now.
+When one `anonymousId` is linked to two customers, whether through a shared
+device or an account change, the most recent link takes precedence, because it
+reflects the current user of the device.
 
-## Switching users without logging out
+## Changing user without signing out
 
-If a different user identifies while another is signed in (a shared device, an
-account switch), the session rotates, exactly as a logout would give it. One
-session never contains two people's behaviour. An anonymous visitor logging in
-keeps the session: that continuity is what lets providers stitch pre-login
-browsing to the user.
+If a different customer is identified while another is signed in, the session
+rotates exactly as it would on sign-out, so that a single session never contains
+the behaviour of two people. An anonymous visitor who authenticates retains the
+current session, because that continuity is what allows providers to associate
+pre-authentication browsing with the customer.
 
-## Logout
+## Sign-out
 
 ```
-userId    -> null        (cleared)
-anonymousId -> unchanged (kept)
-sessionId -> rotated     (new session)
-identity_link -> kept    (not deleted)
+userId        -> cleared
+anonymousId   -> unchanged
+sessionId     -> rotated
+identity_link -> retained
 ```
 
-Two of these deserve justification:
+Two of these behaviours warrant explanation:
 
-- **The session rotates** so no single session contains events from two different
-  people.
-- **The link survives.** Deleting it would throw away the knowledge that this
-  device belongs to that shopper — exactly what makes a returning visitor's
-  pre-login experience good. To genuinely forget a person, delete their links
-  and events; logout is not a deletion request.
+- **The session rotates**, so that no session contains events produced by two
+  different people.
+- **The link is retained.** Deleting it would discard the knowledge that the
+  device belongs to that customer, which is precisely what makes a returning
+  visitor's pre-authentication experience effective. Erasing a person requires
+  deleting their links and events; sign-out is not a deletion request.
 
 ## Server-side identity
 
-A backend event usually knows the `userId` but not the browser's `anonymousId`.
+A server-side event generally has the `userId` available but not the browser's
+`anonymousId`.
 
-**Pass the `anonymousId` when you have it** — capture it at checkout and store it
-against the order. It is what links a purchase to the browsing that led to it.
+Supply the `anonymousId` where it is available. Capture it at checkout and store
+it with the order, as it is what links a purchase to the browsing that preceded
+it.
 
-When you don't, the SDK derives a stable `server:<uuid-of-userId>` anonymousId.
-Their server-side events stay coherent with one another, but this does *not*
-magically join them to the browser identity — which is why passing the real one
-is worth the trouble.
+When it is not supplied, the SDK derives a stable `server:<uuid-of-userId>`
+anonymous identifier. Server-side events then remain coherent with one another,
+but they are not joined to the browser identity, which is why supplying the
+actual value is preferable.
 
-## Privacy notes
+## Privacy
 
-- The IP is used for coarse geo and rate limiting, then discarded unless
-  `omnirec.events.retain-ip-address=true`.
-- Identity lives in first-party storage only. Nothing is shared cross-site.
-- The identity link store is the one component holding identity data long-term;
-  it is an interface, so a merchant can keep it in their own database.
+- The client IP address is used for coarse geolocation and rate limiting, then
+  discarded unless `omnirec.events.retain-ip-address=true`.
+- Identity is held in first-party storage only. No identifier is shared across
+  sites.
+- The identity link store is the only component that retains identity data long
+  term. It is defined as an interface, so a merchant may implement it against
+  their own database.

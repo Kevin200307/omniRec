@@ -1,7 +1,13 @@
 {
   "name": "@omnirec/commerce-web",
   "version": "1.0.0",
-  "description": "Provider-independent commerce event tracking for the browser. Vanilla JS, React, and Next.js — no provider SDK, no provider credentials.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kevin200307/omniRec.git",
+    "directory": "packages/commerce-web"
+  },
+  "description": "Provider-independent commerce event tracking for the browser. Vanilla JS, React, and Next.js - no provider SDK, no provider credentials.",
   "type": "module",
   "main": "./dist/index.js",
   "module": "./dist/index.js",

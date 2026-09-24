@@ -8,7 +8,7 @@
 
   <artifactId>omnirec-google-recai-starter</artifactId>
   <packaging>jar</packaging>
-  <description>Google Cloud Retail (Recommendations AI) RecommendationProvider. Same shape as omnirec-personalize-starter — the second provider proves the abstraction, per the implementation plan's Phase 2 exit criteria.</description>
+  <description>Google Cloud Retail (Recommendations AI) RecommendationProvider. Same shape as omnirec-personalize-starter - the second provider proves the abstraction, per the implementation plan's Phase 2 exit criteria.</description>
 
   <dependencies>
     <dependency>

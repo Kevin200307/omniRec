@@ -1,7 +1,13 @@
 {
   "name": "@omnirec/react-ui",
   "version": "0.1.0",
-  "description": "Drop-in components: <ProductImpression>, <SearchBar>, <RecommendationCarousel>, <RecentlyViewedCarousel>. Provider-agnostic from the developer's point of view — the backend decides what's behind them.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kevin200307/omniRec.git",
+    "directory": "packages/react-ui"
+  },
+  "description": "Drop-in components: <ProductImpression>, <SearchBar>, <RecommendationCarousel>, <RecentlyViewedCarousel>. Provider-agnostic from the developer's point of view - the backend decides what's behind them.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

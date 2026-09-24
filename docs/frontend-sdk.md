@@ -1,34 +1,36 @@
-# Frontend SDK — `@omnirec/commerce-web`
+# Frontend SDK: `@omnirec/commerce-web`
 
-Works with vanilla JavaScript, React, and Next.js. The core package has **no
-React dependency**; `@omnirec/commerce-react` is a ~40-line binding over it.
+The browser SDK supports vanilla JavaScript, React, and Next.js. The core
+package has no React dependency; `@omnirec/commerce-react` provides a thin
+binding over it.
 
-## Install
+## Installation
 
 ```bash
 npm install @omnirec/commerce-web
-# React/Next.js, optional:
+# For React and Next.js applications:
 npm install @omnirec/commerce-react
 ```
 
-## Set up
+## Initialization
 
 ```js
 import { createCommerceClient } from "@omnirec/commerce-web";
 
 const commerce = createCommerceClient({
-  apiKey: "pk_live_xxxxx",             // publishable — safe in browser code
+  apiKey: "pk_live_xxxxx",             // publishable key, safe in browser code
   endpoint: "https://events.example.com",
   tenantId: "my-store",
 });
 ```
 
-That is the whole configuration surface a storefront needs. There is no place to
-put an AWS key, and the SDK **throws at startup** if `apiKey` looks like a secret
-credential (`sk_`, `AKIA…`, a PEM block) — a guardrail against the one mistake
-this architecture exists to prevent.
+This is the complete configuration surface required by a storefront. There is no
+field for a provider credential, and the SDK throws during initialization if
+`apiKey` resembles a secret credential, such as a value prefixed with `sk_`, an
+AWS access key identifier, or a PEM block. This guards against the specific
+mistake the architecture exists to prevent.
 
-### React / Next.js
+### React and Next.js
 
 ```tsx
 // app/providers.tsx
@@ -62,11 +64,12 @@ export function ProductCard({ product }) {
 }
 ```
 
-`NEXT_PUBLIC_` is correct here: this key is *meant* to be public.
+The `NEXT_PUBLIC_` prefix is appropriate here, because the key is intended to be
+public.
 
-For product pages, `useProductView` records the view on mount and ends the dwell
-measurement on unmount, so client-side navigation away doesn't keep the timer
-running:
+For product pages, `useProductView` records the view on mount and ends the
+dwell-time measurement on unmount, so that client-side navigation away from the
+page does not leave the timer running:
 
 ```tsx
 import { useProductView } from "@omnirec/commerce-react";
@@ -93,7 +96,7 @@ commerce.productList.viewed({ listId: "gaming-laptops", productIds: ["p1", "p2",
 commerce.category.viewed({ categoryId: "gaming-laptops" })
 
 commerce.product.viewed({ productId: "p123", categoryId: "gaming-laptops", price: 1500, currency: "USD" })
-commerce.product.viewEnded()   // ends dwell measurement, e.g. on unmount
+commerce.product.viewEnded()   // ends dwell measurement, for example on unmount
 commerce.product.clicked({ productId: "p123" })
 commerce.product.wishlisted({ productId: "p123" })
 commerce.product.shared({ productId: "p123", method: "whatsapp" })
@@ -112,8 +115,8 @@ commerce.checkout.paymentInformationAdded({ cartId: "cart_123", paymentMethod: "
 commerce.checkout.completed({ cartId: "cart_123", orderId: "order_1" })
 commerce.checkout.failed({ cartId: "cart_123", reason: "declined" })
 
-// recommendationProvider tells adapters whose id this is, so attribution is
-// forwarded only to the provider that issued it.
+// recommendationProvider identifies the issuer of the recommendation, so that
+// attribution is forwarded only to the provider that produced it.
 commerce.recommendation.impression({ recommendationId: "rec_123", recommendationProvider: "amazon-personalize", productIds: ["p1", "p2"], source: "homepage" })
 commerce.recommendation.clicked({ recommendationId: "rec_123", productId: "p2" })
 commerce.recommendation.addedToCart({ recommendationId: "rec_123", productId: "p2" })
@@ -128,102 +131,111 @@ commerce.identify({ userId: "customer_123" })
 commerce.logout()
 ```
 
-You never pass `anonymousId`, `sessionId`, `eventId`, `timestamp`, `url`,
-`referrer`, `platform`, or `device` — the SDK attaches all of them.
+The caller never supplies `anonymousId`, `sessionId`, `eventId`, `timestamp`,
+`url`, `referrer`, `platform`, or `device`. The SDK attaches all of these
+fields.
 
-`commerce.track(eventType, commerce, properties)` exists as an escape hatch, but
-reaching for it usually means a tracker method is missing.
+`commerce.track(eventType, commerce, properties)` is available as an escape
+hatch, but its use generally indicates a missing tracker method.
 
 ### Purchases
 
-`commerce.purchase.*` exists but **prefer the backend SDK**. A browser can't
-know whether a payment settled, and a confirmation page can be reloaded,
-bookmarked, or never reached. See [spring-boot-sdk.md](spring-boot-sdk.md).
+The `commerce.purchase.*` methods exist, but the server-side SDK is preferred. A
+browser cannot determine whether a payment settled, and a confirmation page may
+be reloaded, bookmarked, or never rendered. See
+[spring-boot-sdk.md](spring-boot-sdk.md).
 
-If you do use it, its eventIds are derived from the orderId
-(`evt:purchase_completed:<orderId>`), identically to the backend SDK, so a
-purchase reported from both sides, or a reloaded confirmation page, is delivered
-once.
+If the browser methods are used, their event identifiers are derived from the
+order identifier (`evt:purchase_completed:<orderId>`) identically to the
+server-side SDK, so a purchase reported from both sources, or a reloaded
+confirmation page, results in a single delivery.
 
 ## Batching
 
-Events buffer and flush on whichever comes first: `maxBatchSize` (default 20) or
-`maxWaitMs` (default 5000). They also flush on `pagehide`, on tab hide, and when
-the browser comes back online.
+Events are buffered and flushed when either `maxBatchSize` (20 by default) or
+`maxWaitMs` (5000 by default) is reached, whichever occurs first. A flush is
+also triggered on `pagehide`, when the tab is hidden, and when the browser
+regains connectivity.
 
-However large the backlog, each request carries at most `maxBatchSize` events.
-`keepalive` is only used for bodies under 64KB, the browser limit; an earlier
-version set it always, so a large backlog failed as a network error and was
-retried forever without ever sending.
+Regardless of backlog size, each request carries at most `maxBatchSize` events.
+The `keepalive` flag is used only for bodies below 64KB, which is the browser
+limit. An earlier implementation set it unconditionally, so a large backlog
+failed as a network error and was retried indefinitely without ever being
+transmitted.
 
 ```js
-await commerce.flush();   // force a send
-commerce.pending();       // events buffered in memory + on disk
+await commerce.flush();   // force transmission
+commerce.pending();       // events buffered in memory and in storage
 ```
 
-The unload path uses `navigator.sendBeacon`, which survives the page going away
-where a `fetch` would not. A beacon can't set headers, so the publishable key
-rides as a query parameter on that path only.
+The unload path uses `navigator.sendBeacon`, which completes after the page is
+discarded, where `fetch` would not. A beacon cannot set request headers, so the
+publishable key is supplied as a query parameter on that path only.
 
-## Offline and retry
+## Offline behaviour and retry
 
 | Response | Behaviour |
-|---|---|
+| --- | --- |
 | 2xx | Delivered |
-| 408, 429 | Retried — the server explicitly asked us to back off |
-| Other 4xx | **Dropped.** The payload is wrong; resending identical bytes cannot fix it |
-| 5xx, network failure | Retried with exponential backoff and **full jitter** |
+| 408, 429 | Retried, because the server has explicitly requested a delay |
+| Other 4xx | Discarded. The payload is invalid, and resubmitting identical content cannot succeed |
+| 5xx, network failure | Retried with exponential backoff and full jitter |
 
-Jitter matters more than it looks: without it every browser that hit the same
-503 retries in lockstep and recreates the spike that caused it.
+Jitter is significant: without it, every client that received the same 503
+retries simultaneously and reproduces the load spike that caused the failure.
 
-Between failed flushes the SDK **backs off** exponentially with jitter, up to 5
-minutes, instead of retrying every `maxWaitMs`; coming back online resets it. An
-explicit `flush()` ignores the backoff. Buffered events older than
-`maxEventAgeMs` (12 hours) are dropped rather than sent: the server remembers
-eventIds for 24 hours, and resending an event it has forgotten could
-double-count it. A batch in the middle of a retry is beaconed if the page
-unloads, and the server drops the copy if the original also lands.
+Between failed flushes the SDK applies exponential backoff with jitter, up to 5
+minutes, rather than retrying at every `maxWaitMs` interval. Regaining
+connectivity resets the backoff, and an explicit `flush()` bypasses it. Buffered
+events older than `maxEventAgeMs` (12 hours) are discarded rather than
+transmitted, because the server retains event identifiers for 24 hours and
+resubmitting an event that is no longer recorded could result in double
+counting. A batch in the process of being retried is transmitted by beacon if
+the page unloads, and the server discards the duplicate if the original request
+also completes.
 
-A batch that can't be delivered goes to a bounded `localStorage` buffer
-(`maxOfflineEvents`, default 500) and is retried on the next flush, surviving
-reloads. The bound is deliberate — an unbounded queue shares the origin's ~5MB
-quota with the merchant's own app, so it would eventually break *their* writes.
-On overflow the oldest events are dropped, because for behavioural data the most
-recent signals are the ones still worth having.
+A batch that cannot be delivered is written to a bounded `localStorage` buffer
+(`maxOfflineEvents`, 500 by default) and retried on the next flush, surviving
+page reloads. The bound is deliberate: an unbounded queue would compete for the
+origin's storage quota, which is typically around 5MB and shared with the
+merchant application, and would eventually cause that application's writes to
+fail. On overflow the oldest events are discarded, because for behavioural data
+the most recent signals retain the most value.
 
 ## Configuration
 
-| Option | Default | Notes |
-|---|---|---|
-| `apiKey` | — | Required. Publishable key. |
-| `endpoint` | — | Required. Absolute http(s) URL. |
-| `tenantId` | — | Optional; the key already identifies the tenant. |
-| `sessionTimeoutMs` | 1800000 | Inactivity before a new session. |
+| Option | Default | Description |
+| --- | --- | --- |
+| `apiKey` | none | Required. Publishable key. |
+| `endpoint` | none | Required. Absolute HTTP or HTTPS URL. |
+| `tenantId` | none | Optional. The key already identifies the tenant. |
+| `sessionTimeoutMs` | 1800000 | Inactivity period before a new session begins. |
 | `autoTrackSessions` | `true` | Emit `session_started` automatically. |
-| `autoTrackDwellTime` | `true` | Measure time-on-product. |
-| `maxBatchSize` | 20 | |
-| `maxWaitMs` | 5000 | |
-| `maxRetries` | 3 | |
-| `maxOfflineEvents` | 500 | |
-| `maxEventAgeMs` | 43200000 | 12h; keep below the server's 24h dedup window |
-| `validateEvents` | `true` | Reject invalid events client-side. |
-| `onError` | `console.warn` | Validation failures and dropped batches. |
-| `debug` | `false` | Log every event as it's built. |
+| `autoTrackDwellTime` | `true` | Measure time spent on a product. |
+| `maxBatchSize` | 20 | Maximum events per request. |
+| `maxWaitMs` | 5000 | Maximum buffering delay. |
+| `maxRetries` | 3 | Retry attempts per batch. |
+| `maxOfflineEvents` | 500 | Capacity of the offline buffer. |
+| `maxEventAgeMs` | 43200000 | 12 hours. Keep below the server deduplication window of 24 hours. |
+| `validateEvents` | `true` | Reject invalid events before transmission. |
+| `onError` | `console.warn` | Receives validation failures and discarded batches. |
+| `debug` | `false` | Log each event as it is constructed. |
 
-Invalid configuration throws immediately. A tracker that silently no-ops because
-of a typo is far worse than one that fails while you're looking at it.
+Invalid configuration throws immediately. A tracker that silently performs no
+operation because of a configuration error is considerably worse than one that
+fails during development.
 
 ## Privacy
 
-`context.url` and `context.referrer` are scrubbed before an event is queued:
-query parameters such as `token`, `code`, `email`, `session`, and anything ending
-in `token` are removed, as are any parameter whose value looks like an email
-address, URL credentials, and the fragment. The Event API applies the same list
-server-side, and a contract test keeps the two identical.
+`context.url` and `context.referrer` are sanitized before an event is queued.
+Query parameters such as `token`, `code`, `email`, and `session`, along with any
+parameter whose name ends in `token`, are removed, as are parameters whose
+values resemble email addresses, URL credentials, and the fragment component.
+The Event API applies the same list server-side, and a contract test keeps the
+two lists identical.
 
-## SSR
+## Server-side rendering
 
-Every browser API is guarded, so importing the SDK in a server component or
-during SSR is safe — it degrades to in-memory identity rather than throwing.
-Create the client in a `"use client"` component.
+All browser APIs are guarded, so importing the SDK in a server component or
+during server-side rendering is safe; it degrades to in-memory identity rather
+than throwing. Create the client within a `"use client"` component.

@@ -1,0 +1,1 @@
+A plug-and-play behavioral data infrastructure for ecommerce platforms that collects customer events once and makes them usable by multiple personalization and AI systems.

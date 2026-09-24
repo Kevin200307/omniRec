@@ -1,180 +1,194 @@
 # Security
 
-## The central claim
+## Central guarantee
 
-**Provider credentials never reach the browser.** Not obfuscated, not
-short-lived — they are never sent, because the browser has no code path to a
-provider at all.
+Provider credentials never reach the browser. They are not obfuscated or
+short-lived; they are never transmitted, because the browser has no code path to
+a provider.
 
 ```
-Browser  ──(publishable key)──►  Event API  ──(server-side credentials)──►  Provider
+Browser  --(publishable key)-->  Event API  --(server-side credentials)-->  Provider
 ```
 
-| Tier | Holds | Can do |
-|---|---|---|
-| Browser | `pk_live_…` + endpoint URL | Write events for one tenant |
-| Merchant backend | An Event API key | Write events for one tenant |
-| **Event API** | AWS / Google credentials | Talk to providers |
+| Tier | Holds | Permitted operations |
+| --- | --- | --- |
+| Browser | `pk_live_...` and the endpoint URL | Submit events for one tenant |
+| Merchant backend | An Event API key | Submit events for one tenant |
+| Event API | AWS and Google credentials | Communicate with providers |
 
-Enforced structurally: `omnirec-commerce-core`, `omnirec-event-api`, and both
-SDKs have **no compile-time dependency** on a provider SDK. A provider import
-there does not compile.
+The guarantee is enforced structurally: `omnirec-commerce-core`,
+`omnirec-event-api`, and both SDKs have no compile-time dependency on any
+provider SDK, so a provider import in those modules does not compile.
 
-### Verified, not asserted
+### Verification
 
 [`scripts/verify-bundle-security.mjs`](../scripts/verify-bundle-security.mjs)
-scans the built frontend bundles for AWS key ids, secret keys, PEM blocks,
-service-account JSON, `sk_` keys, Azure connection strings, and the provider SDKs
-themselves. It runs in CI and fails the build on a hit.
+scans the built frontend bundles for AWS access key identifiers, secret keys,
+PEM blocks, service-account JSON documents, `sk_` keys, Azure connection
+strings, and the provider SDKs themselves. It runs in continuous integration and
+fails the build on any match.
 
-The rules are narrow on purpose. A bare search for `AKIA` matches the SDK's own
-guard regex — the code whose job is to *reject* an AWS key — and a bare search
-for `googleapis.com` matches Next.js's font preconnect. False positives train
-everyone to ignore the script, which is worse than not having it.
+The detection rules are deliberately narrow. An unqualified search for `AKIA`
+matches the SDK's own guard expression, which exists to reject AWS keys, and an
+unqualified search for `googleapis.com` matches the Next.js font preconnect
+directive. False positives cause the check to be ignored, which is worse than
+not performing it.
 
 ## The publishable key
 
-`pk_live_…` ships in browser JavaScript and is visible to anyone who views
-source. **That is by design.** It can do exactly one thing: write events for its
-own tenant. It cannot read anything, and it never unlocks provider credentials.
+The `pk_live_...` key is distributed in browser JavaScript and is visible to
+anyone inspecting the page source. This is intended. The key permits exactly one
+operation: submitting events for its own tenant. It grants no read access and
+never unlocks provider credentials.
 
-So this key is about **routing and isolation**, not secrecy. Abuse is bounded by
-rate limiting and payload caps, not by hiding it.
+The key therefore provides routing and isolation rather than secrecy. Abuse is
+bounded by rate limiting and payload limits rather than by concealment.
 
-The SDK refuses to start if `apiKey` looks like a real secret (`sk_`, `AKIA…`,
-`ASIA…`, a PEM header) — a guardrail against pasting the wrong credential in.
+The SDK refuses to initialize if `apiKey` resembles an actual secret, such as a
+value prefixed with `sk_`, `AKIA`, or `ASIA`, or a PEM header. This guards
+against inadvertently supplying the wrong credential.
 
 ## Tenant isolation
 
-The **API key decides the tenant**. A `tenantId` in the request body is advisory
-and ignored; trusting it would let anyone holding one tenant's publishable key
-write into another's stream. Asserted by
+The API key determines the tenant. A `tenantId` supplied in the request body is
+advisory and ignored; trusting it would allow the holder of one tenant's
+publishable key to write into another tenant's event stream. This is asserted by
 `EndToEndPipelineTest.derivesTheTenantFromTheKeyRatherThanTheBody`.
 
 Deduplication keys and identity links are namespaced per tenant, so one tenant's
-identity graph can never resolve in another's.
+identity graph can never resolve within another's.
 
-Key comparison is constant-time across the whole key set. A publishable key isn't
-really a secret, so this is belt-and-braces — but the same code shape gets reused
-for privileged keys, and a timing oracle that only appears once someone adds a
-secret key is a nasty way to find out.
+Key comparison is constant-time across the entire key set. A publishable key is
+not strictly a secret, so this is a defensive measure, but the same code is
+likely to be reused for privileged keys, and a timing side channel that appears
+only after a secret key is introduced is a poor way to discover the problem.
 
-## Sensitive data is refused outright
+## Rejection of sensitive data
 
-Never collect card numbers, CVVs, expiry dates, full payment credentials,
-passwords, or authentication secrets.
+Card numbers, security codes, expiry dates, complete payment credentials,
+passwords, and authentication secrets must never be collected.
 
-This is enforced, not just documented. Both validators walk the whole event — at
-any depth, through objects and arrays — and **reject** it if a field name matches
-a blocked name after normalisation (lowercased, separators stripped), so
-`card_number`, `cardNumber`, and `CardNumber` all match.
+This is enforced rather than merely documented. Both validators traverse the
+entire event, at any depth and through objects and arrays, and reject it if a
+field name matches a blocked name after normalization, which lowercases the name
+and removes separators. Consequently `card_number`, `cardNumber`, and
+`CardNumber` all match.
 
-Blocked: `cardnumber`, `cardno`, `pan`, `cvv`, `cvc`, `cvv2`, `securitycode`,
-`cardsecuritycode`, `expirymonth`, `expiryyear`, `cardexpiry`, `password`,
-`passwd`, `pin`, `ssn`, `socialsecuritynumber`, `accesstoken`, `refreshtoken`,
-`apikey`, `apisecret`, `secretkey`, `privatekey`, `authorization`, `creditcard`,
-`iban`.
+The blocked names are: `cardnumber`, `cardno`, `pan`, `cvv`, `cvc`, `cvv2`,
+`securitycode`, `cardsecuritycode`, `expirymonth`, `expiryyear`, `cardexpiry`,
+`password`, `passwd`, `pin`, `ssn`, `socialsecuritynumber`, `accesstoken`,
+`refreshtoken`, `apikey`, `apisecret`, `secretkey`, `privatekey`,
+`authorization`, `creditcard`, and `iban`.
 
-**Rejection, not redaction.** Quietly stripping the field would leave the merchant
-believing the data was accepted, and they'd never fix the call site.
+The event is rejected rather than redacted. Silently removing the field would
+leave the merchant believing the data had been accepted, and the call site would
+never be corrected.
 
-For `payment_information_added`, collect only safe metadata:
+For `payment_information_added`, collect only non-sensitive metadata:
 
 ```js
 commerce.checkout.paymentInformationAdded({ cartId: "cart_1", paymentMethod: "card" });
 ```
 
-The two lists are kept identical by `CanonicalSchemaContractTest` — a field
-blocked on one side but not the other is the dangerous case, because it reads as
-protected while a direct POST sails past.
+The two lists are kept identical by `CanonicalSchemaContractTest`. A field
+blocked on one side but not the other is the dangerous case, because it appears
+to be protected while a direct HTTP request bypasses the protection.
 
-## Never logged
+## Logging
 
-Secrets, card data, API keys, and full event payloads. Logs carry event ids,
-event types, tenant ids, and field *names* from validation errors — never field
-values. `ValidationResult.describe()` is built for exactly this and is asserted
-not to echo identity values.
+Secrets, payment card data, API keys, and complete event payloads are never
+logged. Logs record event identifiers, event types, tenant identifiers, and
+field names from validation errors, but never field values.
+`ValidationResult.describe()` is written for this purpose and is asserted not to
+echo identity values.
 
-Metrics are tagged only with bounded values (tenant, destination, reason). An
-event id or product id as a tag would create a time series per event and take the
-metrics backend down.
+Metrics are tagged only with bounded values, namely tenant, destination, and
+reason. Using an event identifier or product identifier as a tag would create
+one time series per event and overwhelm the metrics backend.
 
 ## Order of checks
 
-The cheap checks run in a servlet filter **before the body is read**: payload
-size, then API key, then rate limit. An earlier version authenticated inside the
-controller, after Spring had already parsed the body, so any anonymous caller
-could make the server parse a full-size request. Rejections from the filter carry
-CORS headers for allowed origins; without them, the browser would report an
-opaque network error, which the SDK must treat as retryable, and a bad key would
-be retried forever.
+Inexpensive checks run in a servlet filter before the request body is read:
+payload size, then API key, then rate limit. An earlier version authenticated
+within the controller, after Spring had already parsed the body, which allowed
+any anonymous caller to force the server to parse a full-size request.
+Rejections issued by the filter carry CORS headers for permitted origins;
+without them the browser would report an opaque network error, which the SDK
+must treat as retryable, and an invalid key would be retried indefinitely.
 
 ## Request controls
 
 | Control | Default | Property |
-|---|---|---|
+| --- | --- | --- |
 | API key authentication | required | `omnirec.events.tenants.<id>.api-key` |
-| Rate limit | 300 req/min per tenant per IP | `omnirec.events.rate-limit.*` |
-| Max batch size | 500 events → 413 | `omnirec.events.max-batch-size` |
-| Max payload | 1 MB → 413 (declared or streamed) | `omnirec.events.max-payload-bytes` |
-| Disabled tenant | its key → 401 | `omnirec.events.tenants.<id>.enabled` |
-| Schema validation | on | always |
-| IP retention | **off** | `omnirec.events.retain-ip-address` |
+| Rate limit | 300 requests per minute, per tenant per client address | `omnirec.events.rate-limit.*` |
+| Maximum batch size | 500 events, then 413 | `omnirec.events.max-batch-size` |
+| Maximum payload | 1 MB, then 413, whether declared or streamed | `omnirec.events.max-payload-bytes` |
+| Disabled tenant | its key returns 401 | `omnirec.events.tenants.<id>.enabled` |
+| Schema validation | enabled | always applied |
+| IP retention | disabled | `omnirec.events.retain-ip-address` |
 
-The rate limit is keyed on the connection's address. It used to key on the
-left-most `X-Forwarded-For`, which the client writes, so rotating a fake header
-bypassed it (audit finding A5). Behind a load balancer, set
-`server.forward-headers-strategy=native`; Tomcat then resolves the real client
-address and trusts forwarded headers only from internal proxies.
+The rate limit is keyed on the connection address. It previously used the
+left-most `X-Forwarded-For` value, which the client controls, so rotating a
+forged header bypassed the limit (audit finding A5). Behind a load balancer, set
+`server.forward-headers-strategy=native`, after which Tomcat resolves the
+originating client address and trusts forwarded headers only from internal
+proxies.
 
-The rate limiter is per-instance fixed-window, so behind N replicas the effective
-limit is N × the configured value, and a window boundary admits up to 2×. It is a
-first line of defence against one misbehaving client, not a quota system; move it
-to a shared Redis counter if you need a real one.
+The rate limiter uses a per-instance fixed window, so across N replicas the
+effective limit is N times the configured value, and a window boundary admits up
+to twice the configured rate. It is a first line of defence against a single
+misbehaving client rather than a quota system. Use a shared Redis counter where
+accurate quotas are required.
 
-`allow-anonymous-ingestion` disables tenant isolation entirely, so **startup
-fails** if it is set outside the `dev`, `test`, or `local` profiles.
+Setting `allow-anonymous-ingestion` disables tenant isolation entirely, so
+startup fails if it is enabled outside the `dev`, `test`, or `local` profiles.
 
 ## Network
 
-- HTTPS assumed everywhere; the anonymous-id cookie is `Secure` over HTTPS and
-  `SameSite=Lax`.
-- CORS allows only configured storefront origins, only `POST`, only on the event
-  endpoints. `allowCredentials` is off — the key travels in a header, so there is
-  no reason to let the browser attach cookies.
-- `text/plain` is accepted on the batch endpoint solely because
-  `navigator.sendBeacon` cannot set a Content-Type and must stay a CORS simple
-  request. The body is still JSON.
-- `context.url` and `context.referrer` are scrubbed of tokens, OAuth codes,
-  emails, session ids and URL credentials, in the SDK and again in the API.
-- The client IP is used for coarse geo and rate limiting only. Behind an
-  untrusted path `X-Forwarded-For` is spoofable, which is exactly why it is never
-  used for identity.
+- HTTPS is assumed throughout. The anonymous identifier cookie is marked
+  `Secure` over HTTPS and `SameSite=Lax`.
+- CORS permits only the configured storefront origins, only the `POST` method,
+  and only the event endpoints. `allowCredentials` is disabled, because the key
+  travels in a header and there is no reason to permit the browser to attach
+  cookies.
+- The `text/plain` content type is accepted on the batch endpoint solely because
+  `navigator.sendBeacon` cannot set a content type and must remain a CORS simple
+  request. The body remains JSON.
+- `context.url` and `context.referrer` are sanitized to remove tokens, OAuth
+  codes, email addresses, session identifiers, and URL credentials, both in the
+  SDK and again in the API.
+- The client IP address is used for coarse geolocation and rate limiting only.
+  On an untrusted network path `X-Forwarded-For` can be forged, which is
+  precisely why it is never used for identity.
 
 ## The legacy serving-side endpoint
 
-The serving API (`omnirec-web`) predates the Event API and used to expose its own
-**unauthenticated** `POST /v1/events`. It trusted the body's `tenantId`, skipped
-validation, deduplication and the queue, and called providers synchronously. It
-is now **off by default** (`omnirec.web.legacy-ingestion.enabled`), and logs a
-warning if turned on. Its mappers were brought in line with the new adapters'
-identity rules, but it still lacks everything else the Event API guarantees.
-Migrate to the Event API rather than enabling it.
+The serving API (`omnirec-web`) predates the Event API and previously exposed
+its own unauthenticated `POST /v1/events` endpoint. That endpoint trusted the
+`tenantId` supplied in the body, omitted validation, deduplication, and
+queueing, and called providers synchronously. It is now disabled by default
+through `omnirec.web.legacy-ingestion.enabled` and logs a warning when enabled.
+Its mappers have been aligned with the identity rules of the current adapters,
+but it still lacks every other guarantee the Event API provides. Migrate to the
+Event API rather than enabling it.
 
 ## Credentials in production
 
-Provider credentials are resolved by each cloud's own mechanism, not from
-configuration files:
+Provider credentials are resolved by each platform's own mechanism rather than
+from configuration files:
 
-- **AWS** — the default provider chain: an IAM role or instance profile in
-  production, `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` locally.
-- **Google** — Application Default Credentials: workload identity in production,
-  `GOOGLE_APPLICATION_CREDENTIALS` locally.
+- **AWS**: the default provider chain, using an IAM role or instance profile in
+  production and `AWS_ACCESS_KEY_ID` with `AWS_SECRET_ACCESS_KEY` in local
+  development.
+- **Google**: Application Default Credentials, using workload identity in
+  production and `GOOGLE_APPLICATION_CREDENTIALS` in local development.
 
-Neither destination has an `accessKey`/`secretKey` property, so there is no
-supported way to write a long-lived secret into config and have it committed.
+Neither destination exposes an `accessKey` or `secretKey` property, so there is
+no supported means of writing a long-lived secret into configuration and
+committing it.
 
-## Reporting
+## Reporting a vulnerability
 
-Security issues should go to the maintainers privately rather than through a
-public issue.
+Report security issues privately to the maintainers rather than through a public
+issue. See [SECURITY.md](../SECURITY.md) for the disclosure process.

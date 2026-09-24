@@ -1,212 +1,216 @@
-# Omnirec guide: the architecture, and how to use it
+# Omnirec Guide
 
-This is the starting point. It explains how the system fits together, then walks
-through using it: running it locally, adding it to a storefront, reporting
-purchases from your backend, connecting a recommendation provider, deploying it,
-and extending it. Each section links to the detailed reference.
+This guide describes the system architecture and explains how to use it. It
+covers local setup, storefront integration, server-side integration, provider
+configuration, deployment, operation, and extension. Each section links to the
+corresponding reference document.
 
-**Contents**
+## Contents
 
-1. [What Omnirec is](#1-what-omnirec-is)
-2. [The architecture](#2-the-architecture)
-3. [Run it locally in five minutes](#3-run-it-locally-in-five-minutes)
-4. [Add it to your storefront](#4-add-it-to-your-storefront)
-5. [Report purchases from your backend](#5-report-purchases-from-your-backend)
-6. [Connect a recommendation provider](#6-connect-a-recommendation-provider)
-7. [Deploy the Event API](#7-deploy-the-event-api)
-8. [Operate it](#8-operate-it)
-9. [Extend it: add a destination](#9-extend-it-add-a-destination)
-10. [Limits to know about](#10-limits-to-know-about)
-11. [Reference docs](#11-reference-docs)
+1. [Overview](#1-overview)
+2. [Architecture](#2-architecture)
+3. [Running locally](#3-running-locally)
+4. [Storefront integration](#4-storefront-integration)
+5. [Server-side integration](#5-server-side-integration)
+6. [Provider configuration](#6-provider-configuration)
+7. [Deployment](#7-deployment)
+8. [Operations](#8-operations)
+9. [Extending the system](#9-extending-the-system)
+10. [Known limitations](#10-known-limitations)
+11. [Reference documentation](#11-reference-documentation)
 
----
+## 1. Overview
 
-## 1. What Omnirec is
+Omnirec collects commerce interactions (product views, searches, cart activity,
+checkouts, and purchases), converts them into a single canonical event format,
+resolves the identity each event belongs to, and delivers them to the
+personalization providers a merchant has configured.
 
-Omnirec collects what shoppers do in your store: views, searches, carts,
-checkouts, purchases. It puts every event into one standard shape, works out who
-each event belongs to, and delivers it reliably to the personalisation providers
-you choose: Amazon Personalize, Google Retail, or your own.
+A storefront is instrumented once. Adding or replacing a provider is a
+configuration change and does not require changes to storefront code.
 
-You instrument your store once. Changing or adding a provider is a
-configuration change, not a code change in your store.
+Omnirec is infrastructure rather than an analytics product. It provides no
+dashboard, no reporting interface, and no machine learning model of its own.
 
-It is infrastructure. There is no dashboard, no analytics UI, and no machine
-learning of its own: the providers do the learning.
+The system consists of four parts:
 
-**What you get:**
+| Component | Purpose |
+| --- | --- |
+| `@omnirec/commerce-web` | Browser SDK for interactions that occur on the page. React bindings are provided separately. |
+| `commerce-tracker-spring-boot` | Server-side SDK for events that only the merchant backend can confirm, such as a settled payment. |
+| Event API | Standalone service that authenticates, validates, deduplicates, queues, and delivers events. |
+| Canonical event schema | A single event definition shared by both SDKs and the server, kept consistent by contract tests. |
 
-- A browser SDK (`@omnirec/commerce-web`, plus React bindings) for what shoppers
-  do on the page.
-- A Spring Boot SDK (`commerce-tracker-spring-boot`) for facts only your server
-  knows, such as a settled payment.
-- A standalone **Event API** service that receives, checks and queues events,
-  then delivers them to providers.
-- One standard event schema shared by both SDKs and the server, kept identical by
-  contract tests.
+## 2. Architecture
 
----
-
-## 2. The architecture
-
-### The big picture
+### System overview
 
 ```
-            YOUR STORE                                   OMNIREC EVENT API (you deploy it)
- ┌─────────────────────────────┐          ┌──────────────────────────────────────────────────────┐
- │ Browser                     │          │  Gateway                                              │
- │  @omnirec/commerce-web ─────┼── HTTPS ─┼─► auth (publishable key → tenant) · size cap ·        │
- │  views, search, cart, …     │  batches │    rate limit · normalise · validate · dedupe ·       │
- │                             │          │    resolve identity                                   │
- │ Your Spring Boot backend    │          │                    │                                  │
- │  commerce-tracker ──────────┼── HTTPS ─┼────────────────────┤                                  │
- │  purchases, refunds, …      │          │                    ▼                                  │
- └─────────────────────────────┘          │               RabbitMQ                                │
-                                          │     one queue set per destination, with retry and     │
-                                          │     dead-letter queues                                │
-                                          │        │               │                │             │
-                                          │        ▼               ▼                ▼             │
-                                          │   Amazon adapter  Google adapter  Recently-viewed     │
-                                          └────────┼───────────────┼────────────────┼─────────────┘
-                                                   ▼               ▼                ▼
-                                          Amazon Personalize  Google Retail   Redis (serving cache)
+  Merchant systems                        Event API (self-hosted)
++---------------------------+       +-------------------------------------------+
+| Browser                   |       | Gateway                                   |
+|   @omnirec/commerce-web   | HTTPS |   authentication (publishable key to      |
+|   views, search, cart     |------>|   tenant), payload limit, rate limit,     |
+|                           |       |   normalization, validation,              |
+| Merchant backend          | HTTPS |   deduplication, identity resolution      |
+|   commerce-tracker        |------>|                     |                     |
+|   purchases, refunds      |       |                     v                     |
++---------------------------+       | RabbitMQ                                  |
+                                    |   one queue set per destination, with     |
+                                    |   retry tiers and dead-letter queues      |
+                                    |         |          |           |          |
+                                    |         v          v           v          |
+                                    |   Amazon       Google      Recently       |
+                                    |   adapter      adapter     viewed         |
+                                    +---------|----------|-----------|----------+
+                                              v          v           v
+                                         Amazon      Google        Redis
+                                       Personalize   Retail   (serving cache)
 ```
 
-The store holds only a **publishable key**. Every provider credential (AWS keys,
-Google service accounts) lives in the Event API, and only there.
+Storefront code holds only a publishable key. Provider credentials, including
+AWS access keys and Google service accounts, are held exclusively by the Event
+API.
 
-### What happens to one event
+### Event lifecycle
 
-Take a shopper opening a product page.
+The following describes the processing of a single product view.
 
-1. **Captured.** Your page calls `commerce.product.viewed({ productId: "p123" })`.
-   The SDK adds everything you didn't pass:
+1. **Capture.** The storefront calls `commerce.product.viewed({ productId: "p123" })`.
+   The SDK attaches the remaining fields automatically:
    - a unique `eventId` and a `timestamp`;
-   - the device's `anonymousId` (a first-party cookie) and the visit's `sessionId`;
-   - the `userId`, if the shopper has signed in;
+   - the device `anonymousId` (a first-party cookie) and the `sessionId`;
+   - the `userId`, if the visitor is signed in;
    - the page URL, with tokens and email addresses removed;
-   - the platform and device.
-2. **Checked in the browser.** The event is validated: required fields must be
-   present, and anything that looks like card data or a password is refused.
-   Invalid events are reported to `onError` and never sent.
-3. **Batched.** Events are buffered and sent in batches of up to 20, or every 5
-   seconds. If the network is down they wait in a small `localStorage` buffer and
-   are retried with backoff. Anything still waiting when the page closes is sent
-   with `sendBeacon`.
-4. **Admitted by the gateway.** Before the body is even parsed, the Event API
-   checks four things:
-   - the key maps to an enabled tenant, and the tenant comes from the key, never
-     from the request body;
-   - the body is under the size limit;
-   - the client is under its rate limit;
-   - the request's origin is allowed by CORS.
-5. **Normalised and validated again.** Each event in the batch is checked on its
-   own, so one bad event doesn't sink the other 19. The server never trusts the
-   browser's validation.
-6. **Deduplicated.** The `eventId` is claimed in the dedup store (Redis in
-   production). A repeat of an event already accepted in the last 24 hours is
-   counted as a duplicate and dropped. This is what makes retries safe all the way
-   back to the browser.
-7. **Identity resolved.** If this device has been linked to a customer before,
-   the `userId` is filled in. See [Identity](#identity-in-one-minute).
-8. **Queued.** The event is published to RabbitMQ, once for each enabled
-   destination. The API answers `202` only after the broker has **confirmed** the
-   write. If the broker is down, the API answers `503` and the SDK retries.
-9. **Delivered.** Each destination has its own consumer. The adapter translates
-   the standard event into the provider's format and sends it. A temporary
-   failure is retried after 1s, 2s, 4s, 8s, then 16s. After that, or on a
-   permanent failure, the event goes to a dead-letter queue to inspect and replay.
-10. **Delivered once per destination.** Each delivery also takes a lease on
-    `(destination, eventId)`, so a message RabbitMQ redelivers is not sent to the
-    provider twice.
+   - platform and device attributes.
+2. **Client-side validation.** Required fields are checked, and values resembling
+   payment card data or credentials are rejected. Invalid events are reported
+   through the `onError` callback and are not transmitted.
+3. **Batching.** Events are buffered and transmitted in batches of up to 20
+   events, or every 5 seconds, whichever occurs first. If the network is
+   unavailable, events are held in a bounded `localStorage` buffer and retried
+   with exponential backoff. Events still buffered when the page unloads are
+   transmitted using `navigator.sendBeacon`.
+4. **Admission control.** The Event API performs four checks before the request
+   body is parsed:
+   - the API key resolves to an enabled tenant, and the tenant is derived from
+     the key rather than from the request body;
+   - the body is within the configured payload limit;
+   - the client is within its rate limit;
+   - the request origin is permitted by the CORS configuration.
+5. **Normalization and server-side validation.** Each event in a batch is bound
+   and validated individually, so that a single invalid event does not cause the
+   remainder of the batch to be rejected. Client-side validation is never
+   treated as authoritative.
+6. **Deduplication.** The `eventId` is claimed in the deduplication store, backed
+   by Redis in multi-instance deployments. An event already accepted within the
+   deduplication window (24 hours by default) is recorded as a duplicate and
+   discarded. This property is what makes retries safe from the browser onward.
+7. **Identity resolution.** If the device has previously been linked to a
+   customer, the `userId` is populated. See [identity resolution](#identity-resolution).
+8. **Queueing.** The event is published to RabbitMQ once per enabled
+   destination. The API returns `202 Accepted` only after the broker confirms
+   the publication. If the broker is unavailable, the API returns `503` with a
+   `Retry-After` header and the SDK retries.
+9. **Delivery.** Each destination has a dedicated consumer. The adapter maps the
+   canonical event to the provider format and transmits it. Transient failures
+   are retried after 1s, 2s, 4s, 8s, and 16s. Once retries are exhausted, or on
+   a permanent failure, the event is routed to a dead-letter queue for
+   inspection and replay.
+10. **Delivery idempotency.** Each delivery acquires a lease on the pair
+    (destination, `eventId`), so that a message redelivered by RabbitMQ is not
+    transmitted to the provider twice.
 
-### The modules
+### Modules
 
-| Module | What it does |
-|---|---|
+| Module | Responsibility |
+| --- | --- |
 | `packages/commerce-web` | Browser SDK. No framework dependency. |
-| `packages/commerce-react` | React provider, `useCommerce`, `useProductView`. |
-| `omnirec-commerce-core` | The standard `CommerceEvent`, event types, validation, identity linking, deduplication, and the `EventDestination` interface. No Spring, no cloud SDKs. |
-| `omnirec-event-api` | The gateway: keys, limits, normalisation, validation, dedup, identity. |
-| `omnirec-event-processing` | RabbitMQ queues, consumers, retries, dead-lettering, per-destination idempotency. |
-| `omnirec-amazon-personalize-destination` | Amazon adapter. The only code that knows Personalize exists. |
-| `omnirec-google-retail-destination` | Google adapter. The only code that knows Retail exists. |
-| `omnirec-recently-viewed-destination` | Keeps the serving side's recently-viewed lists current. |
-| `omnirec-redis-state` | Shared dedup and identity links, needed once you run more than one instance. |
-| `commerce-tracker-spring-boot` | The SDK you embed in your own backend. |
-| `omnirec-event-api-app` | The deployable service that bundles all of the above. |
+| `packages/commerce-react` | React bindings: `CommerceProvider`, `useCommerce`, `useProductView`. |
+| `omnirec-commerce-core` | Canonical `CommerceEvent`, event taxonomy, validation, identity linking, deduplication, and the `EventDestination` interface. No Spring and no cloud SDK dependencies. |
+| `omnirec-event-api` | Gateway: API keys, request limits, normalization, validation, deduplication, identity resolution. |
+| `omnirec-event-processing` | RabbitMQ topology, consumers, retry scheduling, dead-lettering, per-destination idempotency. |
+| `omnirec-amazon-personalize-destination` | Amazon Personalize adapter. |
+| `omnirec-google-retail-destination` | Google Retail adapter. |
+| `omnirec-recently-viewed-destination` | Maintains recently-viewed lists for the serving side. |
+| `omnirec-redis-state` | Shared deduplication and identity-link stores, required for multi-instance deployments. |
+| `commerce-tracker-spring-boot` | Server-side SDK embedded in the merchant application. |
+| `omnirec-event-api-app` | Deployable service that assembles the modules above. |
 
-Alongside these, the original **serving side** (`omnirec-web`, `omnirec-demo-app`
-and friends) answers `/v1/recommendations`, `/v1/search`, and
-`/v1/recently-viewed`. Reading results is a separate service from collecting
-events, and the two deploy independently.
+The serving side (`omnirec-web`, `omnirec-demo-app`, and related modules)
+provides `/v1/recommendations`, `/v1/search`, and `/v1/recently-viewed`. Serving
+personalization results is a separate concern from collecting events, and the
+two deploy independently.
 
-### The design rules, and why
+### Design principles
 
-- **The core never depends on a provider.** Everything provider-specific sits
-  behind one interface, `EventDestination`. The module graph enforces this: the
-  core has no path to a cloud SDK, so a provider import there won't compile.
-- **The Event API is a separate service**, not a library in your store. That's
-  what keeps provider credentials out of your storefront and your app servers.
-- **One queue set per destination.** If Amazon is down, only Amazon's queue
-  backs up; Google keeps draining.
-- **Deduplication uses a lease that is completed only after success.** A crash
-  mid-delivery releases the claim instead of losing the event.
-- **Identity links are stored, not applied to past events.** Logging in doesn't
-  rewrite history; it resolves future events. Attribution becomes a join, not a
-  mass update.
-- **Purchases come from the server.** A browser can't know whether a payment
-  settled, and confirmation pages get reloaded or never load.
+- **Provider independence.** The core has no compile-time dependency on any
+  provider SDK. All provider-specific behaviour is implemented behind the
+  `EventDestination` interface, and the module graph enforces this constraint.
+- **Credential isolation.** The Event API is a separate service rather than a
+  library embedded in merchant applications, which confines provider
+  credentials to a single process.
+- **Destination isolation.** Each destination has its own queue set, so an
+  outage affecting one provider does not delay delivery to another.
+- **Lease-based idempotency.** A deduplication claim is completed only after
+  successful processing, so a process failure during delivery releases the claim
+  rather than discarding the event.
+- **Immutable history.** Identity links are stored rather than applied
+  retroactively. Authentication does not rewrite previously captured events;
+  attribution is performed as a join.
+- **Authoritative purchase reporting.** Purchases are reported from the merchant
+  backend, because a browser cannot confirm payment settlement and confirmation
+  pages may be reloaded or never rendered.
 
-### Identity in one minute
+### Identity resolution
 
-| Id | What it is | Where it lives |
-|---|---|---|
-| `anonymousId` | This device | First-party cookie `omnirec_anonymous_id` |
-| `sessionId` | This visit; a new one after 30 minutes idle | `localStorage` |
-| `userId` | The customer | Set by your code with `identify()` / `user.loggedIn()` |
+| Identifier | Represents | Storage |
+| --- | --- | --- |
+| `anonymousId` | The device | First-party cookie `omnirec_anonymous_id` |
+| `sessionId` | The visit; replaced after 30 minutes of inactivity | `localStorage` |
+| `userId` | The customer | Supplied by the application through `identify()` or `user.loggedIn()` |
 
-When a shopper signs in, the SDK sends an `identify` event and the server stores
-the link `anonymousId → userId`:
+When a visitor authenticates, the SDK emits an `identify` event and the server
+records the link from `anonymousId` to `userId`. The following rules apply:
 
-- Events already captured anonymously **keep their null `userId`**. Nothing is
-  rewritten.
-- Later events from that device get the `userId` filled in automatically, even
-  on a page that forgot to call `identify()`.
-- A shopper can link several devices to one account.
-- Logging out, or a different user signing in, starts a new session.
+- Events captured anonymously retain a null `userId` permanently. No historical
+  event is modified.
+- Subsequent events from the linked device are enriched with the `userId`
+  automatically, including on pages that do not call `identify()`.
+- A customer may link multiple devices to one account.
+- Signing out, or authenticating as a different user, starts a new session.
 
-IP addresses and browser fingerprints are never used as identity. See
+IP addresses and device fingerprints are never used as identity signals. See
 [identity.md](identity.md).
 
----
+## 3. Running locally
 
-## 3. Run it locally in five minutes
-
-You need Docker, Node 18+, and (to build the backend yourself) JDK 17 with Maven.
+Requirements: Docker, Node.js 20 or later, and (for backend builds) JDK 17 with
+Maven.
 
 ```bash
-docker-compose up -d        # RabbitMQ, Redis, Event API (:8081), serving API (:8080)
+docker-compose up -d        # RabbitMQ, Redis, Event API (8081), serving API (8080)
 
 npm install
 cd examples/nextjs-demo-store && cp .env.local.example .env.local && cd ../..
 npx turbo run dev --filter=nextjs-demo-store
 ```
 
-Open http://localhost:3000, click around, add to cart, and log in. Then:
+Open `http://localhost:3000` and interact with the demo storefront. The
+following are then observable:
 
-- **Network tab:** batches going to `POST http://localhost:8081/v1/events/batch`.
-- **RabbitMQ UI** at http://localhost:15672 (guest / guest): the `omnirec.events.*`
-  queues.
-- **Recently viewed** for a signed-in user:
+- event batches posted to `http://localhost:8081/v1/events/batch`;
+- the `omnirec.events.*` queues in the RabbitMQ management interface at
+  `http://localhost:15672` (default credentials `guest` / `guest`);
+- recently-viewed results for an authenticated user:
   `curl "http://localhost:8080/v1/recently-viewed?tenantId=demo-store&userId=<id>"`.
 
-No cloud account is needed: every provider destination is off by default.
+No cloud account is required. All provider destinations are disabled by default.
 
-> **Port clash?** If something else on your machine already uses 5672, 6379,
-> 8080, or 8081, stop it or change the ports in `docker-compose.yml`.
+If ports 5672, 6379, 8080, or 8081 are already in use, stop the conflicting
+service or change the port mappings in `docker-compose.yml`.
 
-### Send an event by hand
+### Submitting an event directly
 
 ```bash
 curl -i http://localhost:8081/v1/events/batch \
@@ -226,49 +230,51 @@ curl -i http://localhost:8081/v1/events/batch \
   }'
 ```
 
-The API answers `202 Accepted` with a summary:
+The service responds with `202 Accepted` and a summary:
 
 ```json
 { "accepted": 1, "rejected": 0, "duplicates": 0, "retryLater": 0, "errors": [] }
 ```
 
-Send the same request again and you get `"duplicates": 1`.
+Repeating the request returns `"duplicates": 1`.
 
-### Run the full end-to-end check
+### End-to-end verification
 
 ```bash
 bash scripts/e2e/run.sh
 ```
 
-This drives the built browser SDK through a two-day anonymous journey and a
-login, against the real Event API, RabbitMQ and Redis. Amazon calls go to a
-local capture server in place of Personalize. The script checks nine things,
-including identity, sessions, no card data, dwell handling, and recently-viewed.
-It uses its own ports and removes its containers when it's done.
+This script drives the built browser SDK through a two-day anonymous journey
+followed by authentication, against a running Event API, RabbitMQ, and Redis.
+Amazon Personalize is replaced by a local capture server, so no cloud account is
+required. The script asserts nine conditions, covering identity, session
+behaviour, rejection of payment card data, dwell-time handling, and the
+recently-viewed feed. It uses dedicated ports and removes its containers on
+exit.
 
----
+## 4. Storefront integration
 
-## 4. Add it to your storefront
+### Step 1: Configure a tenant
 
-### Step 1: get a publishable key
-
-A tenant is one store. It's defined in the Event API's configuration:
+A tenant represents one storefront and is defined in the Event API
+configuration:
 
 ```yaml
 omnirec:
   events:
     tenants:
       my-store:
-        api-key: ${MY_STORE_API_KEY}     # e.g. pk_live_7f3c…  (publishable)
+        api-key: ${MY_STORE_API_KEY}     # publishable, for example pk_live_7f3c...
     cors:
       allowed-origins:
         - https://www.my-store.com
 ```
 
-The key only lets a client write events for that one tenant, so it is safe to
-ship in browser code. Set `enabled: false` under a tenant to shut its key off.
+The key authorizes event submission for a single tenant and nothing further,
+which is why it may be embedded in browser code. Setting `enabled: false` on a
+tenant revokes its key.
 
-### Step 2: install and create the client
+### Step 2: Create the client
 
 ```bash
 npm install @omnirec/commerce-web
@@ -283,11 +289,11 @@ export const commerce = createCommerceClient({
 });
 ```
 
-That's the whole required configuration. The SDK **throws** if `apiKey` looks
-like a secret (`sk_…`, an AWS key, a PEM block), so a leaked credential fails
-loudly in development instead of shipping.
+No further configuration is required. The SDK throws during initialization if
+`apiKey` resembles a secret credential, such as a value prefixed with `sk_`, an
+AWS access key identifier, or a PEM block.
 
-### Step 3: call the trackers
+### Step 3: Record interactions
 
 ```js
 commerce.page.viewed();
@@ -298,31 +304,32 @@ commerce.cart.productAdded({ cartId: "c1", productId: "p123", quantity: 1, price
 commerce.checkout.started({ cartId: "c1" });
 ```
 
-There's a tracker for each of the 37 event types. See
-[frontend-sdk.md](frontend-sdk.md#the-trackers) for the full list and
-[event-schema.md](event-schema.md#validation-rules) for each type's required
-fields.
+A tracker method exists for each of the 37 event types. The complete list is in
+[frontend-sdk.md](frontend-sdk.md#the-trackers), and the required fields for each
+type are documented in [event-schema.md](event-schema.md#validation-rules).
 
-You never pass ids, timestamps, URLs, or device details; the SDK adds them.
+Identifiers, timestamps, URLs, and device attributes are attached by the SDK and
+must not be passed by the caller.
 
-### Step 4: tell it who the shopper is
+### Step 4: Identify the visitor
 
 ```js
-// After a successful login, or on every page load once you know the user:
-commerce.user.loggedIn({ userId: "customer_123" });   // or commerce.identify({ userId })
+// After successful authentication, or on each page load once the user is known:
+commerce.user.loggedIn({ userId: "customer_123" });   // equivalently, commerce.identify({ userId })
 
-// On logout:
+// On sign-out:
 commerce.user.loggedOut();
 ```
 
-Calling `identify` on every page load is fine; repeats cost nothing. Use your
-stable internal customer id, never an email address.
+Calling `identify` on every page load is supported; repeated calls for an
+already-identified user emit no additional events. Use a stable internal
+customer identifier rather than an email address.
 
-### Step 5: single-page apps
+### Step 5: Single-page applications
 
-In an SPA, call `commerce.page.viewed()` on every route change. That also ends
-the time-on-product measurement for the page being left. Without it, dwell time
-keeps running across navigation.
+Call `commerce.page.viewed()` on each route change. In addition to recording the
+navigation, this ends any dwell-time measurement in progress. Without it, the
+measurement continues across navigation.
 
 ### React and Next.js
 
@@ -352,7 +359,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 import { useCommerce, useProductView } from "@omnirec/commerce-react";
 
 export function ProductPage({ product }) {
-  // Records the view on mount, ends dwell measurement on unmount.
+  // Records the view on mount and ends dwell measurement on unmount.
   useProductView({ productId: product.id, price: product.price, currency: "USD" });
 
   const commerce = useCommerce();
@@ -366,13 +373,14 @@ export function ProductPage({ product }) {
 }
 ```
 
-`NEXT_PUBLIC_` is correct: this key is meant to be public. Importing the SDK
-during server rendering is safe; create the client in a `"use client"` component.
+The `NEXT_PUBLIC_` prefix is appropriate because the publishable key is intended
+to be exposed. Importing the SDK during server rendering is safe; the client
+should be created within a `"use client"` component.
 
 ### Recommendation attribution
 
-When you show recommendations, pass the provider that produced them, so
-attribution goes back only to that provider:
+When recommendations are displayed, identify the provider that produced them so
+that attribution is forwarded only to that provider:
 
 ```js
 commerce.recommendation.impression({
@@ -384,21 +392,19 @@ commerce.recommendation.impression({
 commerce.recommendation.clicked({ recommendationId: "rec_123", productId: "p2" });
 ```
 
-### Debugging
-
-Pass `debug: true` to log every event as it's built, and `onError` to see
-refusals:
+### Diagnostics
 
 ```js
 createCommerceClient({ apiKey, endpoint, debug: true, onError: (e) => console.warn(e) });
 ```
 
----
+With `debug` enabled, each event is logged as it is constructed. The `onError`
+callback reports validation failures and discarded batches.
 
-## 5. Report purchases from your backend
+## 5. Server-side integration
 
-Anything the browser can't be trusted to know belongs on the server: a settled
-payment, a refund, a cancelled order, a verified review.
+Events that a browser cannot confirm, including settled payments, refunds,
+cancelled orders, and verified reviews, are reported from the merchant backend.
 
 ```xml
 <dependency>
@@ -430,7 +436,7 @@ public class OrderService {
         commerce.purchase.completed(PurchaseCompleted.builder()
                 .orderId(order.getId())
                 .userId(order.getCustomerId())
-                .anonymousId(order.getTrackingAnonymousId())   // strongly recommended
+                .anonymousId(order.getTrackingAnonymousId())   // recommended
                 .items(order.getLines().stream()
                         .map(l -> CommerceItem.of(l.getSku(), l.getQuantity(), l.getPrice(), "USD"))
                         .toList())
@@ -441,29 +447,28 @@ public class OrderService {
 }
 ```
 
-Three things to know:
+Three properties of the server-side SDK are relevant to integration:
 
-- **It never blocks your checkout.** Events go onto a bounded in-memory queue and
-  are sent in the background. Temporary failures are retried for about three
-  minutes. An outage on our side can't slow down your order placement.
-- **It's idempotent.** A purchase's `eventId` is derived from the order id
-  (`evt:purchase_completed:<orderId>`), and the browser SDK derives the same id.
-  A purchase reported twice, by a retried webhook, a reloaded confirmation page,
-  or both SDKs, is delivered once.
-- **Pass the `anonymousId`.** Read it from the `omnirec_anonymous_id` cookie at
-  checkout and store it with the order. It links the purchase to the browsing that
-  led to it, which is usually the most valuable signal.
+- **Non-blocking delivery.** Events are placed on a bounded in-memory queue and
+  transmitted by a background thread. Transient failures are retried for
+  approximately three minutes. An Event API outage cannot delay order
+  placement.
+- **Idempotency.** The `eventId` for a purchase is derived from the order
+  identifier (`evt:purchase_completed:<orderId>`), and the browser SDK derives
+  the same identifier. A purchase reported by a retried webhook, a reloaded
+  confirmation page, or both SDKs is therefore delivered once.
+- **Anonymous identifier propagation.** Read `omnirec_anonymous_id` from the
+  cookie at checkout and persist it with the order. It links the purchase to the
+  anonymous browsing that preceded it.
 
-For purchases that must never be lost, even through a long outage plus a
-restart, record them in your own transactional outbox and replay from it. The
-deterministic ids make replay safe. See [spring-boot-sdk.md](spring-boot-sdk.md).
+For purchases that must survive a prolonged outage combined with a process
+restart, record them in a transactional outbox and replay from it. Deterministic
+event identifiers make replay safe. See [spring-boot-sdk.md](spring-boot-sdk.md).
 
----
+## 6. Provider configuration
 
-## 6. Connect a recommendation provider
-
-Each destination is off until you turn it on. Turning one on is a flag plus that
-provider's credentials, set on the Event API only.
+Destinations are disabled by default. Enabling one requires a configuration flag
+and the provider credentials, both applied to the Event API only.
 
 ### Amazon Personalize
 
@@ -474,18 +479,15 @@ omnirec:
       enabled: true
       region: us-east-1
       tracking-id: ${AWS_PERSONALIZE_TRACKING_ID}
-      property-keys: [price, currency]    # only keys your interactions schema defines
+      property-keys: [price, currency]    # keys defined by the interactions schema
 ```
 
-Credentials come from the AWS default chain: an IAM role in production, or
-`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` locally. The adapter:
-
-- sends at most 10 events per call;
-- sends `userId` only for signed-in shoppers;
-- forwards recommendation ids only when Personalize issued them;
-- skips event types Personalize has no use for.
-
-Details: [amazon-personalize.md](amazon-personalize.md).
+Credentials are resolved through the AWS default provider chain: an IAM role in
+production, or `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` in development.
+The adapter observes the documented API constraints: a maximum of 10 events per
+request, `userId` populated only for authenticated visitors, recommendation
+identifiers forwarded only when issued by Personalize, and unsupported event
+types skipped. See [amazon-personalize.md](amazon-personalize.md).
 
 ### Google Retail
 
@@ -500,154 +502,150 @@ omnirec:
 ```
 
 Authentication uses Application Default Credentials: workload identity in
-production, or `GOOGLE_APPLICATION_CREDENTIALS` locally. Retail accepts only
-seven event types, so the adapter sends those and skips the rest. `visitorId` is
-always the anonymous device id; the customer goes in `userInfo`. Details:
+production, or `GOOGLE_APPLICATION_CREDENTIALS` in development. Google Retail
+defines seven user event types; the adapter transmits those and skips all
+others. The `visitorId` field always carries the anonymous device identifier,
+with the customer identifier supplied in `userInfo`. See
 [google-retail.md](google-retail.md).
 
-### Recently viewed (serving side)
+### Recently viewed
 
 ```yaml
 omnirec:
   destinations:
     recently-viewed:
       enabled: true
-      host: ${CACHE_REDIS_HOST}    # the Redis the serving app reads
-      tenant-id: my-store          # required if more than one tenant sends events
+      host: ${CACHE_REDIS_HOST}    # the Redis instance read by the serving side
+      tenant-id: my-store          # required when more than one tenant submits events
 ```
 
-This keeps `/v1/recently-viewed` current for signed-in shoppers.
+This destination maintains the lists returned by `/v1/recently-viewed` for
+authenticated visitors.
 
-### Both at once
+Any number of destinations may be enabled simultaneously. Because each has its
+own queue set, a failure affecting one provider does not delay another.
 
-Enable as many as you like. Each has its own queues, so one provider failing
-never delays another.
+> **Verification status.** The Amazon Personalize and Google Retail adapters are
+> validated against the providers' published API constraints and a local capture
+> server. They have not been executed against live provider accounts. An initial
+> run against a test dataset or project is recommended.
 
-> **Status:** the Amazon and Google adapters are checked against the providers'
-> published API rules and a local capture server. They have **not yet been run
-> against live accounts**. Do a first run against a test dataset or project.
+## 7. Deployment
 
----
-
-## 7. Deploy the Event API
-
-### Build and run
+### Building and running
 
 ```bash
-cd backend && mvn clean install              # builds and runs all 312 tests
+cd backend && mvn clean install              # builds all modules and runs 312 tests
 java -jar omnirec-event-api-app/target/omnirec-event-api-app-*.jar
 ```
 
-Or use the image: `docker build -f backend/omnirec-event-api-app/Dockerfile .`
-(it runs as a non-root user). The service listens on port 8081.
+A container image is also provided:
+`docker build -f backend/omnirec-event-api-app/Dockerfile .`. The image runs as
+a non-root user. The service listens on port 8081.
 
-### What it needs
+### Runtime dependencies
 
-| Dependency | Why | Setting |
-|---|---|---|
-| RabbitMQ 3.13+ | Durable queue between intake and delivery | `RABBITMQ_HOST`, `RABBITMQ_PORT`, `RABBITMQ_USER`, `RABBITMQ_PASSWORD` |
-| Redis | Shared dedup and identity links (needed for more than one instance) | `REDIS_STATE_ENABLED=true`, `REDIS_HOST`, `REDIS_PORT` |
-| Provider credentials | Only for the destinations you enable | See section 6 |
+| Dependency | Purpose | Configuration |
+| --- | --- | --- |
+| RabbitMQ 3.13 or later | Durable queue between ingestion and delivery | `RABBITMQ_HOST`, `RABBITMQ_PORT`, `RABBITMQ_USER`, `RABBITMQ_PASSWORD` |
+| Redis | Shared deduplication and identity links, required for multiple instances | `REDIS_STATE_ENABLED=true`, `REDIS_HOST`, `REDIS_PORT` |
+| Provider credentials | Required only for enabled destinations | See [section 6](#6-provider-configuration) |
 
-Publisher confirms and returns must be on (they are in the shipped
-`application.yml`). The service **refuses to start** without them, because
-without them a failed publish is invisible and the event is lost.
+Publisher confirms and publisher returns must be enabled; both are set in the
+distributed `application.yml`. The service refuses to start without them,
+because an unconfirmed publication cannot be distinguished from a successful one
+and would result in event loss.
 
 ### Environment variables
 
 | Variable | Default | Purpose |
-|---|---|---|
-| `QUEUE_ENABLED` | `true` | `false` delivers inline without RabbitMQ (development only) |
-| `REDIS_STATE_ENABLED` | `false` | Shared state; turn on for more than one instance |
-| `DEMO_STORE_API_KEY` | `pk_test_demo_store` | The sample tenant's key; replace with your own tenants |
-| `PERSONALIZE_ENABLED` / `AWS_PERSONALIZE_TRACKING_ID` / `AWS_REGION` | off | Amazon |
-| `GOOGLE_RETAIL_ENABLED` / `GOOGLE_PROJECT_NUMBER` | off | Google |
-| `RECENTLY_VIEWED_ENABLED` / `RECENTLY_VIEWED_REDIS_HOST` / `RECENTLY_VIEWED_TENANT_ID` | off | Recently-viewed feed |
+| --- | --- | --- |
+| `QUEUE_ENABLED` | `true` | When `false`, events are dispatched inline without RabbitMQ. Intended for development only. |
+| `REDIS_STATE_ENABLED` | `false` | Enables the shared state stores. Required for multi-instance deployments. |
+| `DEMO_STORE_API_KEY` | `pk_test_demo_store` | Key for the sample tenant. Replace with the tenants of the deployment. |
+| `PERSONALIZE_ENABLED`, `AWS_PERSONALIZE_TRACKING_ID`, `AWS_REGION` | disabled | Amazon Personalize destination. |
+| `GOOGLE_RETAIL_ENABLED`, `GOOGLE_PROJECT_NUMBER` | disabled | Google Retail destination. |
+| `RECENTLY_VIEWED_ENABLED`, `RECENTLY_VIEWED_REDIS_HOST`, `RECENTLY_VIEWED_TENANT_ID` | disabled | Recently-viewed destination. |
 
-The full list is in [configuration.md](configuration.md).
+The complete property reference is in [configuration.md](configuration.md).
 
 ### Production checklist
 
-- [ ] A real `api-key` per tenant, and `cors.allowed-origins` limited to your
-      storefronts.
-- [ ] `REDIS_STATE_ENABLED=true` if you run more than one instance. Without it,
-      each instance dedupes only its own traffic, and both in-memory stores log a
-      warning at startup.
-- [ ] Behind a load balancer, set `server.forward-headers-strategy: native` so
-      rate limiting sees the real client address.
-- [ ] Provider credentials from an IAM role or workload identity, not
-      environment variables.
-- [ ] `/actuator/prometheus` scraped, with alerts on `omnirec.events.failed` and
-      on dead-letter queue depth.
+- [ ] A distinct `api-key` per tenant, and `cors.allowed-origins` restricted to
+      the production storefront origins.
+- [ ] `REDIS_STATE_ENABLED=true` for deployments of more than one instance.
+      Without it, each instance deduplicates only its own traffic; both
+      in-memory stores log a warning at startup when active.
+- [ ] `server.forward-headers-strategy: native` when deployed behind a load
+      balancer, so that rate limiting observes the originating client address.
+- [ ] Provider credentials supplied by an IAM role or workload identity rather
+      than environment variables.
+- [ ] `/actuator/prometheus` scraped, with alerts configured on
+      `omnirec.events.failed` and on dead-letter queue depth.
 
 ### Scaling
 
-The Event API is stateless once Redis holds the shared state, so you can run as
-many instances as you need. Consumers scale with
-`omnirec.processing.concurrency`. Per-destination queues mean a slow provider
-only slows itself.
+With Redis providing shared state, the Event API is stateless and may be
+replicated. Consumer parallelism is controlled by
+`omnirec.processing.concurrency`. Per-destination queues ensure that a slow
+provider affects only its own delivery path.
 
----
-
-## 8. Operate it
+## 8. Operations
 
 ### Health and metrics
 
-- `GET /actuator/health`: service health, for load-balancer and orchestrator checks.
-- `GET /actuator/prometheus`: every metric below.
+- `GET /actuator/health` reports service health for load balancer and
+  orchestrator probes.
+- `GET /actuator/prometheus` exposes the metrics listed below.
 
-| Metric | Meaning |
-|---|---|
-| `omnirec.events.received` / `validated` / `rejected` / `duplicates` / `queued` | Intake, per tenant |
-| `omnirec.events.processed` / `failed` | Delivery outcome |
-| `omnirec.provider.delivery.success` / `failure` / `latency` | Per provider |
-| `omnirec.provider.retries` / `dead_lettered` | Retries scheduled, events given up on |
-| `omnirec.queue.depth{queue=…}` | Backlog per queue, including retry tiers and the DLQ |
+| Metric | Description |
+| --- | --- |
+| `omnirec.events.received`, `validated`, `rejected`, `duplicates`, `queued` | Ingestion counters, tagged by tenant |
+| `omnirec.events.processed`, `failed` | Delivery outcome counters |
+| `omnirec.provider.delivery.success`, `failure`, `latency` | Per-provider delivery results and latency |
+| `omnirec.provider.retries`, `dead_lettered` | Retries scheduled and events abandoned |
+| `omnirec.queue.depth{queue=...}` | Queue depth, including retry tiers and dead-letter queues |
 
-### The queues
+### Queues
 
 For each destination:
 
-- `omnirec.events.<dest>`: the main queue.
-- `omnirec.events.<dest>.retry.1` … `.retry.5`: one per delay; messages return to
-  the main queue on their own.
-- `omnirec.events.<dest>.dlq`: events given up on. Each carries the header
-  `x-omnirec-failure-reason`.
+- `omnirec.events.<destination>`: the main queue;
+- `omnirec.events.<destination>.retry.1` through `.retry.5`: one queue per retry
+  delay, from which messages return to the main queue automatically;
+- `omnirec.events.<destination>.dlq`: events abandoned after retries were
+  exhausted or after a permanent failure. Each message carries the
+  `x-omnirec-failure-reason` header.
 
-**Replaying dead letters.** Fix the cause, then shovel the DLQ back onto the
-`omnirec.events` exchange with routing key `events.<dest>`. Events already
-delivered are skipped, so replay is safe. See [rabbitmq.md](rabbitmq.md).
+To replay dead-lettered messages, resolve the underlying cause, then move the
+messages back onto the `omnirec.events` exchange with routing key
+`events.<destination>`. Events already delivered are skipped, so replay is safe.
+See [rabbitmq.md](rabbitmq.md).
 
-### When something's wrong
+### Diagnostics
 
-[troubleshooting.md](troubleshooting.md) is organised by symptom:
+[troubleshooting.md](troubleshooting.md) is organized by symptom and covers
+events not arriving, events accepted but not delivered, duplicate delivery,
+inflated view counts, missing `userId` values, and startup failures.
 
-- no events arriving;
-- events accepted but not reaching the provider;
-- duplicates;
-- inflated views;
-- a missing `userId`;
-- startup failures.
+## 9. Extending the system
 
----
-
-## 9. Extend it: add a destination
-
-A new provider (Azure, a data warehouse, your own service) is one class.
-Nothing in the SDKs, the gateway, or the queue changes.
+Support for an additional provider, data warehouse, or internal service is
+implemented as a single class. No change is required in the SDKs, the gateway,
+or the queue layer.
 
 ```java
 public class MyProviderDestination implements EventDestination {
 
     @Override
     public String id() {
-        return "my-provider";                  // used in config, queue names, metrics
+        return "my-provider";                  // used in configuration, queue names, and metrics
     }
 
     @Override
     public boolean supports(CommerceEvent event) {
         return !event.eventType().isControlEvent()
-                && !event.isEngagementUpdate();     // dwell follow-ups aren't new views
+                && !event.isEngagementUpdate();     // dwell updates are not new interactions
     }
 
     @Override
@@ -657,60 +655,60 @@ public class MyProviderDestination implements EventDestination {
         } catch (TimeoutException e) {
             throw new DestinationException(id(), "timed out", e);            // retried
         } catch (BadRequestException e) {
-            throw DestinationException.permanent(id(), e.getMessage());      // straight to the DLQ
+            throw DestinationException.permanent(id(), e.getMessage());      // dead-lettered
         }
     }
 }
 ```
 
-Register it as a bean, ideally from its own auto-configuration behind an
-`omnirec.destinations.my-provider.enabled` flag, like the existing adapters. The
-queues are created for it automatically.
+Register the implementation as a bean, preferably from a dedicated
+auto-configuration guarded by an `omnirec.destinations.my-provider.enabled`
+property, consistent with the existing adapters. The required queues are
+declared automatically.
 
-Rules every destination follows:
+Implementations must observe the following contract:
 
-- **Be idempotent.** Delivery is at-least-once, so the same event can arrive
-  again.
-- **Throw on a temporary failure.** Returning normally tells the system the event
-  was handled, so a swallowed error loses it for good.
-- **Use `permanent(...)` for failures a retry can't fix.**
-- **Never modify the event.** It's shared with the other destinations.
-- **Keep the mapping separate from the network call**, so the mapping can be
+- **Idempotency.** Delivery is at-least-once, so an implementation may receive
+  the same event more than once.
+- **Transient failures must throw.** Returning normally signals successful
+  handling, so a suppressed error results in permanent event loss.
+- **Permanent failures must use `DestinationException.permanent(...)`**, which
+  routes the event directly to the dead-letter queue.
+- **Events must not be modified.** The event instance is shared across
+  destinations.
+- **Mapping must be separable from transport**, so that mapping logic can be
   tested exhaustively without credentials.
 
----
+## 10. Known limitations
 
-## 10. Limits to know about
-
-- **Live providers are unverified.** Amazon and Google are tested against their
-  documented rules and a capture server, not real accounts.
-- **Azure is not implemented.** Azure AI Personalizer retires on 1 October 2026,
-  so choosing a replacement is still an open decision.
-- **Rate limiting is per instance.** Behind N instances, the effective limit is
-  N times the setting.
-- **The backend SDK buffers in memory.** A long outage plus a restart loses
-  queued events. They are counted, not silently dropped. Use an outbox for
-  must-not-lose events.
-- **Dwell time is best effort.** It's lost on a hard crash or some mobile page
-  freezes.
-- **Changing queue arguments on an existing broker is a migration.** See
+- **Provider adapters are unverified against live accounts.** The Amazon
+  Personalize and Google Retail adapters are tested against documented API
+  constraints and a capture server only.
+- **Azure is not implemented.** Azure AI Personalizer is scheduled for
+  retirement on 1 October 2026, and a replacement target has not been selected.
+- **Rate limiting is per instance.** Across N instances the effective limit is N
+  times the configured value.
+- **The server-side SDK buffers in memory.** A prolonged outage combined with a
+  restart discards queued events. Such events are counted rather than silently
+  dropped. Use a transactional outbox for events that must not be lost.
+- **Dwell time is best-effort.** Measurements are lost on process termination
+  and on certain mobile page-freeze transitions.
+- **Queue argument changes require migration** on an existing broker. See
   [rabbitmq.md](rabbitmq.md#upgrading-an-existing-broker).
 
----
+## 11. Reference documentation
 
-## 11. Reference docs
-
-| Doc | Read it for |
-|---|---|
-| [architecture.md](architecture.md) | Module boundaries and design decisions in depth |
-| [event-schema.md](event-schema.md) | The event shape, all 37 types, validation rules, dwell time |
-| [identity.md](identity.md) | Anonymous and signed-in identity, linking, devices, logout |
-| [frontend-sdk.md](frontend-sdk.md) | Every tracker, batching, offline, configuration |
-| [spring-boot-sdk.md](spring-boot-sdk.md) | The backend SDK, idempotency keys, retry |
-| [rabbitmq.md](rabbitmq.md) | Queue topology, guarantees, retry schedule, operations |
-| [amazon-personalize.md](amazon-personalize.md) · [google-retail.md](google-retail.md) | Exactly how each provider mapping works |
-| [security.md](security.md) | Keys, tenant isolation, sensitive data, network controls |
-| [configuration.md](configuration.md) | Every setting |
-| [testing.md](testing.md) | The test suites and what each one proves |
-| [troubleshooting.md](troubleshooting.md) | Symptom → cause → fix |
-| [AUDIT.md](AUDIT.md) | The audit findings, their fixes, and current status |
+| Document | Contents |
+| --- | --- |
+| [architecture.md](architecture.md) | Module boundaries and design decisions |
+| [event-schema.md](event-schema.md) | Canonical event structure, event taxonomy, validation rules, dwell time |
+| [identity.md](identity.md) | Anonymous and authenticated identity, linking, multiple devices, sign-out |
+| [frontend-sdk.md](frontend-sdk.md) | Browser SDK: trackers, batching, offline behaviour, configuration |
+| [spring-boot-sdk.md](spring-boot-sdk.md) | Server-side SDK: idempotency keys, retry behaviour |
+| [rabbitmq.md](rabbitmq.md) | Queue topology, delivery guarantees, retry schedule, operations |
+| [amazon-personalize.md](amazon-personalize.md), [google-retail.md](google-retail.md) | Provider mapping details |
+| [security.md](security.md) | Key handling, tenant isolation, sensitive data, network controls |
+| [configuration.md](configuration.md) | Complete property reference |
+| [testing.md](testing.md) | Test suites and the properties each verifies |
+| [troubleshooting.md](troubleshooting.md) | Symptom-based diagnostics |
+| [AUDIT.md](AUDIT.md) | Audit findings, resolutions, and current status |

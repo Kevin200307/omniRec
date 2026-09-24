@@ -1,6 +1,12 @@
 {
   "name": "create-omnirec-app",
   "version": "0.1.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kevin200307/omniRec.git",
+    "directory": "packages/create-omnirec-app"
+  },
   "description": "Scaffolds a new Omnirec-powered storefront: a Next.js frontend pre-wired with @omnirec/react-ui, and a Spring Boot backend with only the provider starters you choose.",
   "type": "module",
   "bin": {

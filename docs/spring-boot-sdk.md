@@ -1,9 +1,9 @@
-# Backend SDK — `commerce-tracker-spring-boot`
+# Server-side SDK: `commerce-tracker-spring-boot`
 
-The SDK a merchant embeds in their own Spring Boot application to report
+The SDK a merchant embeds in their Spring Boot application to report
 authoritative business events.
 
-## Install
+## Installation
 
 ```xml
 <dependency>
@@ -21,11 +21,11 @@ omnirec:
     tenant-id: my-store
 ```
 
-Auto-configured — inject `CommerceTracker` and go. Note there are no AWS or
-Google credentials here: a merchant's application talks only to the Event API,
-and the Event API talks to providers.
+The SDK is auto-configured; inject `CommerceTracker` to use it. No AWS or Google
+credentials are required, because the merchant application communicates only
+with the Event API, and the Event API communicates with providers.
 
-## Use
+## Usage
 
 ```java
 @Service
@@ -41,7 +41,7 @@ public class OrderService {
         commerce.purchase.completed(PurchaseCompleted.builder()
                 .orderId(order.getId())
                 .userId(order.getCustomerId())
-                .anonymousId(order.getTrackingAnonymousId())   // strongly recommended
+                .anonymousId(order.getTrackingAnonymousId())   // recommended
                 .items(order.getLines().stream()
                         .map(line -> CommerceItem.of(line.getSku(), line.getQuantity(),
                                 line.getPrice(), "USD"))
@@ -53,9 +53,9 @@ public class OrderService {
 }
 ```
 
-## What belongs here
+## Applicable events
 
-Anything where the browser cannot be trusted to know the truth.
+Any event for which the browser cannot be considered authoritative.
 
 ```java
 commerce.purchase.completed(...)
@@ -80,18 +80,19 @@ commerce.recommendation.purchased(recommendationId, productId, orderId, userId, 
 commerce.identify(anonymousId, userId)
 ```
 
-A confirmation page can be reloaded, bookmarked, closed before it renders, or
-blocked outright — so a purchase reported only from JavaScript is both over- and
-under-counted. Revenue data should come from here.
+A confirmation page may be reloaded, bookmarked, closed before rendering, or
+blocked entirely, so a purchase reported only from JavaScript is both
+over-reported and under-reported. Revenue data should originate here.
 
 ## Idempotency
 
-Events with a natural business key derive their `eventId` from it, so the same
-fact reported twice collapses to one event rather than being double-counted:
+Events with a natural business key derive their `eventId` from that key, so the
+same fact reported twice is collapsed into a single event rather than being
+counted twice.
 
 | Method | Key |
-|---|---|
-| `purchase.completed` / `failed` / `orderCancelled` / `orderRefunded` | `orderId` |
+| --- | --- |
+| `purchase.completed`, `failed`, `orderCancelled`, `orderRefunded` | `orderId` |
 | `checkout.completed` | `orderId` |
 | `cart.abandoned` | `cartId` |
 | `product.reviewSubmitted` | `reviewId` |
@@ -99,94 +100,98 @@ fact reported twice collapses to one event rather than being double-counted:
 | `recommendation.purchased` | `orderId:productId` |
 | `identify` | `anonymousId:userId` |
 
-The id is `evt:<eventType>:<businessKey>` (e.g. `evt:purchase_completed:order_1`),
-so it is **deterministic across processes**: two nodes reporting the same order
-agree on the id, which is what makes deduplication work behind a load balancer.
-It is also exactly what the browser SDK derives for the same purchase, so a
-purchase reported from both sides is delivered once. Verified end to end by
+The identifier format is `evt:<eventType>:<businessKey>`, for example
+`evt:purchase_completed:order_1`. It is therefore deterministic across
+processes: two nodes reporting the same order derive the same identifier, which
+is what makes deduplication effective behind a load balancer. The browser SDK
+derives the same identifier for the same purchase, so a purchase reported from
+both sources is delivered once. This is verified end to end by
 `BackendSdkToEventApiTest.aPurchaseReportedByBothTheBrowserAndTheBackendIsDeliveredOnce`.
 
-A retried webhook, a redelivered queue message, and a sweeper job that keeps
-seeing the same stale cart are all safe.
+A retried webhook, a redelivered queue message, and a sweep job that repeatedly
+observes the same stale cart are therefore all safe.
 
-The event type is part of the key, so `purchase_completed` and `order_cancelled`
-for one order remain distinct events.
+The event type forms part of the key, so `purchase_completed` and
+`order_cancelled` for the same order remain distinct events.
 
-## Pass the `anonymousId`
+## Supplying the anonymous identifier
 
-Strongly recommended wherever it exists. Capture it at checkout (it's in the
-`omnirec_anonymous_id` cookie) and store it against the order. It is what links
-a purchase back to the anonymous browsing that led to it.
+Supplying `anonymousId` is recommended wherever the value is available. Capture
+it at checkout from the `omnirec_anonymous_id` cookie and store it with the
+order. It is what links a purchase to the anonymous browsing that preceded it.
 
-When omitted, the SDK derives a stable `server:<uuid>` identity from the
-`userId`. Server-side events stay coherent with each other, but the connection to
-that person's browsing is lost — which is usually the most valuable part.
+When it is omitted, the SDK derives a stable `server:<uuid>` identity from the
+`userId`. Server-side events then remain coherent with one another, but the
+association with that person's browsing history is lost, which is generally the
+most valuable part.
 
 ## Delivery
 
-Asynchronous by default, on a background thread with a bounded queue
-(`queue-capacity`, default 10,000).
+Delivery is asynchronous by default, performed on a background thread with a
+bounded queue (`queue-capacity`, 10,000 by default).
 
-This matters: `commerce.purchase.completed(...)` is called from inside a
-merchant's order-placement path. If it blocked on an HTTP round trip, an outage
-in *our* service would slow down or fail *their* checkout. **Tracking must never
-break the transaction it observes.**
+This is significant because `commerce.purchase.completed(...)` is called from
+within the merchant's order-placement path. If it blocked on an HTTP round trip,
+an outage in the Event API would slow or fail merchant checkout. Tracking must
+never impair the transaction it observes.
 
 ### Retry
 
-A transient failure (5xx, 408, 429, network error) is retried with exponential
-backoff, 500ms doubling to 30s, up to `max-retries` (8) times, roughly three
-minutes. A permanent rejection (other 4xx) is not retried. Earlier versions
-logged and dropped on any failure, so a brief Event API blip lost authoritative
-purchases (audit finding B1).
+A transient failure (5xx, 408, 429, or a network error) is retried with
+exponential backoff from 500ms, doubling to a maximum of 30s, for up to
+`max-retries` attempts (8 by default), which is approximately three minutes. A
+permanent rejection (any other 4xx) is not retried. Earlier versions logged and
+discarded on any failure, so a brief Event API interruption resulted in the loss
+of authoritative purchases (audit finding B1).
 
-### What can still be lost
+### Residual loss scenarios
 
-The queue is in memory and bounded. Events are dropped, logged, and counted
-(`HttpEventSender.droppedCount()`) if the queue fills, if retries are exhausted,
-or if the application stops with events queued. **If you need guaranteed
-delivery of purchases, record them in your own transactional outbox and replay
-from it.** The deterministic eventIds make any replay safe.
+The queue is in memory and bounded. Events are discarded, logged, and counted
+through `HttpEventSender.droppedCount()` if the queue fills, if retries are
+exhausted, or if the application terminates with events queued. Where guaranteed
+delivery of purchases is required, record them in a transactional outbox and
+replay from it. Deterministic event identifiers make replay safe.
 
 ```java
-commerce.flush();   // before shutdown
+commerce.flush();   // prior to shutdown
 ```
 
-Set `omnirec.tracker.async=false` for synchronous delivery when a test needs
-determinism.
+Set `omnirec.tracker.async=false` for synchronous delivery where a test requires
+deterministic behaviour.
 
 ## Validation
 
-Events are validated before sending and an invalid one **throws**. This differs
-from the frontend SDK, which logs and drops.
+Events are validated before transmission, and an invalid event throws. This
+differs from the frontend SDK, which logs and discards.
 
-A backend event is authoritative business data: silently discarding a purchase
-because a field was missing is far worse than failing loudly at the call site
-while the developer is looking at it.
+A server-side event is authoritative business data. Silently discarding a
+purchase because a field was absent is considerably worse than failing at the
+call site during development.
 
 ## Payment data
 
-`paymentInformationAdded` takes a method string and nothing else. There is
-deliberately no parameter that could carry a card number, CVV, expiry, or gateway
-token, so the unsafe call cannot be written. The validator would reject such an
-event anyway — but an API that makes the mistake impossible beats one that
-catches it afterwards.
+`paymentInformationAdded` accepts a payment method string and nothing further.
+There is deliberately no parameter capable of carrying a card number, security
+code, expiry date, or gateway token, so the unsafe call cannot be expressed. The
+validator would reject such an event in any case, but an API that makes the
+error impossible is preferable to one that detects it afterwards.
 
 ## Configuration
 
-| Property | Default | Notes |
-|---|---|---|
-| `omnirec.tracker.enabled` | `true` | |
-| `omnirec.tracker.endpoint` | — | Required; startup fails without it. |
-| `omnirec.tracker.api-key` | — | For the Event API. |
-| `omnirec.tracker.tenant-id` | — | |
-| `omnirec.tracker.async` | `true` | Keep on outside tests. |
-| `omnirec.tracker.queue-capacity` | 10000 | |
-| `omnirec.tracker.max-batch-size` | 50 | |
-| `omnirec.tracker.validate-events` | `true` | |
-| `omnirec.tracker.max-retries` | 8 | Transient failures only |
-| `omnirec.tracker.retry-initial-interval` | 500ms | Doubles each attempt |
-| `omnirec.tracker.retry-max-interval` | 30s | |
+| Property | Default | Description |
+| --- | --- | --- |
+| `omnirec.tracker.enabled` | `true` | Enables the tracker. |
+| `omnirec.tracker.endpoint` | none | Required. Startup fails if absent. |
+| `omnirec.tracker.api-key` | none | Key for the Event API. |
+| `omnirec.tracker.tenant-id` | none | Tenant identifier. |
+| `omnirec.tracker.async` | `true` | Retain outside tests. |
+| `omnirec.tracker.queue-capacity` | 10000 | Bounded in-memory queue size. |
+| `omnirec.tracker.max-batch-size` | 50 | Maximum events per request. |
+| `omnirec.tracker.validate-events` | `true` | Validate before transmission. |
+| `omnirec.tracker.max-retries` | 8 | Applies to transient failures only. |
+| `omnirec.tracker.retry-initial-interval` | 500ms | Doubles on each attempt. |
+| `omnirec.tracker.retry-max-interval` | 30s | Upper bound on the retry interval. |
 
-Every bean is `@ConditionalOnMissingBean`, so supplying your own `EventSender`
-(to route through a queue you already run, say) replaces just that piece.
+All beans are declared `@ConditionalOnMissingBean`, so supplying a custom
+`EventSender`, for example to route events through an existing queue, replaces
+only that component.

@@ -12,7 +12,7 @@
     Runnable Spring Boot app that bundles every starter. This is the proof-of-DX artifact:
     with every provider left at enabled:false in application.yml it runs immediately on the
     in-memory fakes, and flipping one flag (plus real credentials) swaps in a real provider
-    with zero code changes — the same claim IMPLEMENTATION_PLAN.md's Phase 2 exit criteria
+    with zero code changes - the same claim IMPLEMENTATION_PLAN.md's Phase 2 exit criteria
     makes, wired up here so it's actually true rather than just documented.
   </description>
 

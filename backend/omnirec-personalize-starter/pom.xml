@@ -8,7 +8,7 @@
 
   <artifactId>omnirec-personalize-starter</artifactId>
   <packaging>jar</packaging>
-  <description>AWS Personalize RecommendationProvider. A developer who doesn't want Personalize simply omits this jar — no code branches needed anywhere else.</description>
+  <description>AWS Personalize RecommendationProvider. A developer who doesn't want Personalize simply omits this jar - no code branches needed anywhere else.</description>
 
   <dependencies>
     <dependency>

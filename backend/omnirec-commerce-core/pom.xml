@@ -10,7 +10,7 @@
   <packaging>jar</packaging>
   <description>
     The canonical CommerceEvent model, the event taxonomy, validation, identity linking,
-    deduplication, and the EventDestination interface. No Spring, no provider SDK, no queue —
+    deduplication, and the EventDestination interface. No Spring, no provider SDK, no queue -
     that absence is the point: every other module depends on this one, and it depends on nothing
     that would leak a vendor concept into the canonical shape.
   </description>
