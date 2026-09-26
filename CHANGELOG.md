@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Changed
+
+- Relicensed from the MIT License to the Apache License, Version 2.0. Added a
+  `NOTICE` file, an SPDX header on every source file
+  (`scripts/add-license-headers.mjs`), license metadata in every `pom.xml` and
+  `package.json`, and a `license-check` CI workflow.
+
 ## 0.1.0
 
 Initial development release. It has not yet been published to a package registry,

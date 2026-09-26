@@ -1,7 +1,7 @@
 {
   "name": "@omnirec/react-ui",
   "version": "0.1.0",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Kevin200307/omniRec.git",

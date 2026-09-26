@@ -25,7 +25,7 @@ with others addable). Provider credentials are never present in the browser.
 It is infrastructure only. Explicit non-goals: no dashboard, no reporting or
 analytics UI, no billing, no machine learning of its own.
 
-Status: version 0.1.0, MIT licensed, preparing to be published as an open-source
+Status: version 0.1.0, Apache License 2.0, preparing to be published as an open-source
 project. Nothing is committed to the release branch yet.
 
 ## 2. Technology stack
@@ -259,7 +259,7 @@ Azure: not implemented. Azure AI Personalizer is scheduled to retire on
    management API).
 8. Recently-viewed requires standalone Redis (two keys per user), not Redis
    Cluster.
-9. Open-source readiness: MIT LICENSE, CONTRIBUTING, CODE_OF_CONDUCT, SECURITY
+9. Open-source readiness: Apache-2.0 LICENSE and NOTICE, SPDX headers, CONTRIBUTING, CODE_OF_CONDUCT, SECURITY
    (using GitHub private vulnerability reporting, which must be enabled on the
    repository), and CHANGELOG now exist, and the npm and Maven metadata declare
    the license. Still open: nothing is published to npm or Maven Central, no git

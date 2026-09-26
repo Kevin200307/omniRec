@@ -10,6 +10,14 @@
   <packaging>jar</packaging>
   <description>Google Cloud Retail (Recommendations AI) RecommendationProvider. Same shape as omnirec-personalize-starter - the second provider proves the abstraction, per the implementation plan's Phase 2 exit criteria.</description>
 
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
   <dependencies>
     <dependency>
       <groupId>io.omnirec</groupId>

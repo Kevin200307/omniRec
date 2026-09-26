@@ -10,6 +10,14 @@
   <packaging>jar</packaging>
   <description>Canonical event model, provider interfaces (RecommendationProvider/SearchProvider/CacheProvider), the PersonalizationService facade, and in-memory fakes. No provider SDK dependencies - that's the point.</description>
 
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
   <dependencies>
     <dependency>
       <groupId>org.springframework</groupId>

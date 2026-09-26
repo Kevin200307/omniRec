@@ -10,6 +10,14 @@
   <packaging>jar</packaging>
   <description>REST ingestion + query layer: IngestionController, SearchController, RecommendationController, RecentlyViewedController, server-side context enrichment, and the auto-configuration that wires in-memory fakes as a zero-config fallback.</description>
 
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
   <dependencies>
     <dependency>
       <groupId>io.omnirec</groupId>
