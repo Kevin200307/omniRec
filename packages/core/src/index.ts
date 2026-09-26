@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 export { Tracker } from "./tracker";
 export { Identity } from "./identity";
 export { Consent } from "./consent";

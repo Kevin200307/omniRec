@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Thin fetch wrapper shared by the react-ui components. This is the only
  * place these components know a backend exists — none of them import a

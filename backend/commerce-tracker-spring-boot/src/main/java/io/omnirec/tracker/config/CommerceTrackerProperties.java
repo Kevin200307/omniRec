@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 package io.omnirec.tracker.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;

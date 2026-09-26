@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 server:
   port: 8081
   # Belt-and-braces with omnirec.events.max-payload-bytes: the container

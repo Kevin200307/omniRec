@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 package io.omnirec.eventapi.normalize;
 
 import java.net.URI;

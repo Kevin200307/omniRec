@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 // Drives the real, built @omnirec/commerce-web SDK through the spec's journey.
 // A 1s session timeout stands in for "a day passes", so each "day" is a new session.
 import { pathToFileURL } from "node:url";

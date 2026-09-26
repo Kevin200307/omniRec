@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 services:
   # Durable event bus between ingestion and provider delivery. Without it, a
   # provider outage loses events; with it, they queue and drain when the

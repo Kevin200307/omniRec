@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 package io.omnirec.web.dto;
 
 /** The only context fields the client is allowed to propose — everything else is server-derived. */

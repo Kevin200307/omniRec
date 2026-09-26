@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { collectContext } from "../context/contextCollector";
 import { DwellTimeTracker } from "../dwell/dwellTimeTracker";
 import { SCHEMA_VERSION, type CommerceData, type CommerceEvent, type EventType } from "../events/types";

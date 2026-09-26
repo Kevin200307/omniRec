@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 package io.omnirec.eventapi.queue;
 
 import io.omnirec.commerce.model.CommerceEvent;

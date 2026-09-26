@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Packages published from the monorepo's own workspace — transpile

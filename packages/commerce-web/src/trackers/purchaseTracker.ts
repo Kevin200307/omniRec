@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { businessEventId, compact, type EventEmitter } from "../core/emitter";
 import type { CommerceItem } from "../events/types";
 

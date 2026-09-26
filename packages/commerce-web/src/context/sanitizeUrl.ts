@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Strips secrets and personal data from a URL before it enters an event.
  *

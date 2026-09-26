@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 const CONSENT_KEY = "omnirec_consent";
 
 export type ConsentState = "granted" | "denied" | "unknown";

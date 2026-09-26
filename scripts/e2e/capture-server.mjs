@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 // Stands in for the Amazon Personalize Events endpoint. The real AWS SDK in the
 // Event API sends genuine signed PutEvents requests here; we record their bodies.
 import { createServer } from "node:http";

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
 # Live end-to-end run of the Definition of Done, with every component real:
 #
 #   @omnirec/commerce-web (built) -> Event API (jar) -> RabbitMQ -> Amazon adapter

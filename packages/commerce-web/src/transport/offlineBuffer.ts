@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import type { CommerceEvent } from "../events/types";
 import { LocalStore, MemoryStore, type KeyValueStore } from "../storage/storage";
 

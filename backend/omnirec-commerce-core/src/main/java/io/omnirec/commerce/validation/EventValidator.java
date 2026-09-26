@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 package io.omnirec.commerce.validation;
 
 import io.omnirec.commerce.model.CommerceData;

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 export type RecommendationChoice = "aws-personalize" | "google-rec-ai" | "none";
 export type CacheChoice = "redis" | "none";
 

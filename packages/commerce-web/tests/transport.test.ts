@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SCHEMA_VERSION, type CommerceEvent } from "../src/events/types";
 import { Batcher } from "../src/transport/batcher";

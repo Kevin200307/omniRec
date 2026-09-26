@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 package io.omnirec.demo;
 
 import org.springframework.boot.SpringApplication;

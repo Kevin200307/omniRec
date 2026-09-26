@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { DEFAULT_SESSION_TIMEOUT_MS } from "../identity/identityManager";
 
 export interface CommerceConfig {
