@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * First-party browser storage, wrapped so every read/write is safe.
  *

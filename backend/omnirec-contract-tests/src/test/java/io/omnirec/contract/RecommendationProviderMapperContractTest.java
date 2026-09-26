@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 package io.omnirec.contract;
 
 import com.google.cloud.retail.v2.UserEvent;

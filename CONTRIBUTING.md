@@ -5,7 +5,13 @@ up a development environment, the standards a change is expected to meet, and ho
 to submit it.
 
 By participating you agree to abide by the [Code of Conduct](CODE_OF_CONDUCT.md).
-Contributions are licensed under the project's [MIT License](LICENSE).
+Contributions are licensed under the project's
+[Apache License, Version 2.0](LICENSE), and accepting a contribution does not
+change the license of the project.
+
+## Contributor License Agreement
+
+Contributions require signing a CLA. Details: [link TBD]
 
 ## Reporting problems
 

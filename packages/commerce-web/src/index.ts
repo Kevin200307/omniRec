@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 export { CommerceClient, createCommerceClient, type IdentifyInput } from "./core/client";
 export { resolveConfig, type CommerceConfig, type ResolvedConfig } from "./core/config";
 export { businessEventId, compact, type EmitOptions, type EventEmitter } from "./core/emitter";

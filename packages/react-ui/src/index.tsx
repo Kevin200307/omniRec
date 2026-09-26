@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 export { ProductImpression } from "./ProductImpression";
 export type { ProductImpressionProps } from "./ProductImpression";
 export { SearchBar } from "./SearchBar";

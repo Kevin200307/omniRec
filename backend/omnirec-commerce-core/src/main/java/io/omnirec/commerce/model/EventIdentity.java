@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 package io.omnirec.commerce.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;

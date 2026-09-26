@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 package io.omnirec.web.enrichment;
 
 import io.omnirec.core.model.EventContext;

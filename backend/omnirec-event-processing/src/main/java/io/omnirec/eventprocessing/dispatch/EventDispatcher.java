@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 package io.omnirec.eventprocessing.dispatch;
 
 import io.omnirec.commerce.dedup.DeduplicationStore;

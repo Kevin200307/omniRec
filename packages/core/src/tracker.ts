@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { Identity, uuid } from "./identity";
 import { Consent } from "./consent";
 import { Transport } from "./transport";

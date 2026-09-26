@@ -13,6 +13,10 @@ Capture -> Normalize -> Resolve identity -> Queue -> Transform -> Deliver
 Omnirec is infrastructure rather than an analytics product. It provides no
 dashboard, no reporting interface, and no machine learning model of its own.
 
+## License
+
+Omnirec is licensed under the [Apache License, Version 2.0](./LICENSE).
+
 ## Status
 
 Version 0.1.0. The pipeline, both SDKs, and the Amazon Personalize and Google
@@ -198,6 +202,3 @@ development setup, coding conventions, and the pull request process, and
 Do not report security vulnerabilities through public issues. See
 [SECURITY.md](SECURITY.md) for the disclosure process.
 
-## License
-
-Released under the MIT License. See [LICENSE](LICENSE).

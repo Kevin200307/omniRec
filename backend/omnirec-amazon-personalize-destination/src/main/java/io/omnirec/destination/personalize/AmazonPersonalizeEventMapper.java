@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 package io.omnirec.destination.personalize;
 
 import com.fasterxml.jackson.core.JsonProcessingException;

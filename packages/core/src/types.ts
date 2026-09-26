@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Mirrors schema/canonical-event.schema.json. Keep in sync manually until
  * the schema→types codegen step lands — CI's contract test catches drift.

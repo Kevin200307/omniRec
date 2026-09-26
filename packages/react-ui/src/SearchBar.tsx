@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { useCallback, useRef, useState } from "react";
 import { useOmnirec } from "@omnirec/react";
 import { omnirecFetch } from "./api";

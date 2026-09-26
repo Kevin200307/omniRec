@@ -10,6 +10,14 @@
   <packaging>jar</packaging>
   <description>Redis-backed CacheProvider. First consumer is recently-viewed products, built to work with zero recommendation/search providers configured - see Phase 3's exit criteria in IMPLEMENTATION_PLAN.md.</description>
 
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
   <dependencies>
     <dependency>
       <groupId>io.omnirec</groupId>

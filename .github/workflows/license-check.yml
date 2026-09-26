@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: Apache-2.0
+name: license-check
+
+# Two rules, both cheap enough to run on every change:
+#  1. Every in-scope source file carries the SPDX header.
+#  2. LICENSE and NOTICE cannot be modified or deleted in a pull request unless a
+#     commit in that pull request says so explicitly with [license-change].
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  spdx-headers:
+    name: SPDX headers present
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      # The same script that adds the headers, in read-only mode, so the list of
+      # files that need a header and the list that is checked cannot drift apart.
+      # No dependencies: it is a regex scan over the files git knows about.
+      - name: Check SPDX-License-Identifier headers
+        run: node scripts/add-license-headers.mjs --check
+
+  license-files:
+    name: LICENSE and NOTICE changes are flagged
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Require [license-change] when LICENSE or NOTICE is modified or deleted
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          changed=$(git diff --name-only --diff-filter=MD "$BASE_SHA...$HEAD_SHA" -- LICENSE NOTICE)
+          if [ -z "$changed" ]; then
+            echo "LICENSE and NOTICE are unchanged."
+            exit 0
+          fi
+          echo "Modified or deleted in this pull request:"
+          echo "$changed"
+          if git log --format=%B "$BASE_SHA..$HEAD_SHA" | grep -qF '[license-change]'; then
+            echo "A commit message carries [license-change]; the change is intentional."
+            exit 0
+          fi
+          echo "::error::LICENSE or NOTICE was modified or deleted without a commit message containing [license-change]."
+          echo "If the change is intentional, add [license-change] to a commit message in this pull request."
+          exit 1

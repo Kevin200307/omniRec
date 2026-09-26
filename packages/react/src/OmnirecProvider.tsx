@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { createContext, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { Tracker, type OmnirecConfig } from "@omnirec/core";
 

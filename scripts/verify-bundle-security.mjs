@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// SPDX-License-Identifier: Apache-2.0
 /**
  * Fails the build if a provider credential or provider SDK could reach the browser.
  *

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 package io.omnirec.tracker.trackers;
 
 import io.omnirec.commerce.model.CommerceData;

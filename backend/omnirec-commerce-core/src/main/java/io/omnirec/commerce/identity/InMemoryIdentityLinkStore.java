@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 package io.omnirec.commerce.identity;
 
 import java.util.ArrayList;

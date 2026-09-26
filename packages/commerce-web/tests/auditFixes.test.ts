@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CommerceClient } from "../src/core/client";
 import { businessEventId } from "../src/core/emitter";

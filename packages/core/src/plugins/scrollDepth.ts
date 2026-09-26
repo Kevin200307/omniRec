@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import type { Plugin, PluginContext } from "../types";
 
 const THRESHOLDS = [25, 50, 75, 100];

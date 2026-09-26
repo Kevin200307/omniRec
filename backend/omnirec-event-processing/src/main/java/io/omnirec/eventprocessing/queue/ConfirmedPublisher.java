@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 package io.omnirec.eventprocessing.queue;
 
 import org.springframework.amqp.AmqpException;

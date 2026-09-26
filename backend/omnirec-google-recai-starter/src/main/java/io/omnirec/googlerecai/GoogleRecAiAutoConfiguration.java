@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 package io.omnirec.googlerecai;
 
 import com.google.api.gax.core.FixedCredentialsProvider;

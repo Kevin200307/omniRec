@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 package io.omnirec.eventapi.app;
 
 import org.springframework.boot.SpringApplication;

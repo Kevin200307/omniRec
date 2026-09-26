@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import type { Plugin, PluginContext } from "../types";
 
 const INACTIVITY_MS = 15 * 60 * 1000; // 15 min with no cart mutation → abandoned

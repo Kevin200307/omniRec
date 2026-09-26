@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 package io.omnirec.core.model;
 
 /** Mirrors schema/canonical-event.schema.json's eventType enum. Keep in sync — CI's contract test in omnirec-contract-tests catches drift. */

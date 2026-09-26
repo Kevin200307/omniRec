@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { IdentityManager } from "../src/identity/identityManager";
 import { MemoryStore } from "../src/storage/storage";

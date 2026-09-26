@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 package io.omnirec.commerce.model;
 
 /** Groups the taxonomy for routing and metrics. Never sent to a provider. */

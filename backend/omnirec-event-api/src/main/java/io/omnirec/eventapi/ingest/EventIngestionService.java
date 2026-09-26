@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 package io.omnirec.eventapi.ingest;
 
 import com.fasterxml.jackson.databind.JsonMappingException;

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import type { CommerceEvent } from "../events/types";
 
 export type SendOutcome =

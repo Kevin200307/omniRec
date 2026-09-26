@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 const ANON_ID_KEY = "omnirec_anon_id";
 const SESSION_ID_KEY = "omnirec_session_id";
 const USER_ID_KEY = "omnirec_user_id";

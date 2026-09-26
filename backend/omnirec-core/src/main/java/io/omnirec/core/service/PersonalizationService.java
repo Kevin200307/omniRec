@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 package io.omnirec.core.service;
 
 import io.omnirec.core.model.*;

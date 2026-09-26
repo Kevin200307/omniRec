@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 import { CookieStore, LocalStore, MemoryStore, uuid, type KeyValueStore } from "../storage/storage";
 
 const ANON_KEY = "omnirec_anonymous_id";

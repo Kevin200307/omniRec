@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: Apache-2.0
 package io.omnirec.eventprocessing.consumer;
 
 import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
