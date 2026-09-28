@@ -43,13 +43,24 @@ provides no dashboard, no reporting interface, and no model of its own.
                          v
                 EVENT DISPATCHER
                          |
-         +---------------+---------------+
-         |               |               |
-         v               v               v
-   AMAZON ADAPTER   GOOGLE ADAPTER   AZURE ADAPTER
-         |               |            (not implemented)
-         v               v
-   Amazon Personalize  Google Retail
+         +---------------+---------------+-----------------+
+         |               |               |                 |
+         v               v               v                 v
+   AMAZON ADAPTER   GOOGLE ADAPTER   AZURE ADAPTER    STORAGE WORKER     omnirec-event-storage
+         |               |            (not implemented)    |             (optional)
+         v               v                                 v
+   Amazon Personalize  Google Retail                  EventStore
+                                                           |
+                                              +------------+------------+
+                                              |                         |
+                                              v                         v
+                                     PostgresEventStore        TimescaleEventStore
+                                              |                         |
+                                          +---+---+                     v
+                                          |       |                TimescaleDB
+                                          v       v
+                                        Local    Neon
+                                      Postgres  Postgres
 ```
 
 ## The core constraint
@@ -83,6 +94,7 @@ compile.
 | `omnirec-google-retail-destination` | The only module with knowledge of Google Retail. |
 | `omnirec-recently-viewed-destination` | Maintains the serving side's recently-viewed lists from the pipeline. |
 | `omnirec-redis-state` | Redis-backed deduplication and identity-link stores for multi-instance deployments. |
+| `omnirec-event-storage` | Optional historical storage: the storage worker (an `EventDestination`), `PostgresEventStore` and `TimescaleEventStore`, Flyway migrations, and the customer history API. Inert unless `omnirec.storage.enabled=true`. |
 | `commerce-tracker-spring-boot` | The SDK embedded by merchants for authoritative business events. |
 | `omnirec-event-api-app` | The deployable service: gateway, queue, and destinations. |
 | `packages/commerce-web` | The browser SDK. No React dependency. |
@@ -96,6 +108,26 @@ lists are populated by the pipeline through
 `omnirec-recently-viewed-destination`, which writes them in the format the
 serving side's Redis cache reads. Serving personalization results is a separate
 concern from collecting signals, and the two deploy independently.
+
+## Historical storage
+
+Storage is one more destination rather than a new path. The storage worker is an
+`EventDestination` (`event-storage`), so it receives its own durable queue,
+retry tiers, and dead-letter queue from the same topology code as every provider,
+and it is acknowledged only after the row is committed. It depends on the
+`EventStore` interface in `omnirec-commerce-core`, never on a database:
+
+```
+EventStorageDestination -> EventStore -> PostgresEventStore   (any PostgreSQL: local, Neon, RDS...)
+                                      -> TimescaleEventStore  (extends it: hypertable, chunk retention)
+```
+
+The Event API never touches the database, so storage cannot slow ingestion, and
+with `omnirec.storage.enabled=false` (the default) the module contributes nothing
+at all. The `identify` control event is routed to destinations that accept
+control events, meaning only storage, so that identity links reach the
+database. Provider queues are unaffected. See
+[event-storage.md](event-storage.md).
 
 ## Rationale: the Event API as a separate service
 
@@ -160,6 +192,7 @@ recorded as complete and lost. See
 | Consumer terminates during delivery | The unacknowledged message is redelivered, the delivery lease expires, and the event is delivered exactly once. |
 | Provider still failing after the configured retries | The event is dead-lettered with the failure reason attached for triage. |
 | Provider rejects the event permanently | The event is dead-lettered immediately, bypassing retries. |
+| Storage database unavailable (storage enabled) | Only the `event-storage` queue backs up and retries; ingestion and provider delivery are unaffected. |
 
 See [rabbitmq.md](rabbitmq.md) for the queue topology and
 [security.md](security.md) for the trust boundaries.

@@ -19,16 +19,25 @@ import java.util.List;
  * earlier one succeeded, the exception makes ingestion answer 503 and the
  * client retries the whole event; the destination that already has it drops
  * the repeat through delivery-stage deduplication.
+ *
+ * A control event ({@code identify}) is routed only to destinations whose
+ * {@code supports()} accepts it. Provider destinations never do, so they see
+ * exactly the traffic they always did; historical storage does, because the
+ * identity link it carries is what customer history is joined through.
+ * Behavioural events are routed to every destination, as before, and filtered
+ * by {@code supports()} at delivery.
  */
 public class RabbitEventPublisher implements EventPublisher {
 
     private static final Logger log = LoggerFactory.getLogger(RabbitEventPublisher.class);
 
     private final ConfirmedPublisher publisher;
+    private final List<EventDestination> destinations;
     private final List<String> destinationIds;
 
     public RabbitEventPublisher(ConfirmedPublisher publisher, List<EventDestination> destinations) {
         this.publisher = publisher;
+        this.destinations = List.copyOf(destinations);
         this.destinationIds = destinations.stream().map(EventDestination::id).toList();
     }
 
@@ -38,7 +47,12 @@ public class RabbitEventPublisher implements EventPublisher {
             log.debug("No destinations configured — event {} accepted but not routed", event.eventId());
             return;
         }
-        for (String destinationId : destinationIds) {
+        boolean controlEvent = event.eventType().isControlEvent();
+        for (EventDestination destination : destinations) {
+            if (controlEvent && !destination.supports(event)) {
+                continue;
+            }
+            String destinationId = destination.id();
             publisher.publish(
                     QueueTopology.EXCHANGE,
                     QueueTopology.routingKey(destinationId),

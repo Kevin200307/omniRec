@@ -7,8 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- **Optional historical event storage** (`omnirec-event-storage`), off by
+  default. A storage worker consumes its own RabbitMQ queue (`event-storage`,
+  with retry tiers and a dead-letter queue) and writes every event through a new
+  `EventStore` interface, acknowledging only after commit. `PostgresEventStore`
+  works with any PostgreSQL (local, Neon, RDS, Supabase); `TimescaleEventStore`
+  adds a hypertable and chunk-based retention. The schema consists of one
+  `commerce_events` table with JSONB payloads and tenant-scoped
+  `identity_links`, managed by Flyway. Writes are idempotent per tenant and
+  event id. Retention is configurable.
+- **Customer history API**, `GET /v1/customers/{customerId}/events`, with keyset
+  pagination, time and event-type filters, and linked anonymous history.
+  Authenticated with a new per-tenant `secret-key` or a multi-tenant platform key;
+  publishable keys cannot read.
+- Docker Compose profiles `postgres` and `timescale` for local storage
+  development.
+
 ### Changed
 
+- The `identify` control event is now published after its link is recorded, and
+  `RabbitEventPublisher` routes control events only to destinations whose
+  `supports()` accepts them. Provider destinations reject control events, so
+  their queues are unchanged; with storage disabled, `identify` is published
+  nowhere, as before.
 - Relicensed from the MIT License to the Apache License, Version 2.0. Added a
   `NOTICE` file, an SPDX header on every source file
   (`scripts/add-license-headers.mjs`), license metadata in every `pom.xml` and

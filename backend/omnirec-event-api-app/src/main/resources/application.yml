@@ -30,6 +30,9 @@ omnirec:
     tenants:
       demo-store:
         api-key: ${DEMO_STORE_API_KEY:pk_test_demo_store}
+        # Server-side only: reads this tenant's history (omnirec.storage below).
+        # No default on purpose — unset, every history request is refused.
+        secret-key: ${DEMO_STORE_SECRET_KEY:}
     max-batch-size: 500
     max-payload-bytes: 1048576
     deduplication-window: PT24H
@@ -62,6 +65,24 @@ omnirec:
     concurrency: 2
     prefetch-count: 10
     deduplication-window: PT24H
+
+  # Optional historical event storage (docs/event-storage.md). Off by default:
+  # no database is needed or contacted unless this is enabled. When on, events
+  # reach the database asynchronously through their own RabbitMQ queue.
+  #   postgres  -> any PostgreSQL: local, Neon, RDS, Supabase (the URL decides)
+  #   timescale -> TimescaleDB, as a hypertable with chunk-based retention
+  storage:
+    enabled: ${OMNIREC_STORAGE_ENABLED:false}
+    provider: ${OMNIREC_STORAGE_PROVIDER:postgres}
+    postgres:
+      # jdbc:postgresql://host:5432/db, or the postgresql://user:pass@host/db form Neon hands out.
+      url: ${OMNIREC_DATABASE_URL:}
+      username: ${OMNIREC_DB_USERNAME:}
+      password: ${OMNIREC_DB_PASSWORD:}
+      schema: omnirec
+    retention:
+      # e.g. 400d. Unset keeps history indefinitely (logged at startup).
+      max-age: ${OMNIREC_STORAGE_RETENTION:}
 
   # Every destination is off by default, so this service boots and the whole
   # pipeline runs end to end with no cloud account of any kind. Enabling one is

@@ -76,6 +76,14 @@ The link resolves future events automatically. An event that arrives with an
 queued, so attribution remains correct even when a page omits the call to
 `identify()`.
 
+When [historical storage](event-storage.md) is enabled, the same links are also
+persisted, per tenant, in the `identity_links` table alongside the stored
+events, and `GET /v1/customers/{customerId}/events` uses them to return a
+device's earlier anonymous events as part of the customer's journey. The stored
+anonymous rows are not modified; they keep `user_id = NULL`. To reach storage,
+the `identify` event is routed as a control event to the storage worker only. It
+still never reaches a provider.
+
 ### Example journey
 
 ```

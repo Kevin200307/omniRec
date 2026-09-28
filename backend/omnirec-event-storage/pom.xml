@@ -1,0 +1,96 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>io.omnirec</groupId>
+    <artifactId>omnirec-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>omnirec-event-storage</artifactId>
+  <packaging>jar</packaging>
+  <description>
+    Optional historical event storage: the storage worker (an EventDestination fed by its own
+    RabbitMQ queue), PostgreSQL and TimescaleDB implementations of EventStore, Flyway migrations,
+    and the tenant-scoped customer history API. Inert unless omnirec.storage.enabled=true.
+  </description>
+
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <dependencies>
+    <dependency>
+      <groupId>io.omnirec</groupId>
+      <artifactId>omnirec-commerce-core</artifactId>
+    </dependency>
+    <!-- The tenant registry (omnirec.events.tenants) that the history API authenticates against. -->
+    <dependency>
+      <groupId>io.omnirec</groupId>
+      <artifactId>omnirec-event-api</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-autoconfigure</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-configuration-processor</artifactId>
+      <optional>true</optional>
+    </dependency>
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-core</artifactId>
+    </dependency>
+
+    <!-- Plain JDBC, deliberately without spring-jdbc: with spring-jdbc on the classpath,
+         Spring Boot's DataSource auto-configuration would try to build a DataSource in every
+         application that includes this jar, and fail at startup when storage is disabled and
+         no database exists. The storage pool is private to this module instead. -->
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.zaxxer</groupId>
+      <artifactId>HikariCP</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-database-postgresql</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- Test only: the worker is exercised through the pipeline's real dispatcher and consumer.
+         The main code has no dependency on the queue layer - it is just an EventDestination. -->
+    <dependency>
+      <groupId>io.omnirec</groupId>
+      <artifactId>omnirec-event-processing</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <!-- Real PostgreSQL and TimescaleDB. Skipped automatically when no Docker daemon is available. -->
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>

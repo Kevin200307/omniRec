@@ -40,6 +40,7 @@
     <module>omnirec-google-retail-destination</module>
     <module>omnirec-recently-viewed-destination</module>
     <module>omnirec-redis-state</module>
+    <module>omnirec-event-storage</module>
     <module>commerce-tracker-spring-boot</module>
     <module>omnirec-event-api-app</module>
     <module>omnirec-core</module>

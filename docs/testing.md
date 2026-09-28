@@ -2,7 +2,7 @@
 
 ```bash
 npx turbo run test                          # frontend, 160 tests
-cd backend && mvn test                      # backend, 312 tests (real-broker tests require Docker)
+cd backend && mvn test                      # backend, 406 tests (real-broker tests require Docker)
 node scripts/verify-bundle-security.mjs     # run after a build
 bash scripts/e2e/run.sh                     # live end-to-end journey (requires Docker)
 ```
@@ -39,6 +39,16 @@ bash scripts/e2e/run.sh                     # live end-to-end journey (requires 
 | `RealBrokerPipelineTest` | 8 | a real RabbitMQ: retry, dead-lettering, isolation, redelivery |
 | `RecentlyViewedFeedTest` | 2 | the real application with shared state and the recently-viewed feed on a real Redis: it starts, and stitched views reach the served list |
 | `RetryTiersBrokerTest` | 3 | a real RabbitMQ: no head-of-line blocking, rejected messages dead-lettered |
+| `RabbitEventPublisherRoutingTest` | 3 | control events reach only destinations that accept them |
+| `EventCursorTest` | 5 | the opaque history cursor |
+| `PostgresConnectionUrlTest` | 5 | JDBC and hosted-style (`postgresql://user:pass@host`) URLs, credentials never printed |
+| `HistoryAccessAuthenticatorTest` | 9 | read keys: publishable keys refused, tenant and platform grants, startup validation |
+| `EventStorageDestinationTest` | 7 | the storage worker through the real dispatcher and consumer: acknowledge after commit, retry, dead-letter |
+| `RealPostgresEventStoreTest` | 28 | a real PostgreSQL: migrations, indexes, round-trip fidelity, idempotency, tenant isolation, identity links, pagination, filters, retention |
+| `RealTimescaleEventStoreTest` | 6 | a real TimescaleDB: hypertable, chunks, idempotency, history, retention policy |
+| `EventStorageAutoConfigurationTest` | 8 | enabled and disabled modes, provider selection, TimescaleDB missing |
+| `StorageDisabledTest` | 4 | the real application with storage off: no storage bean or `DataSource`, pipeline intact |
+| `RealStoragePipelineTest` | 19 | real RabbitMQ and PostgreSQL: HTTP to database, acknowledgement, retry and dead-letter, identity, tenant isolation, history API |
 
 ## Notable tests
 
@@ -95,7 +105,10 @@ key and a service-account document and confirming that it fails.
 
 `RealBrokerPipelineTest`, `RetryTiersBrokerTest`, `RealRedisStateTest`,
 `RealRedisRecentlyViewedTest`, and `RecentlyViewedFeedTest` start RabbitMQ and
-Redis using Testcontainers. They are marked `disabledWithoutDocker`, so a machine
+Redis using Testcontainers. `RealPostgresEventStoreTest`,
+`RealTimescaleEventStoreTest`, `EventStorageAutoConfigurationTest`, and
+`RealStoragePipelineTest` start PostgreSQL (`postgres:16-alpine`) and TimescaleDB
+(`timescale/timescaledb:2.17.2-pg16`) the same way. They are marked `disabledWithoutDocker`, so a machine
 without a Docker daemon still builds and reports them as skipped. Before
 trusting a passing build for queue or state changes, confirm that the skipped
 count is 0.
@@ -108,6 +121,13 @@ failing genuinely does not delay another. Writing these tests exposed defects
 that the mocks could not: a duplicate `RabbitTemplate` bean, listener containers
 outside the Spring lifecycle, and a message converter that would have rejected
 every event because of the Spring AMQP trusted-package default.
+
+`RealStoragePipelineTest` deliberately has no `@Nested` classes. Spring caches
+one application context for an enclosing test class and another for its nested
+classes. With live queue consumers, two contexts on one broker become two storage
+workers competing for the same queue, which caused the failure-path assertions to
+observe the wrong consumer. Tests that consume from a real broker should remain
+flat.
 
 Similarly, `RecentlyViewedFeedTest` exists because every module test passed while
 the assembled application refused to start when both Redis features were enabled.
