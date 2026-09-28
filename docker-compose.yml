@@ -22,6 +22,49 @@ services:
     ports:
       - "6379:6379"
 
+  # Optional historical event storage. Neither database starts unless its
+  # profile is selected, and the Event API only uses one when
+  # OMNIREC_STORAGE_ENABLED=true. See docs/event-storage.md:
+  #   A  local PostgreSQL:  docker compose --profile postgres up -d
+  #   B  Neon (external):   no profile; set OMNIREC_DATABASE_URL to the Neon URL
+  #   C  TimescaleDB:       docker compose --profile timescale up -d
+  # The password defaults are for a throwaway local database only; set
+  # OMNIREC_DB_PASSWORD (for example in an untracked .env) for anything else.
+  postgres:
+    image: postgres:16-alpine
+    profiles: ["postgres"]
+    environment:
+      POSTGRES_DB: omnirec
+      POSTGRES_USER: ${OMNIREC_DB_USERNAME:-omnirec}
+      POSTGRES_PASSWORD: ${OMNIREC_DB_PASSWORD:-omnirec_local_only}
+    ports:
+      # Host port 5433 so a PostgreSQL already listening on 5432 doesn't collide.
+      - "${OMNIREC_POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - omnirec-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d omnirec"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  timescaledb:
+    image: timescale/timescaledb:2.17.2-pg16
+    profiles: ["timescale"]
+    environment:
+      POSTGRES_DB: omnirec
+      POSTGRES_USER: ${OMNIREC_DB_USERNAME:-omnirec}
+      POSTGRES_PASSWORD: ${OMNIREC_DB_PASSWORD:-omnirec_local_only}
+    ports:
+      - "${OMNIREC_TIMESCALE_PORT:-5434}:5432"
+    volumes:
+      - omnirec-timescale:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d omnirec"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
   # The standalone Event API. Provider credentials live here and only here —
   # the storefront holds a publishable key and nothing else.
   event-api:
@@ -45,6 +88,17 @@ services:
       RECENTLY_VIEWED_ENABLED: "true"
       RECENTLY_VIEWED_REDIS_HOST: redis
       RECENTLY_VIEWED_TENANT_ID: demo-store
+      # Historical storage, off unless requested. Inside this network the
+      # databases are postgres:5432 (profile postgres) or timescaledb:5432
+      # (profile timescale); for Neon, pass its URL instead.
+      OMNIREC_STORAGE_ENABLED: ${OMNIREC_STORAGE_ENABLED:-false}
+      OMNIREC_STORAGE_PROVIDER: ${OMNIREC_STORAGE_PROVIDER:-postgres}
+      OMNIREC_DATABASE_URL: ${OMNIREC_DATABASE_URL:-}
+      OMNIREC_DB_USERNAME: ${OMNIREC_DB_USERNAME:-omnirec}
+      OMNIREC_DB_PASSWORD: ${OMNIREC_DB_PASSWORD:-omnirec_local_only}
+      OMNIREC_STORAGE_RETENTION: ${OMNIREC_STORAGE_RETENTION:-}
+      # Reads demo-store history. Unset: the history API refuses every request.
+      DEMO_STORE_SECRET_KEY: ${DEMO_STORE_SECRET_KEY:-}
       # When you do enable Amazon, credentials come from the AWS default
       # provider chain (an IAM role in production), not from configuration:
       #   AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY,
@@ -71,3 +125,7 @@ services:
       REDIS_PORT: "6379"
     depends_on:
       - redis
+
+volumes:
+  omnirec-postgres:
+  omnirec-timescale:

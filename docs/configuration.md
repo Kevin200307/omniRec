@@ -73,6 +73,7 @@ omnirec:
 | Property | Default | Description |
 | --- | --- | --- |
 | `tenants.<id>.api-key` | none | Publishable key for the tenant |
+| `tenants.<id>.secret-key` | none | Server-side key that reads this tenant's history (`omnirec.storage`). Must differ from every publishable key, or startup fails |
 | `tenants.<id>.enabled` | `true` | Whether the tenant may submit events |
 | `allow-anonymous-ingestion` | `false` | Disables tenant isolation. Startup fails outside the `dev`, `test`, and `local` profiles |
 | `default-tenant-id` | `default` | Used only with anonymous ingestion |
@@ -122,6 +123,30 @@ links is not.
 Publisher confirms are mandatory. The Event API refuses to start unless
 `spring.rabbitmq.publisher-confirm-type=correlated` and
 `spring.rabbitmq.publisher-returns=true` are set.
+
+### `omnirec.storage`
+
+Optional historical event storage. See [event-storage.md](event-storage.md).
+With `enabled: false` nothing below is read and no database is contacted.
+
+| Property | Default | Description |
+| --- | --- | --- |
+| `enabled` | `false` | Enables the storage worker, the `event-storage` queue, and the history API |
+| `provider` | `postgres` | `postgres` (any PostgreSQL: local, Neon, RDS, Supabase) or `timescale` |
+| `postgres.url` | none | `jdbc:postgresql://...` or `postgresql://user:pass@host/db`. Required when enabled |
+| `postgres.username`, `postgres.password` | none | Override credentials embedded in the URL. Supply through environment variables |
+| `postgres.schema` | `omnirec` | Schema for the storage tables; created if absent |
+| `postgres.maximum-pool-size` | 5 | Private connection pool; not an application `DataSource` |
+| `postgres.connection-timeout` | 10s | |
+| `migrate-on-startup` | `true` | When `false`, the schema is validated instead of migrated |
+| `timescale.chunk-interval` | 7d | Hypertable chunk width, applied at creation |
+| `retention.max-age` | none (keep indefinitely) | For example `400d`. Batched purge on `postgres`; retention policy on `timescale` |
+| `retention.purge-interval` | 1h | `postgres` only |
+| `retention.purge-batch-size` | 5000 | `postgres` only |
+| `history-api.enabled` | `true` | `GET /v1/customers/{customerId}/events` |
+| `history-api.default-limit`, `max-limit` | 50, 200 | Page size |
+| `history-api.platform-keys.<name>.key` | none | A read key for several tenants, selected per request with `X-Omnirec-Tenant` |
+| `history-api.platform-keys.<name>.tenants` | none | The tenants that key may read; unknown names fail startup |
 
 ### Destinations
 
@@ -229,6 +254,10 @@ See [spring-boot-sdk.md](spring-boot-sdk.md).
       retention policy
 - [ ] `/actuator/prometheus` scraped; see the metric list in the README
 - [ ] Alerts configured on `omnirec.events.failed` and dead-letter queue depth
+- [ ] If historical storage is enabled: database credentials from a secret
+      manager or environment, `retention.max-age` set deliberately, a distinct
+      `secret-key` per tenant kept server-side only, and an alert on the
+      `event-storage` dead-letter queue
 
 ## Configuration validation
 

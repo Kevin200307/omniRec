@@ -151,11 +151,17 @@ public class EventIngestionService {
 
         try {
             // Returns null for a control event (identify): the link is recorded
-            // and there is nothing behavioural left to deliver.
+            // and there is nothing behavioural left to deliver to a provider.
             CommerceEvent resolved = identityResolver.process(event);
             if (resolved != null) {
                 publisher.publish(resolved);
                 metrics.eventsQueued(tenantId, 1);
+            } else {
+                // Still handed to the publisher, which routes a control event
+                // only to destinations that accept one (historical storage
+                // records the link from it). No provider destination does, so
+                // with storage off this publishes nothing.
+                publisher.publish(event);
             }
             deduplicationStore.complete(dedupKey, deduplicationWindow);
             tally.accepted++;

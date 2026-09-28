@@ -46,6 +46,9 @@ backend/
   omnirec-google-retail-destination/        Google Retail adapter
   omnirec-recently-viewed-destination/      recently-viewed lists for the serving side
   omnirec-redis-state/                      shared deduplication and identity links
+  omnirec-event-storage/                    optional historical storage: storage worker,
+                                            PostgreSQL/TimescaleDB EventStore, customer
+                                            history API
   commerce-tracker-spring-boot/             server-side SDK for business events
   omnirec-event-api-app/                    deployable Event API service
 
@@ -137,6 +140,15 @@ capture time is preserved.
 per-destination retry queues, dead-letter queues, and idempotent consumers. An
 outage affecting one provider backs up only that provider's queues.
 
+**Historical storage is optional and asynchronous.** With
+`omnirec.storage.enabled=true`, a storage worker consumes its own RabbitMQ queue
+and writes every event to PostgreSQL (local, Neon, or any hosted PostgreSQL) or
+TimescaleDB through the `EventStore` interface, and
+`GET /v1/customers/{customerId}/events` returns a customer's journey, including
+linked anonymous history, to a caller holding that tenant's secret key. Disabled,
+which is the default, no database is required. See
+[event-storage.md](docs/event-storage.md).
+
 **Authoritative events originate server-side.** A confirmation page may be
 reloaded, bookmarked, or never rendered. Purchases, refunds, and accepted
 reviews are reported from the merchant backend.
@@ -145,7 +157,7 @@ reviews are reported from the merchant backend.
 
 ```bash
 npm install && npx turbo run build test typecheck   # 160 frontend tests
-cd backend && mvn clean install                     # 312 backend tests
+cd backend && mvn clean install                     # 406 backend tests
 node scripts/verify-bundle-security.mjs
 bash scripts/e2e/run.sh                             # end-to-end verification, requires Docker
 ```
@@ -166,6 +178,11 @@ omnirec.events.queued          omnirec.provider.delivery.success
                                omnirec.provider.delivery.failure
 ```
 
+With historical storage enabled, additionally `omnirec.storage.events.received`,
+`.persisted`, `.duplicates`, and `.failed`, plus `omnirec.storage.write.duration`,
+`omnirec.storage.lag`, and `omnirec.storage.history.duration`. See
+[event-storage.md](docs/event-storage.md#observability).
+
 Logs record event identifiers and field names only. Payloads and field values
 are never logged.
 
@@ -177,6 +194,7 @@ are never logged.
 | [architecture.md](docs/architecture.md) | Modules, pipeline order, failure behaviour |
 | [event-schema.md](docs/event-schema.md) | Event taxonomy, validation rules, dwell time, cart abandonment |
 | [identity.md](docs/identity.md) | Identity model and anonymous-to-registered linking |
+| [event-storage.md](docs/event-storage.md) | Optional historical storage: PostgreSQL/Neon/TimescaleDB, identity links, customer history API, retention |
 | [frontend-sdk.md](docs/frontend-sdk.md) | `@omnirec/commerce-web` reference |
 | [spring-boot-sdk.md](docs/spring-boot-sdk.md) | `commerce-tracker-spring-boot` reference |
 | [configuration.md](docs/configuration.md) | Complete property reference and production checklist |

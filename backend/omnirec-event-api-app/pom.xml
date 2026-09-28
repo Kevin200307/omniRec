@@ -53,6 +53,12 @@
       <artifactId>omnirec-redis-state</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <!-- Optional historical storage. Inert unless omnirec.storage.enabled=true. -->
+    <dependency>
+      <groupId>io.omnirec</groupId>
+      <artifactId>omnirec-event-storage</artifactId>
+      <version>${project.version}</version>
+    </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-web</artifactId>
@@ -88,6 +94,11 @@
     <dependency>
       <groupId>org.testcontainers</groupId>
       <artifactId>rabbitmq</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>postgresql</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>

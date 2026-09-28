@@ -63,6 +63,19 @@ not strictly a secret, so this is a defensive measure, but the same code is
 likely to be reused for privileged keys, and a timing side channel that appears
 only after a secret key is introduced is a poor way to discover the problem.
 
+## Reading stored history
+
+When historical storage is enabled, `GET /v1/customers/{customerId}/events`
+returns customer data, so it uses a separate credential. The publishable key is
+refused. A tenant's `secret-key`, or a platform key listing specific tenants,
+must be sent as `Authorization: Bearer`; query-string keys are ignored. The
+tenant is taken from the key, and `X-Omnirec-Tenant` can only narrow a platform
+key to one of its configured tenants. Naming any other tenant returns 403.
+Startup fails if a read key equals a publishable key or is configured twice.
+The endpoint has no CORS mapping. See
+[event-storage.md](event-storage.md#authentication). Cross-tenant access is
+covered by `RealStoragePipelineTest` and `HistoryAccessAuthenticatorTest`.
+
 ## Rejection of sensitive data
 
 Card numbers, security codes, expiry dates, complete payment credentials,

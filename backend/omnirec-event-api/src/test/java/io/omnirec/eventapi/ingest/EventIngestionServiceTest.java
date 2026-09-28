@@ -302,16 +302,30 @@ class EventIngestionServiceTest {
     @DisplayName("identity resolution")
     class Identity {
 
+        /** The behavioural events that reached the publisher, i.e. excluding control events. */
+        private List<CommerceEvent> behavioural() {
+            return publisher.published.stream().filter(e -> !e.eventType().isControlEvent()).toList();
+        }
+
+        /**
+         * The link is recorded here, at ingestion. The identify event itself is
+         * then handed to the publisher as a control event: the publisher routes
+         * it only to destinations that accept control events (historical
+         * storage), never to a provider — RabbitEventPublisherRoutingTest and
+         * EndToEndPipelineTest cover that half.
+         */
         @Test
-        void anIdentifyEventLinksButIsNotForwarded() {
+        void anIdentifyEventLinksAndIsPublishedOnlyAsAControlEvent() {
             EventDto identify = dto("evt_identify", EventType.IDENTIFY, CommerceData.empty(),
                     EventIdentity.authenticated("anon_A", "customer_123", "session_1"));
 
             IngestResponse response = ingest(identify);
 
             assertEquals(1, response.accepted(), "the caller should see success");
-            assertTrue(publisher.published.isEmpty(), "but a control event carries no behavioural signal");
             assertEquals(java.util.Optional.of("customer_123"), linkStore.resolveUserId(TENANT, "anon_A"));
+            assertTrue(behavioural().isEmpty(), "a control event carries no behavioural signal");
+            assertEquals(1, publisher.published.size());
+            assertEquals(EventType.IDENTIFY, publisher.published.get(0).eventType());
         }
 
         @Test
@@ -321,7 +335,7 @@ class EventIngestionServiceTest {
 
             ingest(productViewed("evt_after"));
 
-            assertEquals("customer_123", publisher.published.get(0).identity().userId());
+            assertEquals("customer_123", behavioural().get(0).identity().userId());
         }
 
         @Test
@@ -330,7 +344,7 @@ class EventIngestionServiceTest {
                     EventIdentity.authenticated("anon_A", "customer_123", "session_1")));
             ingest(productViewed("evt_after"));
 
-            CommerceEvent queued = publisher.published.get(0);
+            CommerceEvent queued = behavioural().get(0);
             assertEquals("customer_123", queued.identity().userId());
             assertEquals("anon_A", queued.identity().anonymousId(),
                     "the anonymousId survives — it is how the device stays recognisable");

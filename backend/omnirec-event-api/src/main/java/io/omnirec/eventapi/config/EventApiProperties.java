@@ -66,10 +66,18 @@ public class EventApiProperties {
     public static class Tenant {
         /** Publishable key, e.g. "pk_live_...". Safe to embed in frontend code. */
         private String apiKey;
+        /**
+         * Secret, server-side key, e.g. "sk_live_...". Reads this tenant's
+         * historical events (omnirec-event-storage). Never put it in frontend
+         * code; it must differ from every publishable key, or startup fails.
+         */
+        private String secretKey;
         private boolean enabled = true;
 
         public String getApiKey() { return apiKey; }
         public void setApiKey(String apiKey) { this.apiKey = apiKey; }
+        public String getSecretKey() { return secretKey; }
+        public void setSecretKey(String secretKey) { this.secretKey = secretKey; }
         public boolean isEnabled() { return enabled; }
         public void setEnabled(boolean enabled) { this.enabled = enabled; }
     }

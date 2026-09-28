@@ -10,6 +10,7 @@ COPY backend/omnirec-event-api/pom.xml backend/omnirec-event-api/pom.xml
 COPY backend/omnirec-event-processing/pom.xml backend/omnirec-event-processing/pom.xml
 COPY backend/omnirec-amazon-personalize-destination/pom.xml backend/omnirec-amazon-personalize-destination/pom.xml
 COPY backend/omnirec-google-retail-destination/pom.xml backend/omnirec-google-retail-destination/pom.xml
+COPY backend/omnirec-event-storage/pom.xml backend/omnirec-event-storage/pom.xml
 COPY backend/omnirec-event-api-app/pom.xml backend/omnirec-event-api-app/pom.xml
 
 COPY backend backend

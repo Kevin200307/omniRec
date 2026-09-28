@@ -37,6 +37,18 @@ time-to-live. Verified by
 without requeue, such as an unparseable body, is routed to the dead-letter queue
 rather than discarded by the broker (audit finding R3).
 
+**Historical storage is a destination too.** With `omnirec.storage.enabled=true`,
+the storage worker registers as destination `event-storage` and receives the same
+queue set: `omnirec.events.event-storage`, its retry tiers, and its dead-letter
+queue. A database outage therefore backs up only those queues. See
+[event-storage.md](event-storage.md).
+
+**Control events are routed selectively.** Behavioural events are published to
+every destination's queue. An `identify` control event is published only to
+destinations whose `supports()` accepts it. No provider does, so provider queues
+never carry one; the storage worker does. With storage disabled, `identify` is
+published nowhere, as before. Verified by `RabbitEventPublisherRoutingTest`.
+
 ## Reliability guarantees
 
 | Guarantee | Mechanism |
