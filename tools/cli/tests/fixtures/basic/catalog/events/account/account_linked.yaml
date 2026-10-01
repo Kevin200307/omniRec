@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: account_linked
+domain: account
+version: 1
+control: true
+sources: [browser, server]
+description: A visitor was linked to a customer.
+properties:
+  identity.userId: { required: true }
+example:
+  identity: { userId: c_1 }

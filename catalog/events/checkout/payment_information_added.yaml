@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: payment_information_added
+domain: checkout
+version: 1
+sources: [browser, server]
+description: "A payment method was provided during checkout. Never include card data."
+blocks: [commerce]
+properties:
+  commerce.cartId: { required: true }
+example:
+  commerce: { cartId: c1 }

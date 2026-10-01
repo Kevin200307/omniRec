@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+catalogVersion: 3
+schemaVersion: "1.0"
+domains:
+  - id: shop
+    title: Shop
+    description: Things shoppers do with products.
+  - id: account
+    title: Account
+    description: Linking visitors to customers.

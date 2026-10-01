@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: checkout_failed
+domain: checkout
+version: 1
+sources: [browser, server]
+description: "Checkout could not be completed."
+blocks: [commerce]
+properties:
+  commerce.cartId: { required: true }
+example:
+  commerce: { cartId: c1 }

@@ -1,0 +1,225 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://omnirec.dev/schema/commerce-event.schema.json",
+  "title": "CommerceEvent",
+  "description": "The canonical, provider-independent commerce event. Every tracker produces this shape and every destination adapter consumes it. Nothing here may reference Amazon, Google, or Azure concepts — provider shapes are produced by mappers behind EventDestination. This file is the third of three definitions kept in sync (the others are packages/commerce-web/src/events/types.ts and io.omnirec.commerce.model.CommerceEvent); omnirec-contract-tests fails the build if they drift apart.",
+  "type": "object",
+  "required": [
+    "eventId",
+    "eventType",
+    "schemaVersion",
+    "timestamp",
+    "identity"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "description": "Unique per event. The deduplication key — a repeated eventId is delivered once."
+    },
+    "eventType": {
+      "type": "string",
+      "enum": []
+    },
+    "schemaVersion": {
+      "type": "string",
+      "description": "Bumped only on a breaking change. Consumers branch on this.",
+      "default": "1.0"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Client capture time. Clamped server-side if implausibly skewed; see receivedAt for the authoritative server time."
+    },
+    "tenantId": {
+      "type": "string",
+      "description": "Set server-side from the authenticated API key. A value supplied by the client is ignored."
+    },
+    "identity": {
+      "type": "object",
+      "description": "Never merged in place. An event captured anonymously keeps its null userId forever; the anonymousId -> userId association lives separately as an identity link.",
+      "required": [
+        "anonymousId",
+        "sessionId"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "anonymousId": {
+          "type": "string",
+          "description": "First-party device identity. Never an IP address and never a fingerprint."
+        },
+        "userId": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Merchant's own customer id. Supplied via identify(); the SDK never invents one."
+        },
+        "sessionId": {
+          "type": "string",
+          "description": "Current browsing session. New session after the configured inactivity timeout (default 30 minutes) or on logout."
+        }
+      }
+    },
+    "context": {
+      "type": "object",
+      "description": "Where the event happened. ip and country are server-derived and overwrite whatever the client sent.",
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "referrer": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string",
+          "enum": [
+            "web",
+            "ios",
+            "android",
+            "server",
+            "unknown"
+          ]
+        },
+        "device": {
+          "type": "string",
+          "enum": [
+            "desktop",
+            "mobile",
+            "tablet",
+            "unknown"
+          ]
+        },
+        "userAgent": {
+          "type": "string"
+        },
+        "locale": {
+          "type": "string"
+        },
+        "timezone": {
+          "type": "string"
+        },
+        "screenWidth": {
+          "type": "integer"
+        },
+        "screenHeight": {
+          "type": "integer"
+        },
+        "ip": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Server-derived only. Dropped unless retain-ip-address is enabled."
+        },
+        "country": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Server-derived only."
+        }
+      }
+    },
+    "commerce": {
+      "type": "object",
+      "description": "Every field is optional here. What is actually required is decided per event type by the EventValidator — productId is mandatory for product_viewed and meaningless for session_started.",
+      "additionalProperties": false,
+      "properties": {
+        "productId": {
+          "type": "string"
+        },
+        "productIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "categoryId": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string"
+        },
+        "quantity": {
+          "type": "integer",
+          "exclusiveMinimum": 0
+        },
+        "price": {
+          "type": "number"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "cartId": {
+          "type": "string"
+        },
+        "orderId": {
+          "type": "string"
+        },
+        "searchQuery": {
+          "type": "string"
+        },
+        "recommendationId": {
+          "type": "string"
+        },
+        "recommendationProvider": {
+          "type": "string",
+          "description": "Who served the recommendation list, e.g. amazon-personalize. Adapters forward recommendationId as attribution only to the provider that issued it."
+        },
+        "listId": {
+          "type": "string"
+        },
+        "total": {
+          "type": "number",
+          "minimum": 0
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "productId"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "productId": {
+                "type": "string"
+              },
+              "quantity": {
+                "type": "integer",
+                "exclusiveMinimum": 0
+              },
+              "price": {
+                "type": "number"
+              },
+              "currency": {
+                "type": "string",
+                "pattern": "^[A-Z]{3}$"
+              },
+              "categoryId": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "properties": {
+      "type": "object",
+      "description": "Free-form merchant attributes. Payment credentials, passwords, and secrets are rejected here by name at any depth — see docs/security.md.",
+      "additionalProperties": true
+    },
+    "receivedAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Stamped by the Event API on receipt. Server-owned; a client-supplied value is ignored."
+    }
+  },
+  "$comment": "Per-event-type required fields are enforced by EventValidator rather than by JSON Schema conditionals, because the rules are easier to read, test, and report as field-level errors in code. See docs/event-schema.md for the full table."
+}

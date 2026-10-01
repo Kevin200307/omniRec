@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: product_list_viewed
+domain: discovery
+version: 1
+sources: [browser]
+description: "A list of products was shown, such as a collection, a promotion row or a category grid."
+blocks: [commerce]
+properties:
+  commerce.productIds: { required: true, minItems: 1 }
+example:
+  commerce: { listId: home_featured, productIds: [p123, p456] }

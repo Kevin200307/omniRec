@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: checkout_started
+domain: checkout
+version: 1
+sources: [browser, server]
+description: "Checkout began for a cart."
+blocks: [commerce]
+properties:
+  commerce.cartId: { required: true }
+example:
+  commerce: { cartId: c1, total: 179.98, currency: USD }

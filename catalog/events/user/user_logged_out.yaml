@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+name: user_logged_out
+domain: user
+version: 1
+sources: [browser]
+description: "A customer logged out. The session rotates and the anonymous id is kept."
+blocks: [commerce]

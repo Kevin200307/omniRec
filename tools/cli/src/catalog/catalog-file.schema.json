@@ -1,0 +1,165 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://omnirec.dev/schema/catalog-file.schema.json",
+  "title": "OmniRec catalog files",
+  "description": "Shape of every YAML file under catalog/. The loader validates each file against the matching definition before resolving references.",
+  "definitions": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{2,63}$"
+    },
+    "constraints": {
+      "type": "object",
+      "properties": {
+        "required": { "type": "boolean" },
+        "minimum": { "type": "number" },
+        "maximum": { "type": "number" },
+        "minItems": { "type": "integer", "minimum": 0 },
+        "maxLength": { "type": "integer", "minimum": 1 },
+        "pattern": { "type": "string", "minLength": 1 }
+      }
+    },
+    "field": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": ["string", "integer", "number", "boolean", "timestamp", "money", "enum", "array", "object"]
+        },
+        "description": { "type": "string" },
+        "vocabulary": { "$ref": "#/definitions/name" },
+        "items": { "$ref": "#/definitions/field" },
+        "fields": {
+          "type": "object",
+          "propertyNames": { "pattern": "^[a-z][A-Za-z0-9]*$" },
+          "additionalProperties": { "$ref": "#/definitions/field" }
+        },
+        "required": { "type": "boolean" },
+        "minimum": { "type": "number" },
+        "maximum": { "type": "number" },
+        "minItems": { "type": "integer", "minimum": 0 },
+        "maxLength": { "type": "integer", "minimum": 1 },
+        "pattern": { "type": "string", "minLength": 1 }
+      }
+    },
+    "eventProperty": {
+      "description": "Either a new inline field (has type) or a refinement of a block or envelope field (constraints only).",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "enum": ["string", "integer", "number", "boolean", "timestamp", "money", "enum", "array", "object"]
+        },
+        "description": { "type": "string" },
+        "vocabulary": { "$ref": "#/definitions/name" },
+        "items": { "$ref": "#/definitions/field" },
+        "fields": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/definitions/field" }
+        },
+        "required": { "type": "boolean" },
+        "minimum": { "type": "number" },
+        "maximum": { "type": "number" },
+        "minItems": { "type": "integer", "minimum": 0 },
+        "maxLength": { "type": "integer", "minimum": 1 },
+        "pattern": { "type": "string", "minLength": 1 }
+      }
+    },
+    "catalogFile": {
+      "type": "object",
+      "required": ["catalogVersion", "schemaVersion", "domains"],
+      "additionalProperties": false,
+      "properties": {
+        "catalogVersion": { "type": "integer", "minimum": 1 },
+        "schemaVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+        "domains": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "title", "description"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "$ref": "#/definitions/name" },
+              "title": { "type": "string", "minLength": 1 },
+              "description": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "blockFile": {
+      "type": "object",
+      "required": ["name", "description", "fields"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "$ref": "#/definitions/name" },
+        "description": { "type": "string", "minLength": 1 },
+        "fields": {
+          "type": "object",
+          "minProperties": 1,
+          "propertyNames": { "pattern": "^[a-z][A-Za-z0-9]*$" },
+          "additionalProperties": { "$ref": "#/definitions/field" }
+        }
+      }
+    },
+    "vocabularyFile": {
+      "type": "object",
+      "required": ["name", "description", "values"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "$ref": "#/definitions/name" },
+        "description": { "type": "string", "minLength": 1 },
+        "values": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["value"],
+            "additionalProperties": false,
+            "properties": {
+              "value": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+              "description": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "eventFile": {
+      "type": "object",
+      "required": ["name", "domain", "version", "sources", "description"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "$ref": "#/definitions/name" },
+        "domain": { "$ref": "#/definitions/name" },
+        "version": { "type": "integer", "minimum": 1 },
+        "control": { "type": "boolean" },
+        "sources": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["browser", "server", "webhook", "derived", "import"] }
+        },
+        "description": { "type": "string", "minLength": 1 },
+        "blocks": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/name" }
+        },
+        "properties": {
+          "type": "object",
+          "propertyNames": { "pattern": "^[a-z][A-Za-z0-9]*(\\.[a-z][A-Za-z0-9]*)*$" },
+          "additionalProperties": { "$ref": "#/definitions/eventProperty" }
+        },
+        "aliases": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "$ref": "#/definitions/name" }
+        },
+        "autocapture": { "type": "boolean" },
+        "example": { "type": "object" }
+      }
+    }
+  }
+}

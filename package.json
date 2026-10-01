@@ -14,7 +14,9 @@
     "test": "turbo run test",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
-    "test:browser": "playwright test -c tests/browser/playwright.config.ts"
+    "test:browser": "playwright test -c tests/browser/playwright.config.ts",
+    "catalog:generate": "npm run build -w @omnirec/cli && node tools/cli/dist/cli.js generate",
+    "catalog:check": "npm run build -w @omnirec/cli && node tools/cli/dist/cli.js generate --check"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

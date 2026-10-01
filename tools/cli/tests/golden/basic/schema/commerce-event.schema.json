@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "eventType": {
+      "type": "string",
+      "enum": [
+        "product_shared",
+        "product_viewed",
+        "account_linked"
+      ]
+    }
+  }
+}

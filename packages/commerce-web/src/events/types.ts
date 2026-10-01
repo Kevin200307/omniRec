@@ -3,126 +3,41 @@
  * The canonical, provider-independent commerce event.
  *
  * Mirrored by `io.omnirec.commerce.model.CommerceEvent` on the JVM side and by
- * `schema/commerce-event.schema.json`. All three are kept in sync by
- * `omnirec-contract-tests` — if you add a field here, add it there too or CI fails.
+ * `schema/commerce-event.schema.json`. Event names are generated from the
+ * catalog; envelope fields are still kept in sync by `omnirec-contract-tests`,
+ * so if you add a field here, add it there too or CI fails.
  *
  * Nothing in this file may reference Amazon, Google, or Azure concepts. Provider
  * shapes are produced by mappers behind `EventDestination`, never by the SDK.
  */
 
+import { EVENT_NAMES, type EventName } from "./generated/catalog";
+
 /** Bumped only on a breaking change to the event shape. Consumers branch on this. */
 export const SCHEMA_VERSION = "1.0";
 
-export type SessionEventType =
-  | "session_started"
-  | "session_ended"
-  | "page_viewed"
-  | "home_page_viewed";
-
-export type DiscoveryEventType =
-  | "search_performed"
-  | "search_result_clicked"
-  | "product_list_viewed"
-  | "category_viewed"
-  | "product_viewed"
-  | "product_clicked";
-
-export type ProductInteractionEventType =
-  | "product_wishlisted"
-  | "product_shared"
-  | "product_compared"
-  | "product_review_viewed"
-  | "product_review_submitted";
-
-export type CartEventType =
-  | "cart_viewed"
-  | "product_added_to_cart"
-  | "product_removed_from_cart"
-  | "cart_quantity_updated"
-  | "cart_abandoned";
-
-export type CheckoutEventType =
-  | "checkout_started"
-  | "shipping_information_added"
-  | "payment_information_added"
-  | "checkout_completed"
-  | "checkout_failed";
-
-export type PurchaseEventType =
-  | "purchase_completed"
-  | "purchase_failed"
-  | "order_cancelled"
-  | "order_refunded";
-
-export type RecommendationEventType =
-  | "recommendation_impression"
-  | "recommendation_clicked"
-  | "recommendation_added_to_cart"
-  | "recommendation_purchased";
-
-export type UserEventType =
-  | "user_registered"
-  | "user_logged_in"
-  | "user_logged_out"
-  | "user_profile_updated";
-
 /**
- * Not part of the public taxonomy — an internal control event that establishes
- * the anonymousId -> userId relationship. See docs/identity.md.
+ * Event names come from the catalog (`catalog/events`), generated into
+ * `./generated/catalog.ts` by `npm run catalog:generate`. Edit the YAML, never
+ * the generated file. The per-domain unions keep the names this module has
+ * always exported.
  */
-export type IdentityEventType = "identify";
+export type {
+  CartEventType,
+  CheckoutEventType,
+  DiscoveryEventType,
+  EventDomain,
+  IdentityEventType,
+  ProductInteractionEventType,
+  PurchaseEventType,
+  RecommendationEventType,
+  SessionEventType,
+  UserEventType,
+} from "./generated/catalog";
 
-export type EventType =
-  | SessionEventType
-  | DiscoveryEventType
-  | ProductInteractionEventType
-  | CartEventType
-  | CheckoutEventType
-  | PurchaseEventType
-  | RecommendationEventType
-  | UserEventType
-  | IdentityEventType;
+export type EventType = EventName;
 
-export const EVENT_TYPES: readonly EventType[] = [
-  "session_started",
-  "session_ended",
-  "page_viewed",
-  "home_page_viewed",
-  "search_performed",
-  "search_result_clicked",
-  "product_list_viewed",
-  "category_viewed",
-  "product_viewed",
-  "product_clicked",
-  "product_wishlisted",
-  "product_shared",
-  "product_compared",
-  "product_review_viewed",
-  "product_review_submitted",
-  "cart_viewed",
-  "product_added_to_cart",
-  "product_removed_from_cart",
-  "cart_quantity_updated",
-  "cart_abandoned",
-  "checkout_started",
-  "shipping_information_added",
-  "payment_information_added",
-  "checkout_completed",
-  "checkout_failed",
-  "purchase_completed",
-  "purchase_failed",
-  "order_cancelled",
-  "order_refunded",
-  "recommendation_impression",
-  "recommendation_clicked",
-  "recommendation_added_to_cart",
-  "recommendation_purchased",
-  "user_registered",
-  "user_logged_in",
-  "user_logged_out",
-  "user_profile_updated",
-  "identify",
-] as const;
+export const EVENT_TYPES: readonly EventType[] = EVENT_NAMES;
 
 /**
  * Who the event belongs to. `anonymousId` is always present; `userId` is present

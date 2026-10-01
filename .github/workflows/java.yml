@@ -6,12 +6,14 @@ on:
     paths:
       - "backend/**"
       - "schema/**"
+      - "catalog/**"
       - ".github/workflows/java.yml"
   push:
     branches: [main]
     paths:
       - "backend/**"
       - "schema/**"
+      - "catalog/**"
 
 jobs:
   build:
@@ -23,6 +25,15 @@ jobs:
           distribution: temurin
           java-version: "17"
           cache: maven
+      # StandardEvents.java and omnirec/catalog.json are generated from catalog/.
+      # Fail fast with a clear message if they are stale, before compiling.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Check generated files are up to date with the catalog
+        run: npm run catalog:check
       # Runs omnirec-contract-tests along with everything else. That module
       # parses the TypeScript SDK and the JSON schema and fails the build if the
       # three definitions of the canonical event have drifted apart — which is

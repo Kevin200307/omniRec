@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+name: product_shared
+domain: shop
+version: 2
+sources: [browser]
+description: A product was shared.
+blocks: [product]
+properties:
+  product.id: { required: true }
+  channel: { type: enum, vocabulary: share_channel, required: true }
+aliases: [item_shared]
+example:
+  product: { id: P100, price: 15.5, currency: USD }
+  channel: whatsapp

@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+name: share_channel
+description: Where a product was shared.
+values:
+  - value: email
+  - value: whatsapp
+  - value: copy_link
+    description: The link was copied to the clipboard.

@@ -75,13 +75,17 @@ to both deliver a purchase.
 
 ### Cross-language parity
 
-`CanonicalSchemaContractTest` parses `types.ts`, the Java enum, and the JSON
-schema, and fails the build if they disagree. It also compares the two
-sensitive-field lists: a field blocked on one side but not the other is the
-dangerous case, because it appears protected while a direct HTTP request bypasses
-the protection.
+Event names are generated from the [event catalog](../catalog/README.md).
+`npm run catalog:check` fails if any generated file is stale, and the
+`@omnirec/cli` parity tests fail if the catalog disagrees with the Java enum or
+with the required fields in either validator.
 
-This test is what makes maintaining three definitions of the event shape safe.
+`CanonicalSchemaContractTest` parses the generated TypeScript catalog, the Java
+enum, and the JSON schema, and fails the build if they disagree. It also checks
+that the browser and JVM copies of the runtime catalog are identical, and
+compares the two sensitive-field lists: a field blocked on one side but not the
+other is the dangerous case, because it appears protected while a direct HTTP
+request bypasses the protection.
 
 ### Provider identity mapping
 

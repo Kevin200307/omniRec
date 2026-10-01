@@ -27,19 +27,20 @@ import static org.junit.jupiter.api.Assertions.*;
  * understand it:
  *
  * <ol>
- *   <li>{@code packages/commerce-web/src/events/types.ts} (the frontend SDK)</li>
+ *   <li>{@code packages/commerce-web/src/events/generated/catalog.ts} (the frontend SDK)</li>
  *   <li>{@code io.omnirec.commerce.model.EventType} (everything on the JVM)</li>
  *   <li>{@code schema/commerce-event.schema.json} (the documented wire contract)</li>
  * </ol>
  *
- * Three definitions is a deliberate trade: generating two from one would mean a
- * codegen step in every build, and the shape changes rarely. What is not
- * acceptable is letting them drift silently — a taxonomy entry added to the
- * frontend but missing from the Java enum means the API rejects an event the
- * SDK happily sends, and nobody finds out until production.
+ * Event names in the TypeScript file and the schema are generated from
+ * {@code catalog/} by {@code omnirec generate}, and CI fails if they are stale.
+ * The Java enum stays hand-written until Phase 2 of the v2 plan replaces it with
+ * a registry loaded from the same catalog.
  *
- * So this test parses the other two definitions and compares them to the Java
- * one. It fails the build on drift, which is what makes three copies safe.
+ * What is not acceptable is letting them drift silently — a taxonomy entry added
+ * to the frontend but missing from the Java enum means the API rejects an event
+ * the SDK happily sends, and nobody finds out until production. So this test
+ * parses the other definitions and compares them to the Java one.
  */
 class CanonicalSchemaContractTest {
 
@@ -78,18 +79,18 @@ class CanonicalSchemaContractTest {
     }
 
     /**
-     * Reads the EVENT_TYPES array from the TypeScript source. A regex rather
-     * than a TS parser: the array is a flat list of string literals in a file we
-     * control, and adding a JS toolchain to the Java build to read it would cost
+     * Reads the EVENT_NAMES array from the generated TypeScript catalog. A regex
+     * rather than a TS parser: the generator writes a flat list of string
+     * literals, and adding a JS toolchain to the Java build to read it would cost
      * far more than it saves.
      */
     private static Set<String> typescriptEventTypes() throws IOException {
-        String source = read("packages/commerce-web/src/events/types.ts");
+        String source = read("packages/commerce-web/src/events/generated/catalog.ts");
 
         Matcher block = Pattern
-                .compile("EVENT_TYPES:\\s*readonly EventType\\[\\]\\s*=\\s*\\[(.*?)]", Pattern.DOTALL)
+                .compile("EVENT_NAMES\\s*=\\s*\\[(.*?)]\\s*as const", Pattern.DOTALL)
                 .matcher(source);
-        assertTrue(block.find(), "could not find the EVENT_TYPES array in types.ts");
+        assertTrue(block.find(), "could not find the EVENT_NAMES array in generated/catalog.ts");
 
         Set<String> names = new TreeSet<>();
         Matcher literal = Pattern.compile("\"([a-z_]+)\"").matcher(block.group(1));
@@ -150,6 +151,14 @@ class CanonicalSchemaContractTest {
         }
 
         assertTrue(missing.isEmpty(), "event types from the taxonomy are missing: " + missing);
+    }
+
+    @Test
+    @DisplayName("the browser and the JVM ship the same runtime catalog")
+    void runtimeCatalogCopiesAgree() throws IOException {
+        String browser = read("packages/commerce-web/src/events/generated/catalog.json").replace("\r\n", "\n");
+        String jvm = read("backend/omnirec-commerce-core/src/main/resources/omnirec/catalog.json").replace("\r\n", "\n");
+        assertEquals(jvm, browser, "the two generated catalog.json copies differ; run npm run catalog:generate");
     }
 
     @Test

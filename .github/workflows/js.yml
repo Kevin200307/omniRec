@@ -10,6 +10,8 @@ on:
       - "schema/**"
       - "tests/**"
       - "tools/**"
+      - "catalog/**"
+      - "docs/events/**"
       - "package.json"
       - "turbo.json"
       - ".github/workflows/js.yml"
@@ -21,6 +23,8 @@ on:
       - "scripts/**"
       - "tests/**"
       - "tools/**"
+      - "catalog/**"
+      - "docs/events/**"
 
 jobs:
   build:
@@ -33,6 +37,9 @@ jobs:
           cache: npm
       - run: npm install
       - run: npx turbo run build typecheck test
+      # Generated types, schema, Java constants and docs must match catalog/.
+      - name: Check generated files are up to date with the catalog
+        run: npm run catalog:check
       # Reports the browser SDK's gzipped size on every run. No limit is
       # enforced yet; Phase 5 of the v2 plan sets the 10 KB budget.
       - name: Report browser SDK bundle size

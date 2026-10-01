@@ -1,15 +1,16 @@
 # Event schema
 
-The canonical event is defined in three places:
-[`packages/commerce-web/src/events/types.ts`](../packages/commerce-web/src/events/types.ts),
-`io.omnirec.commerce.model.CommerceEvent`, and
-[`schema/commerce-event.schema.json`](../schema/commerce-event.schema.json).
+Event names and their required fields are defined once, in the
+[event catalog](../catalog/README.md). `npm run catalog:generate` produces the
+TypeScript types, the Java constants, the event-name enum in
+[`schema/commerce-event.schema.json`](../schema/commerce-event.schema.json), and
+the [event reference](events/README.md). CI fails if any generated file is stale.
 
-Maintaining three definitions is a deliberate trade-off. Generating two of them
-from the third would introduce a code-generation step into every build, and the
-event shape changes rarely. Silent divergence is not acceptable, so
-`CanonicalSchemaContractTest` parses all three definitions and fails the build if
-they disagree.
+The envelope itself, meaning the fields every event shares, is still defined in
+[`packages/commerce-web/src/events/types.ts`](../packages/commerce-web/src/events/types.ts),
+`io.omnirec.commerce.model.CommerceEvent`, and the schema.
+`CanonicalSchemaContractTest` parses all three and fails the build if they
+disagree.
 
 ## Structure
 
@@ -57,17 +58,9 @@ server. Client-supplied values for these fields are discarded.
 
 ## Taxonomy
 
-| Category | Event types |
-| --- | --- |
-| Session | `session_started`, `session_ended`, `page_viewed`, `home_page_viewed` |
-| Discovery | `search_performed`, `search_result_clicked`, `product_list_viewed`, `category_viewed`, `product_viewed`, `product_clicked` |
-| Product interaction | `product_wishlisted`, `product_shared`, `product_compared`, `product_review_viewed`, `product_review_submitted` |
-| Cart | `cart_viewed`, `product_added_to_cart`, `product_removed_from_cart`, `cart_quantity_updated`, `cart_abandoned` |
-| Checkout | `checkout_started`, `shipping_information_added`, `payment_information_added`, `checkout_completed`, `checkout_failed` |
-| Purchase | `purchase_completed`, `purchase_failed`, `order_cancelled`, `order_refunded` |
-| Recommendation | `recommendation_impression`, `recommendation_clicked`, `recommendation_added_to_cart`, `recommendation_purchased` |
-| User | `user_registered`, `user_logged_in`, `user_logged_out`, `user_profile_updated` |
-| Control | `identify` |
+The full list of events, grouped by domain with their sources, required fields
+and examples, is generated from the catalog: see the
+[event reference](events/README.md).
 
 The `identify` event is the only addition to the specified taxonomy. It is a
 control event: it establishes an identity link and is never delivered to a
@@ -82,21 +75,11 @@ Field requirements are defined per event type rather than globally. For example,
 Required for every event: `eventId`, `eventType`, `schemaVersion`, a valid
 `timestamp`, `identity.anonymousId`, and `identity.sessionId`.
 
-| Event type | Additional required fields |
-| --- | --- |
-| `product_viewed`, `product_clicked`, `product_wishlisted`, `product_shared`, `product_compared`, `product_review_*` | `productId` |
-| `product_added_to_cart` | `productId`, `quantity` greater than 0 |
-| `product_removed_from_cart`, `cart_quantity_updated` | `productId` |
-| `cart_viewed`, `cart_abandoned`, all `checkout_*` | `cartId` |
-| `purchase_completed` | `orderId`, non-empty `items`, ISO 4217 `currency`, non-negative `total` |
-| `purchase_failed`, `order_cancelled`, `order_refunded` | `orderId` |
-| `search_performed` | `searchQuery` |
-| `search_result_clicked` | `searchQuery`, `productId` |
-| `category_viewed` | `categoryId` |
-| `product_list_viewed` | non-empty `productIds` |
-| `recommendation_impression` | `recommendationId`, non-empty `productIds` |
-| `recommendation_clicked`, `recommendation_added_to_cart`, `recommendation_purchased` | `recommendationId`, `productId` |
-| `user_registered`, `user_logged_in`, `user_profile_updated`, `identify` | `userId` |
+The additional fields each event requires are listed in the
+[event reference](events/README.md), generated from the catalog. For example,
+`product_added_to_cart` requires `productId` and a `quantity` of at least 1, and
+`purchase_completed` requires `orderId`, non-empty `items`, an ISO 4217
+`currency` and a non-negative `total`.
 
 Session events and `page_viewed` require nothing beyond the universal fields.
 This is intentional.

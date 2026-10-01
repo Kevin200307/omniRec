@@ -109,14 +109,21 @@ so a provider import in those modules does not compile.
   the assembled application, not only the module. See `RecentlyViewedFeedTest`
   for the reason.
 
-### The canonical event has three definitions
+### Events are defined in the catalog
 
-The event shape is defined in `packages/commerce-web/src/events/types.ts`, in
+To add or change an event, edit its YAML file under `catalog/events/`, run
+`npm run catalog:generate`, and commit the catalog change together with the
+generated files. Never edit generated files by hand. CI runs
+`npm run catalog:check` and fails if they are stale. See
+[catalog/README.md](catalog/README.md) for the format.
+
+The envelope, meaning the fields every event shares, is still defined in
+`packages/commerce-web/src/events/types.ts`, in
 `io.omnirec.commerce.model.CommerceEvent`, and in
-`schema/commerce-event.schema.json`. A change to the event model must update all
-three. `CanonicalSchemaContractTest` fails the build if they diverge. The same
-applies to the list of blocked sensitive field names and the list of URL
-parameters that are removed.
+`catalog/envelope/v1.schema.json`. A change to it must update all three.
+`CanonicalSchemaContractTest` fails the build if they diverge. The same applies
+to the list of blocked sensitive field names and the list of URL parameters that
+are removed.
 
 ### Security and privacy rules
 

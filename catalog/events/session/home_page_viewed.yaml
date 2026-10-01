@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+name: home_page_viewed
+domain: session
+version: 1
+sources: [browser]
+description: "The storefront home page was viewed."
+blocks: [commerce]

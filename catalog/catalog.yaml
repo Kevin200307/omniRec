@@ -1,0 +1,35 @@
+# SPDX-License-Identifier: Apache-2.0
+# The OmniRec event catalog. See catalog/README.md for the file format.
+#
+# Domain order here is the order events appear in generated code and docs.
+catalogVersion: 1
+# Envelope schema version produced by the SDKs. Phase 3 moves this to 2.0.
+schemaVersion: "1.0"
+domains:
+  - id: session
+    title: Session and navigation
+    description: Sessions starting and ending, and pages being viewed.
+  - id: discovery
+    title: Search and discovery
+    description: How shoppers find products through search, lists and categories.
+  - id: product_interaction
+    title: Product interaction
+    description: Engagement with a single product beyond viewing it.
+  - id: cart
+    title: Cart
+    description: Changes to the shopping cart.
+  - id: checkout
+    title: Checkout
+    description: Progress through checkout before an order exists.
+  - id: purchase
+    title: Purchase and orders
+    description: Commercial outcomes, reported from the merchant backend where the payment result is known.
+  - id: recommendation
+    title: Recommendations
+    description: Interactions with recommendation lists, used for attribution back to the provider that served them.
+  - id: user
+    title: User account
+    description: Account lifecycle of an identified customer.
+  - id: identity
+    title: Identity
+    description: Control events that link an anonymous visitor to a customer. Never delivered to providers.

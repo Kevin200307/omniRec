@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: Apache-2.0
+name: commerce
+description: >
+  The v1 commerce payload: a flat set of optional fields shared by every
+  event. Each event decides which of them it requires. Mirrors the "commerce"
+  object in schema/commerce-event.schema.json. Replaced by the product, cart,
+  order and search blocks in envelope v2.
+fields:
+  productId:
+    type: string
+    description: Merchant's product identifier.
+  productIds:
+    type: array
+    items: { type: string }
+    description: Products shown together, in display order.
+  categoryId:
+    type: string
+    description: Merchant's category identifier.
+  category:
+    type: string
+    description: Human-readable category name.
+  quantity:
+    type: integer
+    minimum: 1
+    description: Number of units.
+  price:
+    type: number
+    description: Unit price in the event's currency.
+  currency:
+    type: string
+    pattern: "^[A-Z]{3}$"
+    description: ISO 4217 currency code.
+  cartId:
+    type: string
+    description: Merchant's cart identifier.
+  orderId:
+    type: string
+    description: Merchant's order identifier.
+  searchQuery:
+    type: string
+    description: The text the shopper searched for.
+  recommendationId:
+    type: string
+    description: Identifier of the recommendation list, issued by the provider that served it.
+  recommendationProvider:
+    type: string
+    description: Who served the recommendation list, for example amazon-personalize. Adapters forward recommendationId as attribution only to the provider that issued it.
+  listId:
+    type: string
+    description: Identifier of the product list or placement.
+  total:
+    type: number
+    minimum: 0
+    description: Order total in the event's currency.
+  items:
+    type: array
+    description: Order lines.
+    items:
+      type: object
+      fields:
+        productId: { type: string, required: true }
+        quantity: { type: integer, minimum: 1 }
+        price: { type: number }
+        currency: { type: string, pattern: "^[A-Z]{3}$" }
+        categoryId: { type: string }

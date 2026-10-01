@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: user_logged_in
+domain: user
+version: 1
+sources: [browser, server]
+description: "A customer logged in."
+blocks: [commerce]
+properties:
+  identity.userId: { required: true }
+example:
+  identity: { userId: customer_123 }

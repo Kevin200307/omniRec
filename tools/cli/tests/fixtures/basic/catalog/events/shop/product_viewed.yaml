@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: product_viewed
+domain: shop
+version: 1
+sources: [browser]
+description: A product page was viewed.
+blocks: [product]
+autocapture: true
+properties:
+  product.id: { required: true }
+example:
+  product: { id: P100 }

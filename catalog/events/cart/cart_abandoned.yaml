@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: cart_abandoned
+domain: cart
+version: 1
+sources: [server]
+description: "A cart was left without starting checkout. Reported by the merchant backend."
+blocks: [commerce]
+properties:
+  commerce.cartId: { required: true }
+example:
+  commerce: { cartId: c1 }

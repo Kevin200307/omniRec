@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: identify
+domain: identity
+version: 1
+control: true
+sources: [browser, server]
+description: "Links the current anonymous visitor to a customer id. Recorded as an identity link; past events are not rewritten."
+blocks: [commerce]
+properties:
+  identity.userId: { required: true }
+example:
+  identity: { userId: customer_123 }

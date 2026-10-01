@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+name: product
+description: A product as shown to the shopper.
+fields:
+  id: { type: string, description: Product identifier. }
+  price: { type: money, minimum: 0 }
+  currency: { type: string, pattern: "^[A-Z]{3}$" }
+  tags: { type: array, items: { type: string } }
