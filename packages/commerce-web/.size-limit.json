@@ -1,0 +1,13 @@
+[
+  {
+    "name": "commerce-web (full public API)",
+    "path": "dist/index.js",
+    "gzip": true
+  },
+  {
+    "name": "commerce-web (createCommerceClient only)",
+    "path": "dist/index.js",
+    "import": "{ createCommerceClient }",
+    "gzip": true
+  }
+]

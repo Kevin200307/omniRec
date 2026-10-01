@@ -8,6 +8,8 @@ on:
       - "examples/**"
       - "scripts/**"
       - "schema/**"
+      - "tests/**"
+      - "tools/**"
       - "package.json"
       - "turbo.json"
       - ".github/workflows/js.yml"
@@ -17,6 +19,8 @@ on:
       - "packages/**"
       - "examples/**"
       - "scripts/**"
+      - "tests/**"
+      - "tools/**"
 
 jobs:
   build:
@@ -29,6 +33,22 @@ jobs:
           cache: npm
       - run: npm install
       - run: npx turbo run build typecheck test
+      # Reports the browser SDK's gzipped size on every run. No limit is
+      # enforced yet; Phase 5 of the v2 plan sets the 10 KB budget.
+      - name: Report browser SDK bundle size
+        run: npm run size -w @omnirec/commerce-web
+      # Real-browser tests against the built bundle: what jsdom cannot cover.
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Browser tests
+        run: npm run test:browser
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: tests/browser/playwright-report
+          retention-days: 7
       # The architecture's central security claim, enforced rather than asserted:
       # no provider credential and no provider SDK may reach a browser bundle.
       - name: Verify no provider credentials reach the browser

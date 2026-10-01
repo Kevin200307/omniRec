@@ -10,3 +10,12 @@ target/
 *.iml
 .idea/
 .vscode/
+
+# Local planning documents, not published
+planning/
+
+# Playwright output
+tests/browser/test-results/
+tests/browser/playwright-report/
+test-results/
+playwright-report/

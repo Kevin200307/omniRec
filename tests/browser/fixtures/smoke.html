@@ -1,0 +1,31 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>omnirec browser smoke</title>
+  </head>
+  <body>
+    <button id="buy">Add to cart</button>
+    <script type="module">
+      import { createCommerceClient } from "/sdk/web/index.js";
+
+      const errors = [];
+      const commerce = createCommerceClient({
+        apiKey: "pk_test_browser",
+        endpoint: `${location.origin}/collector`,
+        autoTrackSessions: false,
+        autoTrackDwellTime: false,
+        onError: (e) => errors.push(String(e)),
+      });
+
+      document.getElementById("buy").addEventListener("click", async () => {
+        commerce.cart.productAdded({ cartId: "c1", productId: "P100", quantity: 1 });
+        await commerce.flush();
+      });
+
+      window.__omnirec = { commerce, errors };
+      document.body.dataset.ready = "true";
+    </script>
+  </body>
+</html>

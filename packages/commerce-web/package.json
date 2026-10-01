@@ -19,18 +19,23 @@
       "require": "./dist/index.cjs"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "sideEffects": false,
   "scripts": {
     "build": "tsup src/index.ts --format esm,cjs --dts --clean",
     "dev": "tsup src/index.ts --format esm,cjs --dts --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "size": "size-limit"
   },
   "devDependencies": {
+    "@size-limit/preset-small-lib": "^11.2.0",
     "@vitest/coverage-v8": "^2.1.8",
     "jsdom": "^25.0.1",
+    "size-limit": "^11.2.0",
     "tsup": "^8.3.0",
     "typescript": "^5.6.3",
     "vitest": "^2.1.8"
