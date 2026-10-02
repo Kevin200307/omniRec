@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+name: product_removed_from_cart
+domain: cart_checkout
+version: 1
+sources: [browser, server]
+description: "A product was removed from the cart."
+aliases: [cart_item_removed, remove_from_cart]
+blocks: [product, cart]
+properties:
+  product.id: { required: true }
+example:
+  product: { id: p123 }
+  cart: { id: c1 }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package io.omnirec.storage.worker;
 
+import io.omnirec.commerce.privacy.ErasureRegistry;
 import io.omnirec.commerce.destination.DestinationException;
 import io.omnirec.commerce.destination.EventDestination;
 import io.omnirec.commerce.model.CommerceEvent;
@@ -44,15 +45,25 @@ public class EventStorageDestination implements EventDestination {
     private final EventStore store;
     private final StorageMetrics metrics;
     private final Clock clock;
+    private final ErasureRegistry erasures;
 
     public EventStorageDestination(EventStore store, StorageMetrics metrics) {
-        this(store, metrics, Clock.systemUTC());
+        this(store, metrics, Clock.systemUTC(), ErasureRegistry.none());
+    }
+
+    public EventStorageDestination(EventStore store, StorageMetrics metrics, ErasureRegistry erasures) {
+        this(store, metrics, Clock.systemUTC(), erasures);
     }
 
     public EventStorageDestination(EventStore store, StorageMetrics metrics, Clock clock) {
+        this(store, metrics, clock, ErasureRegistry.none());
+    }
+
+    public EventStorageDestination(EventStore store, StorageMetrics metrics, Clock clock, ErasureRegistry erasures) {
         this.store = store;
         this.metrics = metrics;
         this.clock = clock;
+        this.erasures = erasures;
     }
 
     @Override
@@ -66,6 +77,11 @@ public class EventStorageDestination implements EventDestination {
      * customer history is joined through — and dwell-time engagement updates.
      */
     @Override
+    public boolean acceptsUnplanned() {
+        return true;
+    }
+
+    @Override
     public boolean supports(CommerceEvent event) {
         return true;
     }
@@ -73,6 +89,11 @@ public class EventStorageDestination implements EventDestination {
     @Override
     public void send(CommerceEvent event) {
         metrics.received(event.tenantId());
+        // Queued before the customer was deleted, delivered after: writing it would undo the deletion.
+        if (erasures.isErased(event.tenantId(), event.identity())) {
+            log.debug("Skipped event {} for tenant {}: its customer was erased", event.eventId(), event.tenantId());
+            return;
+        }
         long started = System.nanoTime();
 
         SaveOutcome outcome;

@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+name: recommendation_clicked
+domain: search_discovery
+version: 1
+sources: [browser]
+description: "A product in a recommendation list was clicked."
+aliases: [recommendation_product_clicked, product_recommendation_clicked]
+blocks: [product, recommendation]
+properties:
+  recommendation.id: { required: true }
+  product.id: { required: true }
+example:
+  product: { id: p456 }
+  recommendation: { id: rec_42 }

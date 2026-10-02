@@ -77,11 +77,13 @@ to both deliver a purchase.
 
 Event names are generated from the [event catalog](../catalog/README.md).
 `npm run catalog:check` fails if any generated file is stale, and the
-`@omnirec/cli` parity tests fail if the catalog disagrees with the Java enum or
-with the required fields in either validator.
+`@omnirec/cli` parity tests fail if a v1 event disappears from the catalog or if
+the catalog disagrees with the TypeScript validator. The Java validator reads its
+rules from the catalog, and `CatalogDrivenValidationTest` checks every catalog
+example against it.
 
 `CanonicalSchemaContractTest` parses the generated TypeScript catalog, the Java
-enum, and the JSON schema, and fails the build if they disagree. It also checks
+event registry, and the JSON schema, and fails the build if they disagree. It also checks
 that the browser and JVM copies of the runtime catalog are identical, and
 compares the two sensitive-field lists: a field blocked on one side but not the
 other is the dangerous case, because it appears protected while a direct HTTP

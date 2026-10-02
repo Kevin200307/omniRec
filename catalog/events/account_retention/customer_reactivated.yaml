@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+name: customer_reactivated
+domain: account_retention
+version: 1
+sources: [derived]
+description: "A lapsed customer became active again. Derived."
+aliases: [reactivated_customer]

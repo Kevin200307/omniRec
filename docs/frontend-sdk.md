@@ -12,14 +12,52 @@ npm install @omnirec/commerce-web
 npm install @omnirec/commerce-react
 ```
 
-## Initialization
+## Quick start (v2)
+
+```js
+import { createOmnirec } from "@omnirec/commerce-web";
+
+const omnirec = createOmnirec({ endpoint: "/omnirec" }); // or "https://events.example.com"
+
+omnirec.track("product_viewed", { product: { id: "P100", price: "12.50", currency: "USD" } });
+omnirec.track("product_added_to_cart", { product: { id: "P100", quantity: 1 }, cart: { id: "c1" } });
+omnirec.identify("customer_123");
+```
+
+- **The endpoint is the only required setting.** Add `apiKey` only when your
+  collector runs in keys mode. A path such as `/omnirec` posts to your own
+  site, which you proxy to the collector; no CORS setup is needed.
+- **`track()` is typed from the event catalog.** Event names autocomplete, and a
+  missing required field or a misspelled name is a compile error. Use
+  `trackUntyped(name, data)` for names known only at runtime.
+- **Custom events** from your tracking plan become typed after
+  `npx omnirec generate`, which augments `OmnirecCustomEvents`.
+- **Events use envelope v2**: `event` plus `data` blocks (`product`, `cart`,
+  `order`, ...). See the [event reference](events/README.md).
+- **Middleware** sees every valid event before batching:
+  `createOmnirec({ endpoint, middleware: [(event, next) => next(event)] })`.
+  Not calling `next` drops the event.
+- **Plugins** add HTML attributes, impressions, autocapture, consent and debug
+  output, each a separate import such as `@omnirec/commerce-web/dom`. See
+  [Tracking with HTML attributes](html-attributes.md).
+- The session id is mirrored to a first-party `omnirec_session_id` cookie so your
+  backend SDK can attach server events to the same session. Set `cookieDomain`
+  to share identity across subdomains.
+
+The core is under 10 KB gzipped; CI enforces the budget.
+
+## Initialization (v1 helpers, deprecated)
+
+`createCommerceClient` keeps the v1 per-event helper methods. They take the v1
+flat payload and convert it to v2 blocks before sending. They remain for
+existing integrations; new code should use `createOmnirec` and `track()`.
 
 ```js
 import { createCommerceClient } from "@omnirec/commerce-web";
 
 const commerce = createCommerceClient({
-  apiKey: "pk_live_xxxxx",             // publishable key, safe in browser code
   endpoint: "https://events.example.com",
+  apiKey: "pk_live_xxxxx",             // optional; publishable, safe in browser code
   tenantId: "my-store",
 });
 ```

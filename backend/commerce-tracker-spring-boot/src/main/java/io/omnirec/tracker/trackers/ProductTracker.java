@@ -2,7 +2,8 @@
 package io.omnirec.tracker.trackers;
 
 import io.omnirec.commerce.model.CommerceData;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.model.EventName;
 import io.omnirec.tracker.ServerEventEmitter;
 import io.omnirec.tracker.ServerEventEmitter.ServerIdentity;
 
@@ -25,7 +26,7 @@ public class ProductTracker {
 
     public void reviewSubmitted(String productId, String userId, String reviewId, Integer rating) {
         emitter.emit(
-                EventType.PRODUCT_REVIEW_SUBMITTED,
+                StandardEventNames.PRODUCT_REVIEW_SUBMITTED,
                 ServerIdentity.ofUser(userId),
                 CommerceData.builder().productId(productId).build(),
                 rating == null ? Map.of() : Map.of("rating", rating),
@@ -35,7 +36,7 @@ public class ProductTracker {
 
     public void wishlisted(String productId, String userId, String anonymousId) {
         emitter.emit(
-                EventType.PRODUCT_WISHLISTED,
+                StandardEventNames.PRODUCT_WISHLISTED,
                 ServerIdentity.of(anonymousId, userId),
                 CommerceData.builder().productId(productId).build(),
                 Map.of());

@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: page_viewed
+domain: session_engagement
+version: 1
+sources: [browser]
+description: "Any page was viewed. Single-page apps report one per route change."

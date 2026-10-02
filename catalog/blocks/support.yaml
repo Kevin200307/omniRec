@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+name: support
+description: "A support conversation or ticket."
+fields:
+  id: { type: string, description: "Ticket, conversation or call identifier." }
+  channel: { type: enum, vocabulary: support_channel }
+  topic: { type: string }
+  intent: { type: string }
+  priority: { type: string }
+  resolution: { type: string }

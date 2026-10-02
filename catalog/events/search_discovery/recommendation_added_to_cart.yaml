@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+name: recommendation_added_to_cart
+domain: search_discovery
+version: 1
+sources: [browser, server]
+description: "A recommended product was added to the cart."
+blocks: [product, recommendation]
+properties:
+  recommendation.id: { required: true }
+  product.id: { required: true }
+example:
+  product: { id: p456, quantity: 1 }
+  recommendation: { id: rec_42 }

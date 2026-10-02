@@ -36,6 +36,12 @@ public record CustomerHistoryResponse(String customerId, List<HistoryEvent> even
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record HistoryEvent(
             String eventId,
+            /** Envelope v2 name. */
+            String event,
+            int eventVersion,
+            String kind,
+            String source,
+            /** Same as {@code event}. Kept for v1 readers; removed in the release after 2.0. */
             String eventType,
             Instant occurredAt,
             Instant receivedAt,
@@ -45,20 +51,29 @@ public record CustomerHistoryResponse(String customerId, List<HistoryEvent> even
             String userId,
             String sessionId,
             String productId,
+            /** Envelope v2 payload. */
+            Map<String, Object> data,
+            /** The payload in the v1 flat shape, for v1 readers; removed in the release after 2.0. */
             CommerceData commerce,
             Map<String, Object> properties,
             HistoryContext context
     ) {
+        @SuppressWarnings("deprecation")
         static HistoryEvent from(CommerceEvent event) {
             return new HistoryEvent(
                     event.eventId(),
+                    event.eventType().wireName(),
+                    event.eventVersion(),
+                    event.kind(),
+                    event.source() == null ? null : event.source().wireName(),
                     event.eventType().wireName(),
                     event.timestamp(),
                     event.receivedAt(),
                     event.identity().anonymousId(),
                     event.identity().userId(),
                     event.identity().sessionId(),
-                    event.commerce().productId(),
+                    event.data().product().id(),
+                    event.data().asMap(),
                     event.commerce(),
                     event.properties(),
                     HistoryContext.from(event.context()));

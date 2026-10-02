@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: product_wishlisted
+domain: product_page
+version: 1
+sources: [browser, server]
+description: "A product was added to a wishlist."
+blocks: [product]
+properties:
+  product.id: { required: true }
+example:
+  product: { id: p123 }

@@ -3,7 +3,8 @@ import type { Catalog, FieldSpec } from "../catalog/model";
 
 /**
  * The catalog as runtime data, shared by the browser SDK (debug tooling) and
- * the JVM (the event registry in Phase 2). Both copies are byte-identical.
+ * the JVM (the event registry) and the CLI (`omnirec dev`, `validate`). All
+ * copies are byte-identical.
  *
  * Key order is fixed and every map is sorted, so the output is stable across
  * machines and a diff shows only real catalog changes.
@@ -37,6 +38,8 @@ export function runtimeCatalogJson(catalog: Catalog): string {
       fields: Object.fromEntries(
         e.fields.filter((f) => f.refined).map((f) => [f.path, fieldJson(f)])
       ),
+      // Used by both languages' parity tests and by SDK debug tooling.
+      ...(e.example ? { example: e.example } : {}),
     })),
   };
   return JSON.stringify(doc, null, 2) + "\n";

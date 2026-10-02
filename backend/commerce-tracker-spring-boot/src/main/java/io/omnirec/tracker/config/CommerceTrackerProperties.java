@@ -20,8 +20,59 @@ public class CommerceTrackerProperties {
     /** Base URL of the Event API, e.g. "https://events.example.com". */
     private String endpoint;
 
-    /** Key for the Event API. May be a publishable key — this SDK only writes events. */
+    /** Key for the Event API, only needed when it runs in keys mode. A publishable key is enough: this SDK only writes. */
     private String apiKey;
+
+    /**
+     * How unknown event names are treated before sending. {@code permissive}
+     * (default) lets custom tracking-plan events through for the collector to
+     * check; known events are always validated in full.
+     */
+    private io.omnirec.commerce.validation.ValidationMode validationMode =
+            io.omnirec.commerce.validation.ValidationMode.PERMISSIVE;
+
+    private final IdentityFilter identityFilter = new IdentityFilter();
+    private final Outbox outbox = new Outbox();
+
+    public io.omnirec.commerce.validation.ValidationMode getValidationMode() { return validationMode; }
+    public void setValidationMode(io.omnirec.commerce.validation.ValidationMode validationMode) { this.validationMode = validationMode; }
+    public IdentityFilter getIdentityFilter() { return identityFilter; }
+    public Outbox getOutbox() { return outbox; }
+
+    /** Reads the browser's omnirec_* cookies so tracked events join the visitor's session. */
+    public static class IdentityFilter {
+        private boolean enabled = true;
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+    }
+
+    /**
+     * Transactional outbox (PostgreSQL). Events tracked inside a transaction are
+     * written with it and sent after commit, so they are never lost and never
+     * sent for rolled-back work.
+     */
+    public static class Outbox {
+        private boolean enabled = false;
+        private String table = "omnirec_outbox";
+        /** How often leftover rows are retried. */
+        private java.time.Duration relayInterval = java.time.Duration.ofSeconds(5);
+        private int batchSize = 100;
+        private java.time.Duration retryInitialInterval = java.time.Duration.ofSeconds(1);
+        private java.time.Duration retryMaxInterval = java.time.Duration.ofMinutes(5);
+
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+        public String getTable() { return table; }
+        public void setTable(String table) { this.table = table; }
+        public java.time.Duration getRelayInterval() { return relayInterval; }
+        public void setRelayInterval(java.time.Duration relayInterval) { this.relayInterval = relayInterval; }
+        public int getBatchSize() { return batchSize; }
+        public void setBatchSize(int batchSize) { this.batchSize = batchSize; }
+        public java.time.Duration getRetryInitialInterval() { return retryInitialInterval; }
+        public void setRetryInitialInterval(java.time.Duration retryInitialInterval) { this.retryInitialInterval = retryInitialInterval; }
+        public java.time.Duration getRetryMaxInterval() { return retryMaxInterval; }
+        public void setRetryMaxInterval(java.time.Duration retryMaxInterval) { this.retryMaxInterval = retryMaxInterval; }
+    }
 
     private String tenantId;
 

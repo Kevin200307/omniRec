@@ -14,6 +14,8 @@ export function generateAll(catalog: Catalog, repoRoot: string): GeneratedFile[]
   const files = [
     generateTypeScript(catalog),
     { path: PATHS.tsCatalogJson, content: runtimeCatalogJson(catalog) },
+    // The CLI ships the standard catalog so `omnirec dev` and `validate` work in any project.
+    { path: PATHS.cliCatalogJson, content: runtimeCatalogJson(catalog) },
     ...generateJava(catalog),
     generateJsonSchema(catalog, repoRoot),
     ...generateDocs(catalog),

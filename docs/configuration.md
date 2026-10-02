@@ -75,8 +75,18 @@ omnirec:
 | `tenants.<id>.api-key` | none | Publishable key for the tenant |
 | `tenants.<id>.secret-key` | none | Server-side key that reads this tenant's history (`omnirec.storage`). Must differ from every publishable key, or startup fails |
 | `tenants.<id>.enabled` | `true` | Whether the tenant may submit events |
-| `allow-anonymous-ingestion` | `false` | Disables tenant isolation. Startup fails outside the `dev`, `test`, and `local` profiles |
-| `default-tenant-id` | `default` | Used only with anonymous ingestion |
+| `tenants.<id>.allowed-origins` | none | Browser origins allowed to send events for this tenant. Also added to the CORS allowlist |
+| `tenants.<id>.validation-mode` | `default-validation-mode` | `permissive` accepts unknown events and flags them `unplanned`; `strict` rejects them |
+| `tenants.<id>.plan-paths` | none | Tracking plans with this tenant's custom events, as `classpath:` or `file:` locations. An invalid plan fails startup |
+| `auth-mode` | `auto` | `open`: no key needed, keyless events go to `default-tenant-id`, browser requests must come from an allowed origin or the collector's own origin. `keys`: every write needs a publishable key. `auto`: `keys` when any tenant has an `api-key`, otherwise `open` |
+| `default-tenant-id` | `default` | Tenant for keyless events in open mode. Exists even when not configured |
+| `default-validation-mode` | `permissive` | Validation mode for tenants that do not set one |
+| `default-plan-paths` | none | Tracking plans for the default tenant when it is not configured explicitly |
+| `tenant-source` | `file` | `file` reads `tenants.*` above. `jdbc` reads table `jdbc.table` and picks up changes every `jdbc.refresh-interval` |
+| `jdbc.url`, `jdbc.username`, `jdbc.password` | none | Database for `tenant-source: jdbc`. The table is created if missing; keys are stored as SHA-256 hashes |
+| `jdbc.table` | `omnirec_tenant` | Tenant table name |
+| `jdbc.refresh-interval` | `30s` | How quickly tenant changes take effect |
+| `allow-anonymous-ingestion` | `false` | Deprecated. `true` means `auth-mode: open` |
 | `max-batch-size` | 500 | Larger batches are rejected with 413 |
 | `max-payload-bytes` | 1048576 | Maximum request body size |
 | `deduplication-window` | PT24H | Retention period for an `eventId` |
@@ -143,7 +153,9 @@ With `enabled: false` nothing below is read and no database is contacted.
 | `retention.max-age` | none (keep indefinitely) | For example `400d`. Batched purge on `postgres`; retention policy on `timescale` |
 | `retention.purge-interval` | 1h | `postgres` only |
 | `retention.purge-batch-size` | 5000 | `postgres` only |
-| `history-api.enabled` | `true` | `GET /v1/customers/{customerId}/events` |
+| `retention.tenants.<id>` | none | Max-age for one tenant, shorter or longer than `max-age`; `postgres` only |
+| `erasure-refresh-interval` | `PT30S` | How often deletions made on other instances take effect here |
+| `history-api.enabled` | `true` | `GET /v1/customers/{customerId}/events` and `DELETE /v1/customers/{customerId}` |
 | `history-api.default-limit`, `max-limit` | 50, 200 | Page size |
 | `history-api.platform-keys.<name>.key` | none | A read key for several tenants, selected per request with `X-Omnirec-Tenant` |
 | `history-api.platform-keys.<name>.tenants` | none | The tenants that key may read; unknown names fail startup |
@@ -158,6 +170,37 @@ With `enabled: false` nothing below is read and no database is contacted.
 | `recently-viewed.host`, `port`, `password`, `database` | `localhost`, `6379` | The serving application's cache Redis (`omnirec.cache.redis`), which need not be the state Redis |
 | `recently-viewed.tenant-id` | all tenants | Set when more than one tenant submits events, because the serving keys carry no tenant |
 | `recently-viewed.max-items`, `ttl` | `20`, `P30D` | Match the serving side's list length and retention |
+| `webhook.enabled` | `false` | POST events to your own URLs ([webhooks.md](webhooks.md#outbound-webhooks)) |
+| `webhook.endpoints.<name>.url`, `secret`, `events` | none | One destination per endpoint; HTTPS required except on localhost |
+| `webhook.endpoints.<name>.tenants`, `include-unplanned`, `timeout`, `headers` | all, `false`, `PT10S`, none | Filters and request options |
+
+### `omnirec.webhooks` (inbound)
+
+| Property | Default | Description |
+| --- | --- | --- |
+| `stripe.enabled`, `stripe.secret` | `false`, none | Stripe disputes and refunds at `POST /v1/webhooks/stripe` |
+| `stripe.tenant-secrets.<tenant>` | none | One Stripe endpoint secret per tenant, selected with `?tenant=` |
+| `stripe.tolerance` | `PT5M` | Oldest accepted signature |
+| `json.<source>.*` | none | A generic JSON source at `POST /v1/webhooks/<source>`; see [webhooks.md](webhooks.md) |
+
+### `omnirec.derived`
+
+| Property | Default | Description |
+| --- | --- | --- |
+| `enabled` | `false` | Derived events ([derived-events.md](derived-events.md)) |
+| `store` | `auto` | `redis` when `omnirec.state.redis` is enabled, otherwise `memory` |
+| `poll-interval` | `PT15S` | How often due timers are checked |
+| `cart-abandoned.enabled`, `timeout` | `true`, `PT60M` | |
+| `checkout-abandoned.enabled`, `timeout` | `true`, `PT30M` | |
+| `return-visit.enabled`, `minimum-gap` | `true`, `PT30M` | |
+| `purchase-history.enabled` | `true` | `new_customer_purchase` and `repeat_purchase` |
+
+### Profiles and management endpoints
+
+| Setting | Effect |
+| --- | --- |
+| `SPRING_PROFILES_ACTIVE=lite` | No RabbitMQ, Redis or database: inline delivery, in-memory state, `auth-mode: open` ([self-hosting.md](self-hosting.md)) |
+| `management.endpoints.web.exposure.include: ...,deadletters` | `GET /actuator/deadletters` (waiting per destination) and `POST /actuator/deadletters/{destination}` with `{"dryRun": false, "max": 500}` to replay. Keep the management port private. |
 
 ### Deployment behind a load balancer
 
@@ -242,7 +285,8 @@ See [spring-boot-sdk.md](spring-boot-sdk.md).
 
 ## Production checklist
 
-- [ ] A distinct `api-key` per tenant, with `allow-anonymous-ingestion` disabled
+- [ ] Either `auth-mode: keys` with a distinct `api-key` per tenant, or `auth-mode: open` with `allowed-origins` set (or a same-origin proxy path)
+- [ ] `validation-mode: strict` for tenants whose tracking plan is complete
 - [ ] `cors.allowed-origins` restricted to production storefront origins
 - [ ] RabbitMQ reachable, with publisher confirms and returns enabled
 - [ ] `omnirec.state.redis.enabled=true` for deployments of more than one

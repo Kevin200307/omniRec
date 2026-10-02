@@ -4,18 +4,19 @@
 #
 #   @omnirec/commerce-web (built) -> Event API (jar) -> RabbitMQ -> Amazon adapter
 #     -> real AWS SDK, SigV4-signed PutEvents -> local capture server
+#   plus derived events (Redis timers) -> signed outbound webhook -> second capture server
 #
 # The capture server stands in for Personalize itself, so no AWS account is
 # needed. Point AWS_PERSONALIZE_ENDPOINT at nothing and supply real credentials
 # to run the same journey against the real service.
 #
 # Prerequisites: Docker running; `npx turbo run build` and `mvn -f backend install` done.
-# Uses ports 25672 / 26379 / 4566 / 8124 so it won't collide with other stacks.
+# Uses ports 25672 / 26379 / 4566 / 4567 / 8124 so it won't collide with other stacks.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 OUT="$(mktemp -d)"
 cleanup() {
-  kill "${API_PID:-}" "${CAPTURE_PID:-}" 2>/dev/null || true
+  kill "${API_PID:-}" "${CAPTURE_PID:-}" "${HOOK_PID:-}" 2>/dev/null || true
   docker rm -f omnirec-e2e-rabbit omnirec-e2e-redis >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
@@ -41,6 +42,7 @@ start_rabbit() {
 start_rabbit || { echo "RabbitMQ would not start"; exit 1; }
 
 node scripts/e2e/capture-server.mjs "$OUT/captured.json" >"$OUT/capture.log" 2>&1 & CAPTURE_PID=$!
+node scripts/e2e/capture-server.mjs "$OUT/webhook.json" 4567 >"$OUT/webhook.log" 2>&1 & HOOK_PID=$!
 
 AWS_ACCESS_KEY_ID=e2e AWS_SECRET_ACCESS_KEY=e2e java -jar backend/omnirec-event-api-app/target/omnirec-event-api-app-*.jar \
   --server.port=8124 --spring.rabbitmq.port=25672 \
@@ -49,7 +51,12 @@ AWS_ACCESS_KEY_ID=e2e AWS_SECRET_ACCESS_KEY=e2e java -jar backend/omnirec-event-
   --omnirec.destinations.amazon-personalize.tracking-id=trk-e2e \
   --omnirec.destinations.amazon-personalize.endpoint-override=http://localhost:4566 \
   --omnirec.destinations.recently-viewed.enabled=true --omnirec.destinations.recently-viewed.port=26379 \
-  --omnirec.destinations.amazon-personalize.region=us-east-1 >"$OUT/api.log" 2>&1 & API_PID=$!
+  --omnirec.destinations.amazon-personalize.region=us-east-1 \
+  --omnirec.derived.enabled=true --omnirec.derived.cart-abandoned.timeout=PT3S --omnirec.derived.poll-interval=PT1S \
+  --omnirec.destinations.webhook.enabled=true \
+  --omnirec.destinations.webhook.endpoints.e2e.url=http://localhost:4567/hook \
+  --omnirec.destinations.webhook.endpoints.e2e.secret=e2e_webhook_secret \
+  --omnirec.destinations.webhook.endpoints.e2e.events=cart_abandoned >"$OUT/api.log" 2>&1 & API_PID=$!
 for _ in $(seq 1 90); do
   grep -q "Started OmnirecEventApiApplication" "$OUT/api.log" && break
   grep -q "FAILED TO START" "$OUT/api.log" && { cat "$OUT/api.log"; exit 1; }
@@ -85,3 +92,21 @@ RV=$(docker exec omnirec-e2e-redis redis-cli lrange recently-viewed:customer_123
 [ "$RV" = '"p3"' ] \
   && echo "PASS recently-viewed for customer_123 fed by the pipeline: [$RV]" \
   || { echo "FAIL recently-viewed was [$RV], expected [\"p3\"]"; exit 1; }
+
+# Day 2 left cart_1 without a checkout: with a 3s timeout the derived-events
+# rule (timers in Redis) reports it, and the webhook destination delivers it signed.
+for _ in $(seq 1 20); do
+  [ -s "$OUT/webhook.json" ] && break
+  sleep 1
+done
+node -e '
+const fs = require("fs");
+const c = fs.existsSync(process.argv[1]) ? JSON.parse(fs.readFileSync(process.argv[1], "utf8")) : [];
+const events = c.flatMap(r => r.body.events);
+const abandoned = events.filter(e => e.event === "cart_abandoned");
+let failed = false;
+const check = (ok, msg) => { console.log((ok ? "PASS " : "FAIL ") + msg); if (!ok) failed = true; };
+check(abandoned.length === 1 && abandoned[0].data.cart.id === "cart_1" && abandoned[0].source === "derived",
+  "cart_abandoned derived for cart_1 and delivered by webhook (" + abandoned.length + ")");
+check(c.length > 0 && c.every(r => /^t=\d+,v1=[0-9a-f]{64}$/.test(r.webhookSignature || "")), "webhook requests are signed");
+process.exit(failed ? 1 : 0);' "$OUT/webhook.json"

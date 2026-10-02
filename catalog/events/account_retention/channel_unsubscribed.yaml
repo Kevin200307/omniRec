@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: channel_unsubscribed
+domain: account_retention
+version: 1
+sources: [browser, server, webhook]
+description: "The customer unsubscribed from email, SMS or push."
+aliases: [email_unsubscribed, sms_unsubscribed, push_opted_out]
+blocks: [message]
+properties:
+  message.channel: { required: true }
+example:
+  message: { channel: email }

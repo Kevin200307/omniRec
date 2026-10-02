@@ -1,0 +1,46 @@
+{
+  "name": "@omnirec/commerce-vue",
+  "version": "2.0.0",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kevin200307/omniRec.git",
+    "directory": "packages/commerce-vue"
+  },
+  "description": "Vue 3 bindings for OmniRec: a plugin, useOmnirec(), and v-track / v-impression directives.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean --external vue --external @omnirec/commerce-web",
+    "dev": "tsup src/index.ts --format esm,cjs --dts --watch --external vue --external @omnirec/commerce-web",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "vue": ">=3.3"
+  },
+  "dependencies": {
+    "@omnirec/commerce-web": "2.0.0"
+  },
+  "devDependencies": {
+    "@vue/test-utils": "^2.5.1",
+    "jsdom": "^25.0.1",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^2.1.9",
+    "vue": "^3.5.43"
+  }
+}

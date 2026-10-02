@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: shipment_tracking_viewed
+domain: fulfilment
+version: 1
+sources: [browser]
+description: "The customer viewed shipment tracking."
+blocks: [shipment]
+properties:
+  shipment.id: { required: true }
+example:
+  shipment: { id: id_1 }

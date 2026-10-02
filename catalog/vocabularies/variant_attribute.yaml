@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: variant_attribute
+description: "Which product option was chosen."
+values:
+  - value: color
+  - value: size
+  - value: style
+  - value: pack_size
+  - value: bundle
+  - value: material
+  - value: other

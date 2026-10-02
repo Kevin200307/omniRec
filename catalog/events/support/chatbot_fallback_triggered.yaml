@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: chatbot_fallback_triggered
+domain: support
+version: 1
+sources: [webhook]
+description: "The chatbot could not answer and fell back."
+blocks: [support]
+properties:
+  support.id: { required: true }
+example:
+  support: { id: id_1 }

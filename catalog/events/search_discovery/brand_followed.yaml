@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: brand_followed
+domain: search_discovery
+version: 1
+sources: [browser, server]
+description: "The shopper followed a brand."
+aliases: [brand_store_followed]
+blocks: [brand]
+properties:
+  brand.id: { required: true }
+example:
+  brand: { id: id_1 }

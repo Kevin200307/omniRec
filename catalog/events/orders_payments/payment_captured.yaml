@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+name: payment_captured
+domain: orders_payments
+version: 1
+sources: [server, webhook]
+description: "Payment for an order was captured."
+aliases: [order_payment_captured]
+blocks: [order, payment]
+properties:
+  order.id: { required: true }
+  payment.amount: { required: true }
+  payment.currency: { required: true }
+example:
+  order: { id: id_1 }
+  payment: { amount: "24.00", currency: USD }

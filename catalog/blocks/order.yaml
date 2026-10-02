@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: Apache-2.0
+name: order
+description: An order. Report authoritative order facts from the server.
+fields:
+  id: { type: string, description: "Merchant order identifier, or a hashed reference." }
+  total: { type: money, minimum: 0, description: "Order total in currency." }
+  currency: { type: string, pattern: "^[A-Z]{3}$" }
+  items:
+    type: array
+    description: Order lines.
+    items:
+      type: object
+      fields:
+        productId: { type: string, required: true }
+        quantity: { type: integer, minimum: 1 }
+        price: { type: money, minimum: 0 }
+        currency: { type: string, pattern: "^[A-Z]{3}$" }
+        categoryId: { type: string }
+  tax: { type: money, minimum: 0 }
+  shipping: { type: money, minimum: 0 }
+  discount: { type: money, minimum: 0 }
+  coupon: { type: string, maxLength: 64 }
+  fulfilmentMethod: { type: enum, vocabulary: fulfilment_method }
+  marketplace: { type: string, description: "Marketplace or storefront, for example amazon_us or web." }

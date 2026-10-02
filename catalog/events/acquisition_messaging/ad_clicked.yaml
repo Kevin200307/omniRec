@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: ad_clicked
+domain: acquisition_messaging
+version: 1
+sources: [browser, webhook]
+description: "The shopper clicked an ad."
+aliases: [ad_click, external_social_ad_click]
+blocks: [ad]
+properties:
+  ad.id: { required: true }
+example:
+  ad: { id: id_1 }

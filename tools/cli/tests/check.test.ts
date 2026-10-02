@@ -24,9 +24,9 @@ describe("omnirec generate and generate --check", () => {
 
     const write = run(root, false);
     expect(write.code).toBe(0);
-    expect(write.output).toMatch(/updated 8 of 8 file\(s\)/);
+    expect(write.output).toMatch(/updated 10 of 10 file\(s\)/);
 
-    expect(run(root, true)).toEqual({ code: 0, output: expect.stringMatching(/8 generated files are up to date/) });
+    expect(run(root, true)).toEqual({ code: 0, output: expect.stringMatching(/10 generated files are up to date/) });
     expect(run(root, false).output).toMatch(/already up to date/);
   });
 

@@ -6,7 +6,8 @@ import io.omnirec.commerce.model.CommerceEvent;
 import io.omnirec.commerce.model.CommerceItem;
 import io.omnirec.commerce.model.EventContext;
 import io.omnirec.commerce.model.EventIdentity;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.model.EventName;
 import io.omnirec.commerce.model.Platform;
 
 import java.math.BigDecimal;
@@ -26,7 +27,7 @@ public final class CommerceEventFixtures {
     private CommerceEventFixtures() {
     }
 
-    public static CommerceEvent.Builder base(EventType type) {
+    public static CommerceEvent.Builder base(EventName type) {
         return CommerceEvent.builder()
                 .eventId("evt_" + type.wireName())
                 .eventType(type)
@@ -41,7 +42,7 @@ public final class CommerceEventFixtures {
     }
 
     public static CommerceEvent productViewed() {
-        return base(EventType.PRODUCT_VIEWED)
+        return base(StandardEventNames.PRODUCT_VIEWED)
                 .commerce(CommerceData.builder()
                         .productId("p123")
                         .categoryId("laptops")
@@ -56,7 +57,7 @@ public final class CommerceEventFixtures {
     }
 
     public static CommerceEvent addedToCart() {
-        return base(EventType.PRODUCT_ADDED_TO_CART)
+        return base(StandardEventNames.PRODUCT_ADDED_TO_CART)
                 .commerce(CommerceData.builder()
                         .productId("p123")
                         .cartId("cart_1")
@@ -68,7 +69,7 @@ public final class CommerceEventFixtures {
     }
 
     public static CommerceEvent purchaseCompleted() {
-        return base(EventType.PURCHASE_COMPLETED)
+        return base(StandardEventNames.PURCHASE_COMPLETED)
                 .identity(EventIdentity.authenticated(ANON, USER, SESSION))
                 .commerce(CommerceData.builder()
                         .orderId("order_1")
@@ -80,20 +81,20 @@ public final class CommerceEventFixtures {
     }
 
     public static CommerceEvent searchPerformed() {
-        return base(EventType.SEARCH_PERFORMED)
+        return base(StandardEventNames.SEARCH_PERFORMED)
                 .commerce(CommerceData.builder().searchQuery("gaming laptop").build())
                 .properties(Map.of("resultCount", 24))
                 .build();
     }
 
     public static CommerceEvent identify() {
-        return base(EventType.IDENTIFY)
+        return base(StandardEventNames.IDENTIFY)
                 .identity(EventIdentity.authenticated(ANON, USER, SESSION))
                 .build();
     }
 
     public static CommerceEvent recommendationImpression() {
-        return base(EventType.RECOMMENDATION_IMPRESSION)
+        return base(StandardEventNames.RECOMMENDATION_IMPRESSION)
                 .commerce(CommerceData.builder()
                         .recommendationId("rec_123")
                         .productIds(List.of("p1", "p2", "p3"))

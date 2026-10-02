@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+name: return_reason
+description: "Why an item was returned."
+values:
+  - value: damaged_or_defective
+  - value: wrong_item
+  - value: not_as_described
+  - value: poor_quality
+  - value: size_or_fit_issue
+  - value: late_delivery
+  - value: changed_mind
+  - value: duplicate_order
+  - value: missing_parts
+  - value: compatibility_issue
+  - value: price_issue
+  - value: other

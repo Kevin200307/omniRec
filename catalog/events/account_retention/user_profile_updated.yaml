@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+name: user_profile_updated
+domain: account_retention
+version: 1
+sources: [browser, server]
+description: "A customer changed their profile."
+properties:
+  identity.userId: { required: true }
+example:
+  identity: { userId: customer_123 }

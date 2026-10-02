@@ -2,34 +2,43 @@
 # The OmniRec event catalog. See catalog/README.md for the file format.
 #
 # Domain order here is the order events appear in generated code and docs.
-catalogVersion: 1
-# Envelope schema version produced by the SDKs. Phase 3 moves this to 2.0.
-schemaVersion: "1.0"
+catalogVersion: 2
+# Envelope schema version of the canonical event. v1 is frozen in schema/v1/.
+schemaVersion: "2.0"
 domains:
-  - id: session
-    title: Session and navigation
-    description: Sessions starting and ending, and pages being viewed.
-  - id: discovery
+  - id: session_engagement
+    title: Session and engagement
+    description: "Sessions, page views, return visits and on-page engagement. Mostly autocaptured."
+  - id: acquisition_messaging
+    title: Acquisition and messaging
+    description: "How shoppers arrive: ads, social, affiliates, referrals, QR codes, and the email, SMS and push messages sent to them."
+  - id: search_discovery
     title: Search and discovery
-    description: How shoppers find products through search, lists and categories.
-  - id: product_interaction
-    title: Product interaction
-    description: Engagement with a single product beyond viewing it.
-  - id: cart
-    title: Cart
-    description: Changes to the shopping cart.
-  - id: checkout
-    title: Checkout
-    description: Progress through checkout before an order exists.
-  - id: purchase
-    title: Purchase and orders
-    description: Commercial outcomes, reported from the merchant backend where the payment result is known.
-  - id: recommendation
-    title: Recommendations
-    description: Interactions with recommendation lists, used for attribution back to the provider that served them.
-  - id: user
-    title: User account
-    description: Account lifecycle of an identified customer.
+    description: "How shoppers find products: search, filters, lists, categories, brand pages and recommendations."
+  - id: product_page
+    title: Product page
+    description: "Evaluation of a single product: media, content sections, variants, delivery and stock information, reviews and questions."
+  - id: cart_checkout
+    title: Cart and checkout
+    description: "Changes to the cart and progress through checkout, before an order exists."
+  - id: orders_payments
+    title: Orders and payments
+    description: "Orders, payments and subscriptions. Report from the backend, where the outcome is known."
+  - id: fulfilment
+    title: Fulfilment and delivery
+    description: "Shipping and delivery after an order is placed, including delivery problems the customer reports."
+  - id: support
+    title: Support and service
+    description: "Help centre, chatbot, live chat, tickets, calls, complaints and satisfaction surveys."
+  - id: returns_refunds
+    title: Returns and refunds
+    description: "Returns, refunds, replacements, exchanges, chargebacks and recovery offers."
+  - id: reviews_advocacy
+    title: Reviews and advocacy
+    description: "Reviews, questions and answers, user-generated content and referrals. Never incentivise positive reviews."
+  - id: account_retention
+    title: Account and retention
+    description: "Accounts, consent, channel subscriptions, loyalty and lifecycle signals."
   - id: identity
     title: Identity
-    description: Control events that link an anonymous visitor to a customer. Never delivered to providers.
+    description: "Control events that link an anonymous visitor to a customer. Never delivered to providers."

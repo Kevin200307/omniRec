@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: chatbot_intent_detected
+domain: support
+version: 1
+sources: [webhook]
+description: "The chatbot recognised what the customer wants."
+blocks: [support]
+properties:
+  support.id: { required: true }
+  support.intent: { required: true }
+example:
+  support: { id: id_1, intent: intent_1 }

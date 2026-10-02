@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+name: ugc_shared
+domain: reviews_advocacy
+version: 1
+sources: [browser, webhook]
+description: "Customer-created content was shared."
+properties:
+  ugcId: { type: string, required: true }
+example:
+  ugcId: ugc_1

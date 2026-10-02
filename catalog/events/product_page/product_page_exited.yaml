@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+name: product_page_exited
+domain: product_page
+version: 1
+sources: [browser]
+description: "The shopper left the product page."
+aliases: [product_page_exit]
+blocks: [product]
+properties:
+  product.id: { required: true }
+  timeOnPageMs: { type: integer, minimum: 0 }
+example:
+  product: { id: id_1 }

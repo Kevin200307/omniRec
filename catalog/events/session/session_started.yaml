@@ -1,8 +1,0 @@
-# SPDX-License-Identifier: Apache-2.0
-name: session_started
-domain: session
-version: 1
-sources: [browser]
-description: "A new browsing session began, on the first visit or after the inactivity timeout."
-blocks: [commerce]
-autocapture: true

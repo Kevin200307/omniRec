@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: search_page_changed
+domain: search_discovery
+version: 1
+sources: [browser]
+description: "The shopper moved to another page of results."
+aliases: [search_pagination_used]
+blocks: [search]
+properties:
+  page: { type: integer, required: true, minimum: 1 }
+example:
+  page: 1

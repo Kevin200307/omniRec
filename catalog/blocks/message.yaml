@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+name: message
+description: "An email, SMS, push or in-app message."
+fields:
+  id: { type: string, description: "Message or send identifier from the messaging tool." }
+  channel: { type: enum, vocabulary: message_channel }
+  campaignId: { type: string }
+  templateId: { type: string }
+  category: { type: string, description: "For example newsletter, price_drop_alert, back_in_stock_alert, win_back, replenishment." }

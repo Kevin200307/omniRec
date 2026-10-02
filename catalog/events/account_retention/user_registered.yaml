@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: user_registered
+domain: account_retention
+version: 1
+sources: [browser, server]
+description: "A customer account was created."
+aliases: [account_created, customer_profile_created]
+properties:
+  identity.userId: { required: true }
+example:
+  identity: { userId: customer_123 }

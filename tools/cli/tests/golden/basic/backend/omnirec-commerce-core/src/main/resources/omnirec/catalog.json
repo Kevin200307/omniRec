@@ -71,6 +71,14 @@
           "type": "string",
           "required": true
         }
+      },
+      "example": {
+        "product": {
+          "id": "P100",
+          "price": 15.5,
+          "currency": "USD"
+        },
+        "channel": "whatsapp"
       }
     },
     {
@@ -95,6 +103,11 @@
           "type": "string",
           "required": true
         }
+      },
+      "example": {
+        "product": {
+          "id": "P100"
+        }
       }
     },
     {
@@ -117,6 +130,11 @@
         "identity.userId": {
           "type": "string",
           "required": true
+        }
+      },
+      "example": {
+        "identity": {
+          "userId": "c_1"
         }
       }
     }

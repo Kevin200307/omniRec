@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: reorder_reminder_viewed
+domain: fulfilment
+version: 1
+sources: [browser]
+description: "The customer viewed a reorder reminder."
+blocks: [product]
+properties:
+  product.id: { required: true }
+example:
+  product: { id: id_1 }

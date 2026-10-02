@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: cart_abandoned
+domain: cart_checkout
+version: 1
+sources: [server, derived]
+description: "A cart was left without starting checkout. Derived by the pipeline (omnirec-derived-events), or reported by the merchant backend."
+blocks: [cart]
+properties:
+  cart.id: { required: true }
+example:
+  cart: { id: c1 }

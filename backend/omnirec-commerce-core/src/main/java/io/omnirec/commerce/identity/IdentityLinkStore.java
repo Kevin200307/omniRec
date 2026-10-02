@@ -31,4 +31,10 @@ public interface IdentityLinkStore {
 
     /** Every anonymous id known for a user; how history across devices is gathered. */
     List<String> anonymousIdsFor(String tenantId, String userId);
+
+    /**
+     * Forgets a customer: every link of {@code userId}, and every link of each
+     * of {@code anonymousIds} whoever it points to. Used by customer deletion.
+     */
+    void forget(String tenantId, String userId, java.util.Collection<String> anonymousIds);
 }

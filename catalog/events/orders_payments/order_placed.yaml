@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: order_placed
+domain: orders_payments
+version: 1
+sources: [server]
+description: "An order was created. Send from the backend."
+aliases: [order_created]
+blocks: [order]
+properties:
+  order.id: { required: true }
+example:
+  order: { id: id_1 }

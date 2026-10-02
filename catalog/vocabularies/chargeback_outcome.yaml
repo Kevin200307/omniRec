@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+name: chargeback_outcome
+description: "How a chargeback ended."
+values:
+  - value: won
+  - value: lost
+  - value: accepted

@@ -53,4 +53,15 @@ public interface EventDestination {
     default boolean supports(CommerceEvent event) {
         return !event.eventType().isControlEvent();
     }
+
+    /**
+     * Whether this destination wants events that are in neither the catalog nor
+     * the tenant's tracking plan (accepted in permissive mode and flagged
+     * {@code unplanned}). Off by default, so a typo in an event name never
+     * reaches a recommendation model. Storage turns it on, so unplanned events
+     * can be found and added to the plan.
+     */
+    default boolean acceptsUnplanned() {
+        return false;
+    }
 }

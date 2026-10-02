@@ -15,12 +15,12 @@ import java.util.Set;
 public final class StandardEvents {
 
     /** Version of the catalog these constants were generated from. */
-    public static final int CATALOG_VERSION = 1;
+    public static final int CATALOG_VERSION = 2;
 
     /** Classpath location of the runtime catalog. */
     public static final String CATALOG_RESOURCE = "omnirec/catalog.json";
 
-    // --- Session and navigation (session) ---
+    // --- Session and engagement (session_engagement) ---
 
     /** The storefront home page was viewed. */
     public static final String HOME_PAGE_VIEWED = "home_page_viewed";
@@ -28,98 +28,96 @@ public final class StandardEvents {
     /** Any page was viewed. Single-page apps report one per route change. */
     public static final String PAGE_VIEWED = "page_viewed";
 
+    /** A visitor came back in a new session after an earlier one. Derived by the pipeline. */
+    public static final String RETURN_VISIT = "return_visit";
+
+    /** The shopper scrolled past a depth threshold on the current page. Sent once per threshold per page view. */
+    public static final String SCROLL_DEPTH_REACHED = "scroll_depth_reached";
+
     /** The browsing session ended, through inactivity or logout. */
     public static final String SESSION_ENDED = "session_ended";
 
     /** A new browsing session began, on the first visit or after the inactivity timeout. */
     public static final String SESSION_STARTED = "session_started";
 
-    // --- Search and discovery (discovery) ---
+    // --- Acquisition and messaging (acquisition_messaging) ---
+
+    /** The shopper clicked an ad. */
+    public static final String AD_CLICKED = "ad_clicked";
+
+    /** An ad was served to the shopper. */
+    public static final String AD_IMPRESSION = "ad_impression";
+
+    /** A video ad played to the end. */
+    public static final String AD_VIDEO_COMPLETED = "ad_video_completed";
+
+    /** A video ad reached a quartile. */
+    public static final String AD_VIDEO_PROGRESS = "ad_video_progress";
+
+    /** A video ad started playing. */
+    public static final String AD_VIDEO_STARTED = "ad_video_started";
+
+    /** An ad met the viewability standard (at least half visible for a second, or two seconds for video). */
+    public static final String AD_VIEWABLE_IMPRESSION = "ad_viewable_impression";
+
+    /** The shopper arrived through an affiliate, influencer or creator storefront link. */
+    public static final String AFFILIATE_LINK_CLICKED = "affiliate_link_clicked";
+
+    /** The shopper viewed a creator's content featuring the brand. */
+    public static final String INFLUENCER_CONTENT_VIEWED = "influencer_content_viewed";
+
+    /** A message could not be delivered. */
+    public static final String MESSAGE_BOUNCED = "message_bounced";
+
+    /** The customer clicked a link in a message. */
+    public static final String MESSAGE_CLICKED = "message_clicked";
+
+    /** A purchase was attributed to a message. Derived by the pipeline. */
+    public static final String MESSAGE_CONVERTED = "message_converted";
+
+    /** A message reached the customer's inbox or device. */
+    public static final String MESSAGE_DELIVERED = "message_delivered";
+
+    /** The customer opened a message. */
+    public static final String MESSAGE_OPENED = "message_opened";
+
+    /** A message was sent to the customer. */
+    public static final String MESSAGE_SENT = "message_sent";
+
+    /** The shopper arrived by scanning a QR code. */
+    public static final String QR_CODE_SCANNED = "qr_code_scanned";
+
+    /** The shopper arrived through a referral link. */
+    public static final String REFERRAL_LINK_CLICKED = "referral_link_clicked";
+
+    /** The shopper viewed a brand's social post. */
+    public static final String SOCIAL_POST_VIEWED = "social_post_viewed";
+
+    // --- Search and discovery (search_discovery) ---
+
+    /** The shopper followed a brand. */
+    public static final String BRAND_FOLLOWED = "brand_followed";
+
+    /** The shopper clicked a module on a brand store page. */
+    public static final String BRAND_MODULE_CLICKED = "brand_module_clicked";
+
+    /** A brand page or brand store page was viewed. */
+    public static final String BRAND_PAGE_VIEWED = "brand_page_viewed";
+
+    /** The shopper unfollowed a brand. */
+    public static final String BRAND_UNFOLLOWED = "brand_unfollowed";
 
     /** A category page was viewed. */
     public static final String CATEGORY_VIEWED = "category_viewed";
+
+    /** The shopper clicked a frequently-bought-together suggestion. */
+    public static final String FREQUENTLY_BOUGHT_TOGETHER_CLICKED = "frequently_bought_together_clicked";
 
     /** A product was clicked in a list, card or grid. */
     public static final String PRODUCT_CLICKED = "product_clicked";
 
     /** A list of products was shown, such as a collection, a promotion row or a category grid. */
     public static final String PRODUCT_LIST_VIEWED = "product_list_viewed";
-
-    /** A product detail page was viewed. A follow-up with dwell time may update the same view. */
-    public static final String PRODUCT_VIEWED = "product_viewed";
-
-    /** The shopper ran a search. */
-    public static final String SEARCH_PERFORMED = "search_performed";
-
-    /** The shopper opened a product from search results. */
-    public static final String SEARCH_RESULT_CLICKED = "search_result_clicked";
-
-    // --- Product interaction (product_interaction) ---
-
-    /** A product was added to a comparison. */
-    public static final String PRODUCT_COMPARED = "product_compared";
-
-    /** The shopper submitted a review of a product. */
-    public static final String PRODUCT_REVIEW_SUBMITTED = "product_review_submitted";
-
-    /** Reviews for a product were opened. */
-    public static final String PRODUCT_REVIEW_VIEWED = "product_review_viewed";
-
-    /** A product was shared. The channel goes in properties. */
-    public static final String PRODUCT_SHARED = "product_shared";
-
-    /** A product was added to a wishlist. */
-    public static final String PRODUCT_WISHLISTED = "product_wishlisted";
-
-    // --- Cart (cart) ---
-
-    /** A cart was left without starting checkout. Reported by the merchant backend. */
-    public static final String CART_ABANDONED = "cart_abandoned";
-
-    /** The quantity of a cart line changed. */
-    public static final String CART_QUANTITY_UPDATED = "cart_quantity_updated";
-
-    /** The cart was opened. */
-    public static final String CART_VIEWED = "cart_viewed";
-
-    /** A product was added to the cart. */
-    public static final String PRODUCT_ADDED_TO_CART = "product_added_to_cart";
-
-    /** A product was removed from the cart. */
-    public static final String PRODUCT_REMOVED_FROM_CART = "product_removed_from_cart";
-
-    // --- Checkout (checkout) ---
-
-    /** Checkout finished and an order is being placed. */
-    public static final String CHECKOUT_COMPLETED = "checkout_completed";
-
-    /** Checkout could not be completed. */
-    public static final String CHECKOUT_FAILED = "checkout_failed";
-
-    /** Checkout began for a cart. */
-    public static final String CHECKOUT_STARTED = "checkout_started";
-
-    /** A payment method was provided during checkout. Never include card data. */
-    public static final String PAYMENT_INFORMATION_ADDED = "payment_information_added";
-
-    /** Shipping details were provided during checkout. */
-    public static final String SHIPPING_INFORMATION_ADDED = "shipping_information_added";
-
-    // --- Purchase and orders (purchase) ---
-
-    /** An order was cancelled. */
-    public static final String ORDER_CANCELLED = "order_cancelled";
-
-    /** An order was refunded in full or in part. */
-    public static final String ORDER_REFUNDED = "order_refunded";
-
-    /** An order was paid for. Send it from the backend, where the payment result is known. */
-    public static final String PURCHASE_COMPLETED = "purchase_completed";
-
-    /** Payment for an order failed. */
-    public static final String PURCHASE_FAILED = "purchase_failed";
-
-    // --- Recommendations (recommendation) ---
 
     /** A recommended product was added to the cart. */
     public static final String RECOMMENDATION_ADDED_TO_CART = "recommendation_added_to_cart";
@@ -133,7 +131,516 @@ public final class StandardEvents {
     /** A recommended product was purchased. */
     public static final String RECOMMENDATION_PURCHASED = "recommendation_purchased";
 
-    // --- User account (user) ---
+    /** The shopper viewed items saved for later. */
+    public static final String SAVED_FOR_LATER_VIEWED = "saved_for_later_viewed";
+
+    /** The shopper applied a filter to results. */
+    public static final String SEARCH_FILTER_APPLIED = "search_filter_applied";
+
+    /** The shopper removed a filter. */
+    public static final String SEARCH_FILTER_REMOVED = "search_filter_removed";
+
+    /** The shopper moved to another page of results. */
+    public static final String SEARCH_PAGE_CHANGED = "search_page_changed";
+
+    /** The shopper ran a search. */
+    public static final String SEARCH_PERFORMED = "search_performed";
+
+    /** The shopper opened a product from search results. */
+    public static final String SEARCH_RESULT_CLICKED = "search_result_clicked";
+
+    /** A page of search results was shown. */
+    public static final String SEARCH_RESULTS_VIEWED = "search_results_viewed";
+
+    /** The shopper changed the sort order. */
+    public static final String SEARCH_SORT_CHANGED = "search_sort_changed";
+
+    /** The shopper focused the search box. */
+    public static final String SEARCH_STARTED = "search_started";
+
+    /** The shopper picked an autocomplete suggestion. */
+    public static final String SEARCH_SUGGESTION_SELECTED = "search_suggestion_selected";
+
+    /** The shopper clicked a similar-product suggestion. */
+    public static final String SIMILAR_PRODUCT_CLICKED = "similar_product_clicked";
+
+    /** The shopper opened a wishlist or saved list. */
+    public static final String WISHLIST_VIEWED = "wishlist_viewed";
+
+    // --- Product page (product_page) ---
+
+    /** The shopper asked to be told when the product is back. */
+    public static final String BACK_IN_STOCK_REQUESTED = "back_in_stock_requested";
+
+    /** The shopper clipped a coupon on the product page. */
+    public static final String COUPON_CLIPPED = "coupon_clipped";
+
+    /** The shopper claimed a time-limited deal. */
+    public static final String DEAL_CLAIMED = "deal_claimed";
+
+    /** The shopper viewed delivery dates, shipping options or free-shipping eligibility. */
+    public static final String DELIVERY_INFO_VIEWED = "delivery_info_viewed";
+
+    /** The shopper opened offers from other sellers. */
+    public static final String OTHER_SELLERS_VIEWED = "other_sellers_viewed";
+
+    /** The shopper viewed price history or a price comparison. */
+    public static final String PRICE_COMPARISON_VIEWED = "price_comparison_viewed";
+
+    /** The shopper added the product to a named list. */
+    public static final String PRODUCT_ADDED_TO_LIST = "product_added_to_list";
+
+    /** A product was added to a comparison. */
+    public static final String PRODUCT_COMPARED = "product_compared";
+
+    /** The shopper clicked inside a product content module, such as A+ content. */
+    public static final String PRODUCT_CONTENT_CLICKED = "product_content_clicked";
+
+    /** A section of the product page was viewed or expanded. */
+    public static final String PRODUCT_CONTENT_VIEWED = "product_content_viewed";
+
+    /** The shopper zoomed into a product image. */
+    public static final String PRODUCT_IMAGE_ZOOMED = "product_image_zoomed";
+
+    /** The shopper viewed product media: the main image, the gallery, a 360 spin or AR. */
+    public static final String PRODUCT_MEDIA_VIEWED = "product_media_viewed";
+
+    /** The shopper left the product page. */
+    public static final String PRODUCT_PAGE_EXITED = "product_page_exited";
+
+    /** Reviews for a product were opened. */
+    public static final String PRODUCT_REVIEW_VIEWED = "product_review_viewed";
+
+    /** The shopper saved the product for later. */
+    public static final String PRODUCT_SAVED_FOR_LATER = "product_saved_for_later";
+
+    /** A product was shared. The channel goes in properties. */
+    public static final String PRODUCT_SHARED = "product_shared";
+
+    /** A product video played to the end. */
+    public static final String PRODUCT_VIDEO_COMPLETED = "product_video_completed";
+
+    /** A product video started playing. */
+    public static final String PRODUCT_VIDEO_STARTED = "product_video_started";
+
+    /** A product detail page was viewed. A follow-up with dwell time may update the same view. */
+    public static final String PRODUCT_VIEWED = "product_viewed";
+
+    /** A product was added to a wishlist. */
+    public static final String PRODUCT_WISHLISTED = "product_wishlisted";
+
+    /** The shopper clicked a promotion or deal badge. */
+    public static final String PROMOTION_CLICKED = "promotion_clicked";
+
+    /** The shopper changed the quantity on the product page. */
+    public static final String QUANTITY_CHANGED = "quantity_changed";
+
+    /** The shopper viewed a customer question or the FAQ on the product page. */
+    public static final String QUESTION_VIEWED = "question_viewed";
+
+    /** The shopper filtered reviews, for example to one-star reviews. */
+    public static final String REVIEW_FILTERED = "review_filtered";
+
+    /** The shopper viewed photos or videos in reviews. */
+    public static final String REVIEW_MEDIA_VIEWED = "review_media_viewed";
+
+    /** The shopper changed the review sort order. */
+    public static final String REVIEW_SORTED = "review_sorted";
+
+    /** The shopper voted a review helpful or not. */
+    public static final String REVIEW_VOTED = "review_voted";
+
+    /** The shopper saw the product's availability. */
+    public static final String STOCK_STATUS_VIEWED = "stock_status_viewed";
+
+    /** The shopper chose a subscription, such as subscribe and save. */
+    public static final String SUBSCRIPTION_OPTION_SELECTED = "subscription_option_selected";
+
+    /** The shopper chose a product option: colour, size, style, pack size or bundle. */
+    public static final String VARIANT_SELECTED = "variant_selected";
+
+    // --- Cart and checkout (cart_checkout) ---
+
+    /** Adding to the cart failed, for example because the item went out of stock. */
+    public static final String ADD_TO_CART_FAILED = "add_to_cart_failed";
+
+    /** The shopper skipped the cart with buy now. */
+    public static final String BUY_NOW_CLICKED = "buy_now_clicked";
+
+    /** A cart was left without starting checkout. Derived by the pipeline (omnirec-derived-events), or reported by the merchant backend. */
+    public static final String CART_ABANDONED = "cart_abandoned";
+
+    /** A cart item was moved to the wishlist. */
+    public static final String CART_ITEM_MOVED_TO_WISHLIST = "cart_item_moved_to_wishlist";
+
+    /** A cart item was moved to saved for later. */
+    public static final String CART_ITEM_SAVED_FOR_LATER = "cart_item_saved_for_later";
+
+    /** The quantity of a cart line changed. */
+    public static final String CART_QUANTITY_UPDATED = "cart_quantity_updated";
+
+    /** The cart was opened. */
+    public static final String CART_VIEWED = "cart_viewed";
+
+    /** Checkout began but no order followed in time. Derived by the pipeline. */
+    public static final String CHECKOUT_ABANDONED = "checkout_abandoned";
+
+    /** Checkout finished and an order is being placed. */
+    public static final String CHECKOUT_COMPLETED = "checkout_completed";
+
+    /** Checkout could not be completed. */
+    public static final String CHECKOUT_FAILED = "checkout_failed";
+
+    /** Checkout began for a cart. */
+    public static final String CHECKOUT_STARTED = "checkout_started";
+
+    /** A checkout step was shown. */
+    public static final String CHECKOUT_STEP_VIEWED = "checkout_step_viewed";
+
+    /** A coupon code was accepted. */
+    public static final String COUPON_APPLIED = "coupon_applied";
+
+    /** A coupon code was refused. */
+    public static final String COUPON_REJECTED = "coupon_rejected";
+
+    /** The shopper chose a delivery speed or method. */
+    public static final String DELIVERY_OPTION_SELECTED = "delivery_option_selected";
+
+    /** The shopper chose gift wrap or added a gift message. */
+    public static final String GIFT_OPTION_SELECTED = "gift_option_selected";
+
+    /** The shopper reached the order review step. */
+    public static final String ORDER_REVIEWED = "order_reviewed";
+
+    /** A payment method was provided during checkout. Never include card data. */
+    public static final String PAYMENT_INFORMATION_ADDED = "payment_information_added";
+
+    /** The shopper changed the payment method. No card data is tracked. */
+    public static final String PAYMENT_INFORMATION_CHANGED = "payment_information_changed";
+
+    /** A product was added to the cart. */
+    public static final String PRODUCT_ADDED_TO_CART = "product_added_to_cart";
+
+    /** A product was removed from the cart. */
+    public static final String PRODUCT_REMOVED_FROM_CART = "product_removed_from_cart";
+
+    /** An automatic promotion was applied to the cart. */
+    public static final String PROMOTION_APPLIED = "promotion_applied";
+
+    /** A promotion could not be applied. */
+    public static final String PROMOTION_REJECTED = "promotion_rejected";
+
+    /** Shipping details were provided during checkout. */
+    public static final String SHIPPING_INFORMATION_ADDED = "shipping_information_added";
+
+    /** The shopper changed the shipping address. No address details are tracked. */
+    public static final String SHIPPING_INFORMATION_CHANGED = "shipping_information_changed";
+
+    // --- Orders and payments (orders_payments) ---
+
+    /** A customer's first purchase. Derived from purchase history. */
+    public static final String NEW_CUSTOMER_PURCHASE = "new_customer_purchase";
+
+    /** An order was cancelled. */
+    public static final String ORDER_CANCELLED = "order_cancelled";
+
+    /** The seller cancelled the order. */
+    public static final String ORDER_CANCELLED_BY_SELLER = "order_cancelled_by_seller";
+
+    /** The order was confirmed to the customer. */
+    public static final String ORDER_CONFIRMED = "order_confirmed";
+
+    /** An order went through fraud review. */
+    public static final String ORDER_FRAUD_REVIEWED = "order_fraud_reviewed";
+
+    /** An order was created. Send from the backend. */
+    public static final String ORDER_PLACED = "order_placed";
+
+    /** An order was refunded in full or in part. */
+    public static final String ORDER_REFUNDED = "order_refunded";
+
+    /** Payment for an order was authorised. */
+    public static final String PAYMENT_AUTHORIZED = "payment_authorized";
+
+    /** Payment for an order was captured. */
+    public static final String PAYMENT_CAPTURED = "payment_captured";
+
+    /** A payment attempt failed. */
+    public static final String PAYMENT_FAILED = "payment_failed";
+
+    /** An order was paid for. Send it from the backend, where the payment result is known. */
+    public static final String PURCHASE_COMPLETED = "purchase_completed";
+
+    /** Payment for an order failed. */
+    public static final String PURCHASE_FAILED = "purchase_failed";
+
+    /** A customer bought again. Derived from purchase history. */
+    public static final String REPEAT_PURCHASE = "repeat_purchase";
+
+    /** A replacement order was created for an earlier one. */
+    public static final String REPLACEMENT_ORDER_CREATED = "replacement_order_created";
+
+    /** A product subscription was cancelled. */
+    public static final String SUBSCRIPTION_CANCELLED = "subscription_cancelled";
+
+    /** A product subscription renewed. */
+    public static final String SUBSCRIPTION_RENEWED = "subscription_renewed";
+
+    /** A product subscription began. */
+    public static final String SUBSCRIPTION_STARTED = "subscription_started";
+
+    // --- Fulfilment and delivery (fulfilment) ---
+
+    /** A delivery was attempted but not completed. */
+    public static final String DELIVERY_ATTEMPTED = "delivery_attempted";
+
+    /** The shipment was delivered. */
+    public static final String DELIVERY_COMPLETED = "delivery_completed";
+
+    /** The estimated delivery time changed. */
+    public static final String DELIVERY_ESTIMATE_CHANGED = "delivery_estimate_changed";
+
+    /** The shipment could not be delivered. */
+    public static final String DELIVERY_FAILED = "delivery_failed";
+
+    /** The customer rated the delivery. */
+    public static final String DELIVERY_FEEDBACK_SUBMITTED = "delivery_feedback_submitted";
+
+    /** The customer reported a problem with a delivery. */
+    public static final String DELIVERY_ISSUE_REPORTED = "delivery_issue_reported";
+
+    /** Picking and packing began for an order. */
+    public static final String FULFILMENT_STARTED = "fulfilment_started";
+
+    /** A gift was confirmed delivered. */
+    public static final String GIFT_DELIVERY_CONFIRMED = "gift_delivery_confirmed";
+
+    /** The customer viewed a reorder reminder. */
+    public static final String REORDER_REMINDER_VIEWED = "reorder_reminder_viewed";
+
+    /** A shipment is running late. */
+    public static final String SHIPMENT_DELAYED = "shipment_delayed";
+
+    /** The shipment is out for delivery. */
+    public static final String SHIPMENT_OUT_FOR_DELIVERY = "shipment_out_for_delivery";
+
+    /** A shipment left the warehouse. */
+    public static final String SHIPMENT_SHIPPED = "shipment_shipped";
+
+    /** The customer viewed shipment tracking. */
+    public static final String SHIPMENT_TRACKING_VIEWED = "shipment_tracking_viewed";
+
+    // --- Support and service (support) ---
+
+    /** The caller hung up before an answer. */
+    public static final String CALL_ABANDONED = "call_abandoned";
+
+    /** A support call was answered. */
+    public static final String CALL_ANSWERED = "call_answered";
+
+    /** A call was escalated. */
+    public static final String CALL_ESCALATED = "call_escalated";
+
+    /** A support call began. */
+    public static final String CALL_STARTED = "call_started";
+
+    /** The customer saw a chatbot answer. */
+    public static final String CHATBOT_ANSWER_VIEWED = "chatbot_answer_viewed";
+
+    /** The chatbot could not answer and fell back. */
+    public static final String CHATBOT_FALLBACK_TRIGGERED = "chatbot_fallback_triggered";
+
+    /** The chatbot recognised what the customer wants. */
+    public static final String CHATBOT_INTENT_DETECTED = "chatbot_intent_detected";
+
+    /** A chatbot conversation began. */
+    public static final String CHATBOT_SESSION_STARTED = "chatbot_session_started";
+
+    /** A complaint was resolved. */
+    public static final String COMPLAINT_RESOLVED = "complaint_resolved";
+
+    /** The customer made a formal complaint. */
+    public static final String COMPLAINT_SUBMITTED = "complaint_submitted";
+
+    /** The customer opened a help article or FAQ entry. */
+    public static final String FAQ_OPENED = "faq_opened";
+
+    /** The customer opened the help centre. */
+    public static final String HELP_CENTER_VIEWED = "help_center_viewed";
+
+    /** The customer asked for a human agent. */
+    public static final String LIVE_CHAT_REQUESTED = "live_chat_requested";
+
+    /** A live chat ended resolved. */
+    public static final String LIVE_CHAT_RESOLVED = "live_chat_resolved";
+
+    /** A live chat with an agent began. */
+    public static final String LIVE_CHAT_STARTED = "live_chat_started";
+
+    /** A live chat was transferred to another agent or team. */
+    public static final String LIVE_CHAT_TRANSFERRED = "live_chat_transferred";
+
+    /** The customer sent the seller a message, for example through a marketplace. */
+    public static final String SELLER_MESSAGE_RECEIVED = "seller_message_received";
+
+    /** The seller replied to a customer message. */
+    public static final String SELLER_MESSAGE_REPLIED = "seller_message_replied";
+
+    /** A support ticket was opened. */
+    public static final String SUPPORT_TICKET_CREATED = "support_ticket_created";
+
+    /** A resolved ticket was reopened. */
+    public static final String SUPPORT_TICKET_REOPENED = "support_ticket_reopened";
+
+    /** A support ticket was resolved. */
+    public static final String SUPPORT_TICKET_RESOLVED = "support_ticket_resolved";
+
+    /** A support ticket was updated. */
+    public static final String SUPPORT_TICKET_UPDATED = "support_ticket_updated";
+
+    /** The customer answered a satisfaction survey. */
+    public static final String SURVEY_COMPLETED = "survey_completed";
+
+    /** A satisfaction survey (CSAT, NPS or CES) was sent. */
+    public static final String SURVEY_REQUESTED = "survey_requested";
+
+    // --- Returns and refunds (returns_refunds) ---
+
+    /** The customer disputed a payment with their bank. */
+    public static final String CHARGEBACK_OPENED = "chargeback_opened";
+
+    /** A payment dispute was resolved. */
+    public static final String CHARGEBACK_RESOLVED = "chargeback_resolved";
+
+    /** An exchange was completed. */
+    public static final String EXCHANGE_COMPLETED = "exchange_completed";
+
+    /** The customer asked to exchange an item. */
+    public static final String EXCHANGE_REQUESTED = "exchange_requested";
+
+    /** The customer used a goodwill offer. */
+    public static final String RECOVERY_OFFER_REDEEMED = "recovery_offer_redeemed";
+
+    /** A goodwill offer was sent after a problem. */
+    public static final String RECOVERY_OFFER_SENT = "recovery_offer_sent";
+
+    /** A refund was approved. */
+    public static final String REFUND_APPROVED = "refund_approved";
+
+    /** Money was returned to the customer, in full or in part. */
+    public static final String REFUND_ISSUED = "refund_issued";
+
+    /** The customer asked for a refund. */
+    public static final String REFUND_REQUESTED = "refund_requested";
+
+    /** The customer asked for a replacement. */
+    public static final String REPLACEMENT_REQUESTED = "replacement_requested";
+
+    /** A replacement was shipped. */
+    public static final String REPLACEMENT_SHIPPED = "replacement_shipped";
+
+    /** The return was approved. */
+    public static final String RETURN_APPROVED = "return_approved";
+
+    /** The customer started a return. */
+    public static final String RETURN_INITIATED = "return_initiated";
+
+    /** The returned items were inspected. */
+    public static final String RETURN_INSPECTED = "return_inspected";
+
+    /** A return shipping label was created. */
+    public static final String RETURN_LABEL_GENERATED = "return_label_generated";
+
+    /** The return arrived at the warehouse. */
+    public static final String RETURN_RECEIVED = "return_received";
+
+    /** The return was refused. */
+    public static final String RETURN_REJECTED = "return_rejected";
+
+    /** The customer sent the return back. */
+    public static final String RETURN_SHIPPED = "return_shipped";
+
+    // --- Reviews and advocacy (reviews_advocacy) ---
+
+    /** The customer left negative seller feedback. */
+    public static final String NEGATIVE_FEEDBACK_RECEIVED = "negative_feedback_received";
+
+    /** The merchant responded to negative feedback. */
+    public static final String NEGATIVE_FEEDBACK_RESPONSE_SENT = "negative_feedback_response_sent";
+
+    /** The shopper submitted a review of a product. */
+    public static final String PRODUCT_REVIEW_SUBMITTED = "product_review_submitted";
+
+    /** A product question was answered. */
+    public static final String QUESTION_ANSWERED = "question_answered";
+
+    /** A customer asked a question about a product. */
+    public static final String QUESTION_ASKED = "question_asked";
+
+    /** A referred visitor made a purchase. */
+    public static final String REFERRAL_CONVERTED = "referral_converted";
+
+    /** The customer shared a referral link. */
+    public static final String REFERRAL_SHARED = "referral_shared";
+
+    /** A customer's review received a helpful vote. */
+    public static final String REVIEW_HELPFUL_VOTE_RECEIVED = "review_helpful_vote_received";
+
+    /** The customer added photos or video to a review. */
+    public static final String REVIEW_MEDIA_UPLOADED = "review_media_uploaded";
+
+    /** The merchant replied to a review. */
+    public static final String REVIEW_REPLIED = "review_replied";
+
+    /** The customer opened a review request. */
+    public static final String REVIEW_REQUEST_VIEWED = "review_request_viewed";
+
+    /** The customer was asked for an honest review. Never offer incentives for positive reviews. */
+    public static final String REVIEW_REQUESTED = "review_requested";
+
+    /** The customer rated the seller. */
+    public static final String SELLER_FEEDBACK_SUBMITTED = "seller_feedback_submitted";
+
+    /** The customer created content about the brand, such as an unboxing post. */
+    public static final String UGC_CREATED = "ugc_created";
+
+    /** Customer-created content was shared. */
+    public static final String UGC_SHARED = "ugc_shared";
+
+    // --- Account and retention (account_retention) ---
+
+    /** The customer subscribed to email, SMS or push. */
+    public static final String CHANNEL_SUBSCRIBED = "channel_subscribed";
+
+    /** The customer unsubscribed from email, SMS or push. */
+    public static final String CHANNEL_UNSUBSCRIBED = "channel_unsubscribed";
+
+    /** The customer was scored as likely to churn. Derived. */
+    public static final String CHURN_RISK_DETECTED = "churn_risk_detected";
+
+    /** The customer gave consent for a purpose. */
+    public static final String CONSENT_GRANTED = "consent_granted";
+
+    /** The customer withdrew consent for a purpose. */
+    public static final String CONSENT_REVOKED = "consent_revoked";
+
+    /** The customer clicked a cross-sell or upsell offer. */
+    public static final String CROSS_SELL_OFFER_CLICKED = "cross_sell_offer_clicked";
+
+    /** The customer saw a cross-sell or upsell offer. */
+    public static final String CROSS_SELL_OFFER_VIEWED = "cross_sell_offer_viewed";
+
+    /** A lapsed customer became active again. Derived. */
+    public static final String CUSTOMER_REACTIVATED = "customer_reactivated";
+
+    /** The customer redeemed a loyalty reward or offer. */
+    public static final String LOYALTY_REWARD_REDEEMED = "loyalty_reward_redeemed";
+
+    /** The customer moved to a different loyalty tier. */
+    public static final String LOYALTY_STATUS_CHANGED = "loyalty_status_changed";
+
+    /** The customer opened communication preferences. */
+    public static final String PREFERENCE_CENTER_VIEWED = "preference_center_viewed";
 
     /** A customer logged in. */
     public static final String USER_LOGGED_IN = "user_logged_in";
@@ -156,37 +663,204 @@ public final class StandardEvents {
     public static final List<String> ALL = List.of(
             HOME_PAGE_VIEWED,
             PAGE_VIEWED,
+            RETURN_VISIT,
+            SCROLL_DEPTH_REACHED,
             SESSION_ENDED,
             SESSION_STARTED,
+            AD_CLICKED,
+            AD_IMPRESSION,
+            AD_VIDEO_COMPLETED,
+            AD_VIDEO_PROGRESS,
+            AD_VIDEO_STARTED,
+            AD_VIEWABLE_IMPRESSION,
+            AFFILIATE_LINK_CLICKED,
+            INFLUENCER_CONTENT_VIEWED,
+            MESSAGE_BOUNCED,
+            MESSAGE_CLICKED,
+            MESSAGE_CONVERTED,
+            MESSAGE_DELIVERED,
+            MESSAGE_OPENED,
+            MESSAGE_SENT,
+            QR_CODE_SCANNED,
+            REFERRAL_LINK_CLICKED,
+            SOCIAL_POST_VIEWED,
+            BRAND_FOLLOWED,
+            BRAND_MODULE_CLICKED,
+            BRAND_PAGE_VIEWED,
+            BRAND_UNFOLLOWED,
             CATEGORY_VIEWED,
+            FREQUENTLY_BOUGHT_TOGETHER_CLICKED,
             PRODUCT_CLICKED,
             PRODUCT_LIST_VIEWED,
-            PRODUCT_VIEWED,
-            SEARCH_PERFORMED,
-            SEARCH_RESULT_CLICKED,
-            PRODUCT_COMPARED,
-            PRODUCT_REVIEW_SUBMITTED,
-            PRODUCT_REVIEW_VIEWED,
-            PRODUCT_SHARED,
-            PRODUCT_WISHLISTED,
-            CART_ABANDONED,
-            CART_QUANTITY_UPDATED,
-            CART_VIEWED,
-            PRODUCT_ADDED_TO_CART,
-            PRODUCT_REMOVED_FROM_CART,
-            CHECKOUT_COMPLETED,
-            CHECKOUT_FAILED,
-            CHECKOUT_STARTED,
-            PAYMENT_INFORMATION_ADDED,
-            SHIPPING_INFORMATION_ADDED,
-            ORDER_CANCELLED,
-            ORDER_REFUNDED,
-            PURCHASE_COMPLETED,
-            PURCHASE_FAILED,
             RECOMMENDATION_ADDED_TO_CART,
             RECOMMENDATION_CLICKED,
             RECOMMENDATION_IMPRESSION,
             RECOMMENDATION_PURCHASED,
+            SAVED_FOR_LATER_VIEWED,
+            SEARCH_FILTER_APPLIED,
+            SEARCH_FILTER_REMOVED,
+            SEARCH_PAGE_CHANGED,
+            SEARCH_PERFORMED,
+            SEARCH_RESULT_CLICKED,
+            SEARCH_RESULTS_VIEWED,
+            SEARCH_SORT_CHANGED,
+            SEARCH_STARTED,
+            SEARCH_SUGGESTION_SELECTED,
+            SIMILAR_PRODUCT_CLICKED,
+            WISHLIST_VIEWED,
+            BACK_IN_STOCK_REQUESTED,
+            COUPON_CLIPPED,
+            DEAL_CLAIMED,
+            DELIVERY_INFO_VIEWED,
+            OTHER_SELLERS_VIEWED,
+            PRICE_COMPARISON_VIEWED,
+            PRODUCT_ADDED_TO_LIST,
+            PRODUCT_COMPARED,
+            PRODUCT_CONTENT_CLICKED,
+            PRODUCT_CONTENT_VIEWED,
+            PRODUCT_IMAGE_ZOOMED,
+            PRODUCT_MEDIA_VIEWED,
+            PRODUCT_PAGE_EXITED,
+            PRODUCT_REVIEW_VIEWED,
+            PRODUCT_SAVED_FOR_LATER,
+            PRODUCT_SHARED,
+            PRODUCT_VIDEO_COMPLETED,
+            PRODUCT_VIDEO_STARTED,
+            PRODUCT_VIEWED,
+            PRODUCT_WISHLISTED,
+            PROMOTION_CLICKED,
+            QUANTITY_CHANGED,
+            QUESTION_VIEWED,
+            REVIEW_FILTERED,
+            REVIEW_MEDIA_VIEWED,
+            REVIEW_SORTED,
+            REVIEW_VOTED,
+            STOCK_STATUS_VIEWED,
+            SUBSCRIPTION_OPTION_SELECTED,
+            VARIANT_SELECTED,
+            ADD_TO_CART_FAILED,
+            BUY_NOW_CLICKED,
+            CART_ABANDONED,
+            CART_ITEM_MOVED_TO_WISHLIST,
+            CART_ITEM_SAVED_FOR_LATER,
+            CART_QUANTITY_UPDATED,
+            CART_VIEWED,
+            CHECKOUT_ABANDONED,
+            CHECKOUT_COMPLETED,
+            CHECKOUT_FAILED,
+            CHECKOUT_STARTED,
+            CHECKOUT_STEP_VIEWED,
+            COUPON_APPLIED,
+            COUPON_REJECTED,
+            DELIVERY_OPTION_SELECTED,
+            GIFT_OPTION_SELECTED,
+            ORDER_REVIEWED,
+            PAYMENT_INFORMATION_ADDED,
+            PAYMENT_INFORMATION_CHANGED,
+            PRODUCT_ADDED_TO_CART,
+            PRODUCT_REMOVED_FROM_CART,
+            PROMOTION_APPLIED,
+            PROMOTION_REJECTED,
+            SHIPPING_INFORMATION_ADDED,
+            SHIPPING_INFORMATION_CHANGED,
+            NEW_CUSTOMER_PURCHASE,
+            ORDER_CANCELLED,
+            ORDER_CANCELLED_BY_SELLER,
+            ORDER_CONFIRMED,
+            ORDER_FRAUD_REVIEWED,
+            ORDER_PLACED,
+            ORDER_REFUNDED,
+            PAYMENT_AUTHORIZED,
+            PAYMENT_CAPTURED,
+            PAYMENT_FAILED,
+            PURCHASE_COMPLETED,
+            PURCHASE_FAILED,
+            REPEAT_PURCHASE,
+            REPLACEMENT_ORDER_CREATED,
+            SUBSCRIPTION_CANCELLED,
+            SUBSCRIPTION_RENEWED,
+            SUBSCRIPTION_STARTED,
+            DELIVERY_ATTEMPTED,
+            DELIVERY_COMPLETED,
+            DELIVERY_ESTIMATE_CHANGED,
+            DELIVERY_FAILED,
+            DELIVERY_FEEDBACK_SUBMITTED,
+            DELIVERY_ISSUE_REPORTED,
+            FULFILMENT_STARTED,
+            GIFT_DELIVERY_CONFIRMED,
+            REORDER_REMINDER_VIEWED,
+            SHIPMENT_DELAYED,
+            SHIPMENT_OUT_FOR_DELIVERY,
+            SHIPMENT_SHIPPED,
+            SHIPMENT_TRACKING_VIEWED,
+            CALL_ABANDONED,
+            CALL_ANSWERED,
+            CALL_ESCALATED,
+            CALL_STARTED,
+            CHATBOT_ANSWER_VIEWED,
+            CHATBOT_FALLBACK_TRIGGERED,
+            CHATBOT_INTENT_DETECTED,
+            CHATBOT_SESSION_STARTED,
+            COMPLAINT_RESOLVED,
+            COMPLAINT_SUBMITTED,
+            FAQ_OPENED,
+            HELP_CENTER_VIEWED,
+            LIVE_CHAT_REQUESTED,
+            LIVE_CHAT_RESOLVED,
+            LIVE_CHAT_STARTED,
+            LIVE_CHAT_TRANSFERRED,
+            SELLER_MESSAGE_RECEIVED,
+            SELLER_MESSAGE_REPLIED,
+            SUPPORT_TICKET_CREATED,
+            SUPPORT_TICKET_REOPENED,
+            SUPPORT_TICKET_RESOLVED,
+            SUPPORT_TICKET_UPDATED,
+            SURVEY_COMPLETED,
+            SURVEY_REQUESTED,
+            CHARGEBACK_OPENED,
+            CHARGEBACK_RESOLVED,
+            EXCHANGE_COMPLETED,
+            EXCHANGE_REQUESTED,
+            RECOVERY_OFFER_REDEEMED,
+            RECOVERY_OFFER_SENT,
+            REFUND_APPROVED,
+            REFUND_ISSUED,
+            REFUND_REQUESTED,
+            REPLACEMENT_REQUESTED,
+            REPLACEMENT_SHIPPED,
+            RETURN_APPROVED,
+            RETURN_INITIATED,
+            RETURN_INSPECTED,
+            RETURN_LABEL_GENERATED,
+            RETURN_RECEIVED,
+            RETURN_REJECTED,
+            RETURN_SHIPPED,
+            NEGATIVE_FEEDBACK_RECEIVED,
+            NEGATIVE_FEEDBACK_RESPONSE_SENT,
+            PRODUCT_REVIEW_SUBMITTED,
+            QUESTION_ANSWERED,
+            QUESTION_ASKED,
+            REFERRAL_CONVERTED,
+            REFERRAL_SHARED,
+            REVIEW_HELPFUL_VOTE_RECEIVED,
+            REVIEW_MEDIA_UPLOADED,
+            REVIEW_REPLIED,
+            REVIEW_REQUEST_VIEWED,
+            REVIEW_REQUESTED,
+            SELLER_FEEDBACK_SUBMITTED,
+            UGC_CREATED,
+            UGC_SHARED,
+            CHANNEL_SUBSCRIBED,
+            CHANNEL_UNSUBSCRIBED,
+            CHURN_RISK_DETECTED,
+            CONSENT_GRANTED,
+            CONSENT_REVOKED,
+            CROSS_SELL_OFFER_CLICKED,
+            CROSS_SELL_OFFER_VIEWED,
+            CUSTOMER_REACTIVATED,
+            LOYALTY_REWARD_REDEEMED,
+            LOYALTY_STATUS_CHANGED,
+            PREFERENCE_CENTER_VIEWED,
             USER_LOGGED_IN,
             USER_LOGGED_OUT,
             USER_PROFILE_UPDATED,

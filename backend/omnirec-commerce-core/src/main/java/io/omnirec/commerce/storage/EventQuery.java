@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package io.omnirec.commerce.storage;
 
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.model.EventName;
 
 import java.time.Instant;
 import java.util.Set;
@@ -15,7 +15,7 @@ import java.util.Set;
  * @param to         exclusive upper bound on the event time, or {@code null}
  * @param eventTypes only these types; empty for all
  */
-public record EventQuery(int limit, EventCursor after, Instant from, Instant to, Set<EventType> eventTypes) {
+public record EventQuery(int limit, EventCursor after, Instant from, Instant to, Set<EventName> eventTypes) {
 
     public EventQuery {
         if (limit < 1) {

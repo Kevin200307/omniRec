@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+name: delivery_issue
+description: "A problem with a delivery."
+values:
+  - value: damaged
+  - value: wrong_item
+  - value: missing_item
+  - value: late
+  - value: not_received
+  - value: other

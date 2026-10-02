@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+name: coupon_rejected
+domain: cart_checkout
+version: 1
+sources: [browser, server]
+description: "A coupon code was refused."
+aliases: [cart_coupon_rejected]
+blocks: [cart, promotion]
+properties:
+  promotion.couponCode: { required: true }
+  reason: { type: string, required: true }
+example:
+  promotion: { couponCode: couponcode_1 }
+  reason: reason_1

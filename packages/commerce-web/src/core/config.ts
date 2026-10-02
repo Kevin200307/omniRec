@@ -1,16 +1,28 @@
 // SPDX-License-Identifier: Apache-2.0
 import { DEFAULT_SESSION_TIMEOUT_MS } from "../identity/identityManager";
+import type { Middleware, OmnirecPlugin } from "./pipeline";
 
 export interface CommerceConfig {
   /**
-   * Publishable key, e.g. "pk_live_...". It authorises event writes for one
-   * tenant and nothing else. Provider credentials (AWS keys, Google service
-   * accounts) must never reach the browser — see docs/security.md.
+   * Base URL of the Event API: absolute ("https://events.example.com") or a
+   * path on this site ("/omnirec") when the collector is proxied same-origin.
+   * The only required setting.
    */
-  apiKey: string;
-  /** Base URL of the Event API, e.g. "https://events.example.com". */
   endpoint: string;
+  /**
+   * Publishable key, e.g. "pk_live_...". Only needed when the collector runs in
+   * keys mode. It authorises event writes for one tenant and nothing else.
+   * Provider credentials (AWS keys, Google service accounts) must never reach
+   * the browser — see docs/security.md.
+   */
+  apiKey?: string;
   tenantId?: string;
+  /** Cookie domain for the identity cookies, e.g. ".shop.example" to share them across subdomains. */
+  cookieDomain?: string;
+  /** Plugins to install at startup, for example `dom()` or `autocapture()`. */
+  plugins?: Array<OmnirecPlugin | OmnirecPlugin[]>;
+  /** Middleware run on every event after validation, before batching. */
+  middleware?: Middleware[];
   /** Idle timeout before a new session begins. Default 30 minutes. */
   sessionTimeoutMs?: number;
   /** Emit session_started automatically on first load / after expiry. Default true. */
@@ -35,31 +47,42 @@ export interface CommerceConfig {
   fetchImpl?: typeof fetch;
 }
 
-export interface ResolvedConfig extends Required<Omit<CommerceConfig, "tenantId" | "onError" | "fetchImpl">> {
+/** The configuration `createOmnirec()` takes. Same as {@link CommerceConfig}. */
+export type OmnirecConfig = CommerceConfig;
+
+export interface ResolvedConfig
+  extends Required<Omit<CommerceConfig, "tenantId" | "onError" | "fetchImpl" | "apiKey" | "cookieDomain">> {
+  apiKey?: string;
+  cookieDomain?: string;
   tenantId?: string;
   onError: (error: Error) => void;
   fetchImpl?: typeof fetch;
 }
 
+const ABSOLUTE_URL = /^https?:\/\//i;
+const SITE_PATH = /^\/(?!\/)/;
+
 /**
- * Fails fast on a missing key or endpoint. A tracker that silently no-ops
+ * Fails fast on a missing or malformed endpoint. A tracker that silently no-ops
  * because of a typo in configuration is far worse than one that throws at
  * startup, when the developer is looking right at it.
  */
 export function resolveConfig(config: CommerceConfig): ResolvedConfig {
   if (!config || typeof config !== "object") {
-    throw new TypeError("createCommerceClient(config) requires a configuration object");
-  }
-  if (!isNonEmpty(config.apiKey)) {
-    throw new TypeError("commerce config: apiKey is required");
+    throw new TypeError("createOmnirec(config) requires a configuration object");
   }
   if (!isNonEmpty(config.endpoint)) {
     throw new TypeError("commerce config: endpoint is required");
   }
-  if (!/^https?:\/\//i.test(config.endpoint)) {
-    throw new TypeError(`commerce config: endpoint must be an absolute http(s) URL, got "${config.endpoint}"`);
+  if (!ABSOLUTE_URL.test(config.endpoint) && !SITE_PATH.test(config.endpoint)) {
+    throw new TypeError(
+      `commerce config: endpoint must be an absolute http(s) URL or a path starting with "/", got "${config.endpoint}"`
+    );
   }
-  if (looksLikeSecret(config.apiKey)) {
+  if (config.apiKey !== undefined && !isNonEmpty(config.apiKey)) {
+    throw new TypeError("commerce config: apiKey, when set, must be a non-empty string");
+  }
+  if (config.apiKey && looksLikeSecret(config.apiKey)) {
     throw new TypeError(
       "commerce config: apiKey looks like a secret credential. Only a publishable key (pk_...) belongs in browser code."
     );
@@ -70,6 +93,9 @@ export function resolveConfig(config: CommerceConfig): ResolvedConfig {
     apiKey: config.apiKey,
     endpoint: config.endpoint,
     tenantId: config.tenantId,
+    cookieDomain: config.cookieDomain,
+    plugins: config.plugins ?? [],
+    middleware: config.middleware ?? [],
     sessionTimeoutMs: positive(config.sessionTimeoutMs, DEFAULT_SESSION_TIMEOUT_MS, "sessionTimeoutMs"),
     autoTrackSessions: config.autoTrackSessions ?? true,
     autoTrackDwellTime: config.autoTrackDwellTime ?? true,

@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: subscription_started
+domain: orders_payments
+version: 1
+sources: [server, webhook]
+description: "A product subscription began."
+blocks: [subscription, product]
+properties:
+  subscription.id: { required: true }
+example:
+  subscription: { id: id_1 }

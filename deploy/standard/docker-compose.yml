@@ -1,0 +1,104 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# omniRec standard: the collector with RabbitMQ (durable queues, retries,
+# dead-letter queues) and Redis (shared deduplication, identity links and
+# derived-event timers). Optional PostgreSQL for history and deletion.
+#
+#   docker compose -f deploy/standard/docker-compose.yml up -d --build
+#   docker compose -f deploy/standard/docker-compose.yml --profile storage up -d --build
+#
+# Put secrets in deploy/standard/.env (never committed), for example:
+#   RABBITMQ_PASSWORD=...   OMNIREC_DB_PASSWORD=...   DEMO_STORE_SECRET_KEY=sk_...
+# See docs/self-hosting.md.
+name: omnirec-standard
+
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-omnirec}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-omnirec_local_only}
+    volumes:
+      - rabbitmq:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      # Probing before the server creates its Erlang cookie leaves the cookie
+      # unreadable to the server; give it time first.
+      start_period: 20s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    profiles: ["storage"]
+    environment:
+      POSTGRES_DB: omnirec
+      POSTGRES_USER: ${OMNIREC_DB_USERNAME:-omnirec}
+      POSTGRES_PASSWORD: ${OMNIREC_DB_PASSWORD:-omnirec_local_only}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d omnirec"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  event-api:
+    build:
+      context: ../..
+      dockerfile: backend/omnirec-event-api-app/Dockerfile
+    image: omnirec/event-api:2.0.0
+    ports:
+      - "${OMNIREC_PORT:-8081}:8081"
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: ${RABBITMQ_USER:-omnirec}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-omnirec_local_only}
+      QUEUE_ENABLED: "true"
+      REDIS_STATE_ENABLED: "true"
+      REDIS_HOST: redis
+      DERIVED_EVENTS_ENABLED: ${DERIVED_EVENTS_ENABLED:-true}
+      PERSONALIZE_ENABLED: ${PERSONALIZE_ENABLED:-false}
+      GOOGLE_RETAIL_ENABLED: ${GOOGLE_RETAIL_ENABLED:-false}
+      STRIPE_WEBHOOKS_ENABLED: ${STRIPE_WEBHOOKS_ENABLED:-false}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      # History and customer deletion: start with --profile storage and set this to true.
+      OMNIREC_STORAGE_ENABLED: ${OMNIREC_STORAGE_ENABLED:-false}
+      OMNIREC_DATABASE_URL: ${OMNIREC_DATABASE_URL:-jdbc:postgresql://postgres:5432/omnirec}
+      OMNIREC_DB_USERNAME: ${OMNIREC_DB_USERNAME:-omnirec}
+      OMNIREC_DB_PASSWORD: ${OMNIREC_DB_PASSWORD:-omnirec_local_only}
+      OMNIREC_STORAGE_RETENTION: ${OMNIREC_STORAGE_RETENTION:-400d}
+      DEMO_STORE_API_KEY: ${DEMO_STORE_API_KEY:-pk_test_demo_store}
+      DEMO_STORE_SECRET_KEY: ${DEMO_STORE_SECRET_KEY:-}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/actuator/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 60s
+    restart: unless-stopped
+
+volumes:
+  rabbitmq:
+  redis:
+  postgres:

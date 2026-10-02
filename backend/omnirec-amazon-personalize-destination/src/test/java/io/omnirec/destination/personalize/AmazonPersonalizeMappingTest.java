@@ -8,7 +8,8 @@ import io.omnirec.commerce.model.CommerceEvent;
 import io.omnirec.commerce.model.CommerceItem;
 import io.omnirec.commerce.model.EventContext;
 import io.omnirec.commerce.model.EventIdentity;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.model.EventName;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -53,7 +54,7 @@ class AmazonPersonalizeMappingTest {
         return new AmazonPersonalizeDestination(client, properties, mapper);
     }
 
-    private CommerceEvent.Builder base(EventType type) {
+    private CommerceEvent.Builder base(EventName type) {
         return CommerceEvent.builder()
                 .eventId("evt_1")
                 .eventType(type)
@@ -78,7 +79,7 @@ class AmazonPersonalizeMappingTest {
 
         @Test
         void mapsTheCanonicalEventOntoPersonalizeFields() {
-            CommerceEvent event = base(EventType.PRODUCT_VIEWED)
+            CommerceEvent event = base(StandardEventNames.PRODUCT_VIEWED)
                     .commerce(CommerceData.builder().productId("p123").price(new BigDecimal("1500.00")).build())
                     .build();
 
@@ -95,7 +96,7 @@ class AmazonPersonalizeMappingTest {
 
         @Test
         void usesPriceAsTheEventValueSoExpensiveInteractionsWeighMore() {
-            CommerceEvent event = base(EventType.PRODUCT_VIEWED)
+            CommerceEvent event = base(StandardEventNames.PRODUCT_VIEWED)
                     .commerce(CommerceData.builder().productId("p1").price(new BigDecimal("1500.00")).build())
                     .build();
 
@@ -108,7 +109,7 @@ class AmazonPersonalizeMappingTest {
          */
         @Test
         void sendsNoPropertiesByDefault() {
-            CommerceEvent event = base(EventType.PRODUCT_VIEWED)
+            CommerceEvent event = base(StandardEventNames.PRODUCT_VIEWED)
                     .commerce(CommerceData.builder().productId("p1").categoryId("laptops").build())
                     .properties(Map.of("theme", "dark"))
                     .build();
@@ -119,7 +120,7 @@ class AmazonPersonalizeMappingTest {
         @Test
         void sendsOnlyAllowListedKeysAsAStringMap() throws Exception {
             mapper = new AmazonPersonalizeEventMapper(JSON, Set.of("categoryId", "theme"));
-            CommerceEvent event = base(EventType.PRODUCT_VIEWED)
+            CommerceEvent event = base(StandardEventNames.PRODUCT_VIEWED)
                     .commerce(CommerceData.builder().productId("p1").categoryId("laptops").currency("USD").build())
                     .properties(Map.of("theme", "dark", "secretSauce", "x"))
                     .build();
@@ -136,7 +137,7 @@ class AmazonPersonalizeMappingTest {
         @Test
         void neverPutsRecommendationIdInProperties() throws Exception {
             mapper = new AmazonPersonalizeEventMapper(JSON, Set.of("categoryId"));
-            CommerceEvent event = base(EventType.RECOMMENDATION_CLICKED)
+            CommerceEvent event = base(StandardEventNames.RECOMMENDATION_CLICKED)
                     .commerce(CommerceData.builder().productId("p1").recommendationId("rec_1").categoryId("c").build())
                     .build();
 
@@ -156,7 +157,7 @@ class AmazonPersonalizeMappingTest {
         @Test
         void dropsPropertiesThatWouldExceedTheApiLimitRatherThanFailTheCall() {
             mapper = new AmazonPersonalizeEventMapper(JSON, Set.of("note"));
-            CommerceEvent event = base(EventType.PRODUCT_VIEWED)
+            CommerceEvent event = base(StandardEventNames.PRODUCT_VIEWED)
                     .commerce(CommerceData.builder().productId("p1").build())
                     .properties(Map.of("note", "x".repeat(2000)))
                     .build();
@@ -174,7 +175,7 @@ class AmazonPersonalizeMappingTest {
 
         @Test
         void setsPersonalizesOwnRecommendationIdFieldForAListItServed() {
-            CommerceEvent event = base(EventType.RECOMMENDATION_CLICKED)
+            CommerceEvent event = base(StandardEventNames.RECOMMENDATION_CLICKED)
                     .commerce(CommerceData.builder().productId("p1")
                             .recommendationId("rid-123").recommendationProvider("amazon-personalize").build())
                     .build();
@@ -184,7 +185,7 @@ class AmazonPersonalizeMappingTest {
 
         @Test
         void doesNotForwardAnotherEnginesRecommendationId() {
-            CommerceEvent event = base(EventType.RECOMMENDATION_CLICKED)
+            CommerceEvent event = base(StandardEventNames.RECOMMENDATION_CLICKED)
                     .commerce(CommerceData.builder().productId("p1")
                             .recommendationId("google-token").recommendationProvider("google-retail").build())
                     .build();
@@ -194,7 +195,7 @@ class AmazonPersonalizeMappingTest {
 
         @Test
         void doesNotForwardARecommendationIdLongerThanTheApiAllows() {
-            CommerceEvent event = base(EventType.RECOMMENDATION_CLICKED)
+            CommerceEvent event = base(StandardEventNames.RECOMMENDATION_CLICKED)
                     .commerce(CommerceData.builder().productId("p1")
                             .recommendationId("r".repeat(41)).recommendationProvider("amazon-personalize").build())
                     .build();
@@ -205,7 +206,7 @@ class AmazonPersonalizeMappingTest {
         @Test
         void capsImpressionsAtTheApis25Items() {
             List<String> shown = java.util.stream.IntStream.range(0, 40).mapToObj(i -> "p" + i).toList();
-            CommerceEvent event = base(EventType.RECOMMENDATION_IMPRESSION)
+            CommerceEvent event = base(StandardEventNames.RECOMMENDATION_IMPRESSION)
                     .commerce(CommerceData.builder().recommendationId("rec_1").productIds(shown).build())
                     .build();
 
@@ -224,7 +225,7 @@ class AmazonPersonalizeMappingTest {
          */
         @Test
         void anAnonymousVisitorSendsNoUserIdAtAll() {
-            CommerceEvent event = base(EventType.PRODUCT_VIEWED)
+            CommerceEvent event = base(StandardEventNames.PRODUCT_VIEWED)
                     .identity(EventIdentity.anonymous("anon_A", "session_1"))
                     .commerce(CommerceData.builder().productId("p1").build())
                     .build();
@@ -238,7 +239,7 @@ class AmazonPersonalizeMappingTest {
 
         @Test
         void anAuthenticatedVisitorSendsTheRealUserId() {
-            CommerceEvent event = base(EventType.PRODUCT_VIEWED)
+            CommerceEvent event = base(StandardEventNames.PRODUCT_VIEWED)
                     .identity(EventIdentity.authenticated("anon_A", "customer_123", "session_1"))
                     .commerce(CommerceData.builder().productId("p1").build())
                     .build();
@@ -248,7 +249,7 @@ class AmazonPersonalizeMappingTest {
 
         @Test
         void theSessionIsSentForBothSoLoginStitchesTheSessionToTheUser() {
-            CommerceEvent anonymous = base(EventType.PRODUCT_VIEWED)
+            CommerceEvent anonymous = base(StandardEventNames.PRODUCT_VIEWED)
                     .identity(EventIdentity.anonymous("anon_A", "session_1"))
                     .commerce(CommerceData.builder().productId("p1").build())
                     .build();
@@ -258,7 +259,7 @@ class AmazonPersonalizeMappingTest {
 
         @Test
         void fallsBackToTheAnonymousIdWhenNoSessionIsPresent() {
-            CommerceEvent event = base(EventType.PRODUCT_VIEWED)
+            CommerceEvent event = base(StandardEventNames.PRODUCT_VIEWED)
                     .identity(new EventIdentity("anon_A", null, null))
                     .commerce(CommerceData.builder().productId("p1").build())
                     .build();
@@ -273,7 +274,7 @@ class AmazonPersonalizeMappingTest {
 
         @Test
         void splitsAMultiLineOrderIntoOneInteractionPerItem() {
-            CommerceEvent event = base(EventType.PURCHASE_COMPLETED)
+            CommerceEvent event = base(StandardEventNames.PURCHASE_COMPLETED)
                     .identity(EventIdentity.authenticated("anon_A", "customer_123", "session_1"))
                     .commerce(CommerceData.builder()
                             .orderId("order_1")
@@ -294,7 +295,7 @@ class AmazonPersonalizeMappingTest {
 
         @Test
         void givesEachSplitLineItsOwnEventIdSoPersonalizeKeepsThemAll() {
-            CommerceEvent event = base(EventType.PURCHASE_COMPLETED)
+            CommerceEvent event = base(StandardEventNames.PURCHASE_COMPLETED)
                     .identity(EventIdentity.authenticated("anon_A", "customer_123", "session_1"))
                     .commerce(CommerceData.builder()
                             .orderId("order_1")
@@ -312,7 +313,7 @@ class AmazonPersonalizeMappingTest {
 
         @Test
         void weightsEachLineByQuantityTimesPrice() {
-            CommerceEvent event = base(EventType.PURCHASE_COMPLETED)
+            CommerceEvent event = base(StandardEventNames.PURCHASE_COMPLETED)
                     .identity(EventIdentity.authenticated("anon_A", "customer_123", "session_1"))
                     .commerce(CommerceData.builder()
                             .orderId("order_1")
@@ -327,7 +328,7 @@ class AmazonPersonalizeMappingTest {
 
         @Test
         void sendsShownProductsAsAnImpressionSoNonClicksAreLearnable() {
-            CommerceEvent event = base(EventType.RECOMMENDATION_IMPRESSION)
+            CommerceEvent event = base(StandardEventNames.RECOMMENDATION_IMPRESSION)
                     .commerce(CommerceData.builder()
                             .recommendationId("rec_1")
                             .productIds(List.of("p1", "p2", "p3"))
@@ -339,7 +340,7 @@ class AmazonPersonalizeMappingTest {
 
         @Test
         void doesNotAttachImpressionsToOrdinaryEvents() {
-            CommerceEvent event = base(EventType.PRODUCT_VIEWED)
+            CommerceEvent event = base(StandardEventNames.PRODUCT_VIEWED)
                     .commerce(CommerceData.builder().productId("p1").productIds(List.of("p1", "p2")).build())
                     .build();
 
@@ -353,16 +354,16 @@ class AmazonPersonalizeMappingTest {
 
         @Test
         void skipsEventTypesWithNoMeaningInAnInteractionsDataset() {
-            for (EventType type : List.of(EventType.SESSION_STARTED, EventType.SESSION_ENDED,
-                    EventType.USER_LOGGED_OUT, EventType.IDENTIFY)) {
+            for (EventName type : List.of(StandardEventNames.SESSION_STARTED, StandardEventNames.SESSION_ENDED,
+                    StandardEventNames.USER_LOGGED_OUT, StandardEventNames.IDENTIFY)) {
                 assertFalse(destination().supports(base(type).build()), type + " should be filtered out");
             }
         }
 
         @Test
         void acceptsTheEventTypesThatDoCarrySignal() {
-            for (EventType type : List.of(EventType.PRODUCT_VIEWED, EventType.PRODUCT_ADDED_TO_CART,
-                    EventType.PURCHASE_COMPLETED, EventType.SEARCH_PERFORMED)) {
+            for (EventName type : List.of(StandardEventNames.PRODUCT_VIEWED, StandardEventNames.PRODUCT_ADDED_TO_CART,
+                    StandardEventNames.PURCHASE_COMPLETED, StandardEventNames.SEARCH_PERFORMED)) {
                 assertTrue(destination().supports(base(type).build()), type + " should be delivered");
             }
         }
@@ -370,7 +371,7 @@ class AmazonPersonalizeMappingTest {
         @Test
         void aMissingTrackingIdIsAPermanentFailureNotARetryLoop() {
             properties.setTrackingId(null);
-            CommerceEvent event = base(EventType.PRODUCT_VIEWED)
+            CommerceEvent event = base(StandardEventNames.PRODUCT_VIEWED)
                     .commerce(CommerceData.builder().productId("p1").build())
                     .build();
 
@@ -381,7 +382,7 @@ class AmazonPersonalizeMappingTest {
 
         @Test
         void skipsADwellTimeUpdateSoAViewIsCountedOnce() {
-            CommerceEvent dwellUpdate = base(EventType.PRODUCT_VIEWED)
+            CommerceEvent dwellUpdate = base(StandardEventNames.PRODUCT_VIEWED)
                     .commerce(CommerceData.builder().productId("p1").build())
                     .properties(Map.of(CommerceEvent.PROPERTY_DWELL_TIME_MS, 4200,
                             CommerceEvent.PROPERTY_VIEW_EVENT_ID, "evt_view"))
@@ -399,7 +400,7 @@ class AmazonPersonalizeMappingTest {
             List<CommerceItem> lines = java.util.stream.IntStream.range(0, 23)
                     .mapToObj(i -> CommerceItem.of("p" + i, 1, new BigDecimal("1.00"), "USD"))
                     .toList();
-            CommerceEvent order = base(EventType.PURCHASE_COMPLETED)
+            CommerceEvent order = base(StandardEventNames.PURCHASE_COMPLETED)
                     .identity(EventIdentity.authenticated("anon_A", "customer_123", "session_1"))
                     .commerce(CommerceData.builder().orderId("o1").items(lines)
                             .total(new BigDecimal("23.00")).currency("USD").build())

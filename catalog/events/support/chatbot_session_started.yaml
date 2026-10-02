@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: chatbot_session_started
+domain: support
+version: 1
+sources: [browser, webhook]
+description: "A chatbot conversation began."
+blocks: [support]
+properties:
+  support.id: { required: true }
+example:
+  support: { id: id_1 }

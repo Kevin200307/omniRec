@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: scroll_depth_reached
+domain: session_engagement
+version: 1
+sources: [browser]
+description: "The shopper scrolled past a depth threshold on the current page. Sent once per threshold per page view."
+autocapture: true
+properties:
+  percent: { type: integer, minimum: 1, maximum: 100, required: true, description: "Threshold reached: 25, 50, 75 or 90." }
+example:
+  percent: 50

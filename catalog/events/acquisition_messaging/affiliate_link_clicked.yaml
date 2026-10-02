@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: affiliate_link_clicked
+domain: acquisition_messaging
+version: 1
+sources: [browser]
+description: "The shopper arrived through an affiliate, influencer or creator storefront link."
+aliases: [affiliate_link_click, influencer_link_click, creator_storefront_click]
+properties:
+  affiliateId: { type: string, required: true }
+example:
+  affiliateId: affiliate_1

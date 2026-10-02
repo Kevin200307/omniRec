@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: product_compared
+domain: product_page
+version: 1
+sources: [browser]
+description: "A product was added to a comparison."
+aliases: [product_comparison_started]
+blocks: [product]
+properties:
+  product.id: { required: true }
+example:
+  product: { id: p123 }

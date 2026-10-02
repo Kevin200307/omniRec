@@ -75,6 +75,20 @@ public class RedisIdentityLinkStore implements IdentityLinkStore {
         return members == null ? List.of() : List.copyOf(members);
     }
 
+    @Override
+    public void forget(String tenantId, String userId, java.util.Collection<String> anonymousIds) {
+        java.util.Set<String> devices = new java.util.LinkedHashSet<>(anonymousIds);
+        devices.addAll(anonymousIdsFor(tenantId, userId));
+        for (String anonymousId : devices) {
+            String current = redis.opsForValue().get(anonKey(tenantId, anonymousId));
+            if (current != null && !current.equals(userId)) {
+                redis.opsForSet().remove(userKey(tenantId, current), anonymousId);
+            }
+            redis.delete(anonKey(tenantId, anonymousId));
+        }
+        redis.delete(userKey(tenantId, userId));
+    }
+
     private static String anonKey(String tenantId, String anonymousId) {
         return ANON_PREFIX + tenant(tenantId) + ":" + anonymousId;
     }

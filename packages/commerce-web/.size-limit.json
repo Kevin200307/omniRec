@@ -1,13 +1,56 @@
 [
   {
-    "name": "commerce-web (full public API)",
+    "name": "core: createOmnirec + track",
+    "path": "dist/index.js",
+    "import": "{ createOmnirec }",
+    "gzip": true,
+    "limit": "10 KB"
+  },
+  {
+    "name": "legacy: createCommerceClient with per-event helpers",
+    "path": "dist/index.js",
+    "import": "{ createCommerceClient }",
+    "gzip": true
+  },
+  {
+    "name": "full public API",
     "path": "dist/index.js",
     "gzip": true
   },
   {
-    "name": "commerce-web (createCommerceClient only)",
-    "path": "dist/index.js",
-    "import": "{ createCommerceClient }",
-    "gzip": true
+    "name": "plugin: dom",
+    "path": "dist/dom.js",
+    "gzip": true,
+    "limit": "4 KB"
+  },
+  {
+    "name": "plugin: impressions",
+    "path": "dist/impressions.js",
+    "gzip": true,
+    "limit": "4 KB"
+  },
+  {
+    "name": "plugin: autocapture",
+    "path": "dist/autocapture.js",
+    "gzip": true,
+    "limit": "4 KB"
+  },
+  {
+    "name": "plugin: consent",
+    "path": "dist/consent.js",
+    "gzip": true,
+    "limit": "4 KB"
+  },
+  {
+    "name": "plugin: debug (development only)",
+    "path": "dist/debug.js",
+    "gzip": true,
+    "limit": "12 KB"
+  },
+  {
+    "name": "script tag: omnirec.min.js",
+    "path": "dist/omnirec.min.js",
+    "gzip": true,
+    "limit": "16 KB"
   }
 ]

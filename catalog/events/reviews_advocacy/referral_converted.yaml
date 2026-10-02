@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+name: referral_converted
+domain: reviews_advocacy
+version: 1
+sources: [server]
+description: "A referred visitor made a purchase."
+aliases: [referral_purchase_generated]
+blocks: [referral, order]
+properties:
+  referral.code: { required: true }
+  order.id: { required: true }
+example:
+  referral: { code: code_1 }
+  order: { id: id_1 }

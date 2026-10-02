@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+name: product_content_viewed
+domain: product_page
+version: 1
+sources: [browser]
+description: "A section of the product page was viewed or expanded."
+aliases: [product_description_expanded]
+blocks: [product]
+properties:
+  product.id: { required: true }
+  section: { type: enum, required: true, vocabulary: content_section }
+example:
+  product: { id: id_1 }
+  section: description

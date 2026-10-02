@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: negative_feedback_received
+domain: reviews_advocacy
+version: 1
+sources: [webhook]
+description: "The customer left negative seller feedback."
+blocks: [order, review]
+properties:
+  order.id: { required: true }
+example:
+  order: { id: id_1 }

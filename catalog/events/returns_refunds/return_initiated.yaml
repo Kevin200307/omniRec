@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+name: return_initiated
+domain: returns_refunds
+version: 1
+sources: [browser, server]
+description: "The customer started a return."
+aliases: [return_reason_selected]
+blocks: [return, order]
+properties:
+  return.id: { required: true }
+  return.orderId: { required: true }
+  return.reason: { required: true }
+example:
+  return: { id: id_1, orderId: order_1, reason: damaged_or_defective }

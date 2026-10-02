@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+name: product_viewed
+domain: product_page
+version: 1
+sources: [browser]
+description: "A product detail page was viewed. A follow-up with dwell time may update the same view."
+aliases: [product_detail_page_view]
+blocks: [product, category]
+properties:
+  product.id: { required: true }
+example:
+  product: { id: p123, price: 89.99, currency: USD }
+  category: { id: shoes }

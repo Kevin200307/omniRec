@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+name: delivery_option_selected
+domain: cart_checkout
+version: 1
+sources: [browser, server]
+description: "The shopper chose a delivery speed or method."
+aliases: [delivery_speed_selected]
+blocks: [cart, shipment]
+properties:
+  cart.id: { required: true }
+  shipment.method: { required: true }
+example:
+  cart: { id: id_1 }
+  shipment: { method: method_1 }

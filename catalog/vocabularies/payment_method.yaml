@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: payment_method
+description: "How the customer paid."
+values:
+  - value: card
+  - value: wallet
+  - value: bank_transfer
+  - value: buy_now_pay_later
+  - value: cash_on_delivery
+  - value: gift_card
+  - value: store_credit
+  - value: other

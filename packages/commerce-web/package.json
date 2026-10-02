@@ -1,6 +1,6 @@
 {
   "name": "@omnirec/commerce-web",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -17,6 +17,31 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./dom": {
+      "types": "./dist/dom.d.ts",
+      "import": "./dist/dom.js",
+      "require": "./dist/dom.cjs"
+    },
+    "./impressions": {
+      "types": "./dist/impressions.d.ts",
+      "import": "./dist/impressions.js",
+      "require": "./dist/impressions.cjs"
+    },
+    "./autocapture": {
+      "types": "./dist/autocapture.d.ts",
+      "import": "./dist/autocapture.js",
+      "require": "./dist/autocapture.cjs"
+    },
+    "./consent": {
+      "types": "./dist/consent.d.ts",
+      "import": "./dist/consent.js",
+      "require": "./dist/consent.cjs"
+    },
+    "./debug": {
+      "types": "./dist/debug.d.ts",
+      "import": "./dist/debug.js",
+      "require": "./dist/debug.cjs"
     }
   },
   "files": [
@@ -24,8 +49,8 @@
   ],
   "sideEffects": false,
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
-    "dev": "tsup src/index.ts --format esm,cjs --dts --watch",
+    "build": "tsup",
+    "dev": "tsup --watch",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",

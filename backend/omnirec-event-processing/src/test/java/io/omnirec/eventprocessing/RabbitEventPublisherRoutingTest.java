@@ -5,7 +5,8 @@ import io.omnirec.commerce.destination.EventDestination;
 import io.omnirec.commerce.model.CommerceData;
 import io.omnirec.commerce.model.CommerceEvent;
 import io.omnirec.commerce.model.EventIdentity;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.model.EventName;
 import io.omnirec.eventprocessing.queue.ConfirmedPublisher;
 import io.omnirec.eventprocessing.queue.QueueTopology;
 import io.omnirec.eventprocessing.queue.RabbitEventPublisher;
@@ -49,7 +50,7 @@ class RabbitEventPublisherRoutingTest {
         };
     }
 
-    private static CommerceEvent event(EventType type) {
+    private static CommerceEvent event(EventName type) {
         return CommerceEvent.builder()
                 .eventId("evt_" + type.wireName())
                 .eventType(type)
@@ -65,7 +66,7 @@ class RabbitEventPublisherRoutingTest {
     @Test
     void aBehaviouralEventGoesToEveryDestination() {
         new RabbitEventPublisher(confirmed, List.of(provider("amazon-personalize"), storage()))
-                .publish(event(EventType.PRODUCT_VIEWED));
+                .publish(event(StandardEventNames.PRODUCT_VIEWED));
 
         verify(confirmed).publish(eq(QueueTopology.EXCHANGE), eq(QueueTopology.routingKey("amazon-personalize")),
                 any(), any(MessagePostProcessor.class));
@@ -76,7 +77,7 @@ class RabbitEventPublisherRoutingTest {
     @Test
     void anIdentifyReachesOnlyDestinationsThatAcceptControlEvents() {
         new RabbitEventPublisher(confirmed, List.of(provider("amazon-personalize"), provider("google-retail"), storage()))
-                .publish(event(EventType.IDENTIFY));
+                .publish(event(StandardEventNames.IDENTIFY));
 
         verify(confirmed, times(1)).publish(anyString(), anyString(), any(), any(MessagePostProcessor.class));
         verify(confirmed).publish(eq(QueueTopology.EXCHANGE), eq(QueueTopology.routingKey("event-storage")),
@@ -87,7 +88,7 @@ class RabbitEventPublisherRoutingTest {
     @Test
     void withNoDestinationWantingIt_anIdentifyIsPublishedNowhere() {
         new RabbitEventPublisher(confirmed, List.of(provider("amazon-personalize"), provider("google-retail")))
-                .publish(event(EventType.IDENTIFY));
+                .publish(event(StandardEventNames.IDENTIFY));
 
         verify(confirmed, never()).publish(anyString(), anyString(), any(), any(MessagePostProcessor.class));
     }

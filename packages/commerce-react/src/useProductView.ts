@@ -3,7 +3,7 @@
 
 import { useEffect } from "react";
 import type { ProductViewedInput } from "@omnirec/commerce-web";
-import { useCommerce } from "./CommerceProvider";
+import { useCommerce } from "./OmnirecProvider";
 
 /**
  * Tracks a product view for as long as the component is mounted:

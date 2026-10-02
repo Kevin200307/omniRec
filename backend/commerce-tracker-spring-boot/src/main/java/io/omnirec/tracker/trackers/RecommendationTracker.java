@@ -2,7 +2,8 @@
 package io.omnirec.tracker.trackers;
 
 import io.omnirec.commerce.model.CommerceData;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.model.EventName;
 import io.omnirec.tracker.ServerEventEmitter;
 import io.omnirec.tracker.ServerEventEmitter.ServerIdentity;
 
@@ -27,7 +28,7 @@ public class RecommendationTracker {
 
     public void purchased(String recommendationId, String productId, String orderId, String userId, String anonymousId) {
         emitter.emit(
-                EventType.RECOMMENDATION_PURCHASED,
+                StandardEventNames.RECOMMENDATION_PURCHASED,
                 ServerIdentity.of(anonymousId, userId),
                 CommerceData.builder()
                         .recommendationId(recommendationId)
@@ -41,7 +42,7 @@ public class RecommendationTracker {
 
     public void addedToCart(String recommendationId, String productId, String cartId, String userId, String anonymousId) {
         emitter.emit(
-                EventType.RECOMMENDATION_ADDED_TO_CART,
+                StandardEventNames.RECOMMENDATION_ADDED_TO_CART,
                 ServerIdentity.of(anonymousId, userId),
                 CommerceData.builder()
                         .recommendationId(recommendationId)

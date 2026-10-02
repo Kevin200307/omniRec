@@ -5,91 +5,61 @@ import { findDrift, generateAll, loadCatalog } from "../src";
 import { REPO_ROOT } from "./helpers";
 
 /**
- * Phase 1 parity: the seeded catalog must describe today's taxonomy exactly.
- * These tests read the hand-written v1 sources (Java enum, both validators,
- * schema) and compare them with the catalog. They keep passing through Phase 2,
- * when the enum and validators start reading the catalog instead.
+ * Parity with the hand-written sources that remain: the frozen v1 contract.
+ * Both validators read their rules from the catalog (Java since Phase 2, the
+ * browser since Phase 5), so there is nothing else left to compare.
  */
 const catalog = loadCatalog(join(REPO_ROOT, "catalog"));
 const read = (path: string) => readFileSync(join(REPO_ROOT, path), "utf8");
 
-const RULE_PATHS: Record<string, string[]> = {
-  ProductId: ["commerce.productId"],
-  ProductIds: ["commerce.productIds"],
-  CartId: ["commerce.cartId"],
-  OrderId: ["commerce.orderId"],
-  SearchQuery: ["commerce.searchQuery"],
-  CategoryId: ["commerce.categoryId"],
-  RecommendationId: ["commerce.recommendationId"],
-  PositiveQuantity: ["commerce.quantity"],
-  Currency: ["commerce.currency"],
-  Total: ["commerce.total"],
-  Items: ["commerce.items"],
-  UserId: ["identity.userId"],
-};
-
-function pathsFor(ruleNames: string[]): string[] {
-  return ruleNames
-    .flatMap((name) => {
-      const paths = RULE_PATHS[name];
-      if (!paths) throw new Error(`unmapped validator rule require${name}`);
-      return paths;
-    })
-    .sort();
-}
-
-const catalogRequired = Object.fromEntries(catalog.events.map((e) => [e.name, [...e.required].sort()]));
 
 describe("catalog parity with the v1 sources", () => {
-  it("has the same event names and domains as the Java EventType enum", () => {
-    const source = read("backend/omnirec-commerce-core/src/main/java/io/omnirec/commerce/model/EventType.java");
-    const entries = [...source.matchAll(/\("([a-z_]+)", EventCategory\.([A-Z_]+)\)/g)].map(([, name, category]) => [
-      name,
-      category.toLowerCase(),
-    ]);
-    expect(entries).toHaveLength(38);
-    expect(Object.fromEntries(catalog.events.map((e) => [e.name, e.domain]))).toEqual(Object.fromEntries(entries));
-  });
-
-  it("has the same event names as the committed JSON Schema", () => {
-    const schema = JSON.parse(read("schema/commerce-event.schema.json"));
-    expect([...schema.properties.eventType.enum].sort()).toEqual(catalog.events.map((e) => e.name).sort());
-  });
-
-  it("requires exactly the fields the TypeScript validator requires", () => {
-    const source = read("packages/commerce-web/src/validation/validator.ts");
-    const block = source.match(/const RULES[^{]*\{([\s\S]*?)\n\};/);
-    expect(block, "RULES table not found in validator.ts").toBeTruthy();
-    const fromValidator: Record<string, string[]> = {};
-    for (const [, event, rules] of block![1].matchAll(/^\s*([a-z_]+): \[([^\]]*)\]/gm)) {
-      fromValidator[event] = pathsFor([...rules.matchAll(/require(\w+)/g)].map((m) => m[1]));
-    }
-    for (const event of catalog.events) {
-      expect(catalogRequired[event.name], event.name).toEqual(fromValidator[event.name] ?? []);
+  it("still contains every v1 event under its v1 name (domains moved in Phase 9)", () => {
+    // Frozen when the Java enum was removed in Phase 2. Removing or moving a v1
+    // event is a breaking change for existing integrations and needs an alias.
+    const v1: Record<string, string[]> = {
+      session: ["session_started", "session_ended", "page_viewed", "home_page_viewed"],
+      discovery: ["search_performed", "search_result_clicked", "product_list_viewed", "category_viewed", "product_viewed", "product_clicked"],
+      product_interaction: ["product_wishlisted", "product_shared", "product_compared", "product_review_viewed", "product_review_submitted"],
+      cart: ["cart_viewed", "product_added_to_cart", "product_removed_from_cart", "cart_quantity_updated", "cart_abandoned"],
+      checkout: ["checkout_started", "shipping_information_added", "payment_information_added", "checkout_completed", "checkout_failed"],
+      purchase: ["purchase_completed", "purchase_failed", "order_cancelled", "order_refunded"],
+      recommendation: ["recommendation_impression", "recommendation_clicked", "recommendation_added_to_cart", "recommendation_purchased"],
+      user: ["user_registered", "user_logged_in", "user_logged_out", "user_profile_updated"],
+      identity: ["identify"],
+    };
+    const byName = new Map(catalog.events.flatMap((e) => [e.name, ...e.aliases].map((n) => [n, e] as const)));
+    for (const names of Object.values(v1)) {
+      for (const name of names) {
+        expect(byName.get(name), name).toBeDefined();
+        // v1 names stay canonical so stored history and filters keep working.
+        expect(byName.get(name)!.name, name).toBe(name);
+      }
     }
   });
 
-  it("requires exactly the fields the Java validator requires", () => {
-    const source = read(
-      "backend/omnirec-commerce-core/src/main/java/io/omnirec/commerce/validation/EventValidator.java"
-    );
-    const fromValidator: Record<string, string[]> = {};
-    for (const [, constant, rules] of source.matchAll(/map\.put\(EventType\.([A-Z_]+),\s*List\.of\(([\s\S]*?)\)\);/g)) {
-      fromValidator[constant.toLowerCase()] = pathsFor([...rules.matchAll(/require(\w+)\(\)/g)].map((m) => m[1]));
-    }
-    expect(Object.keys(fromValidator).length).toBeGreaterThan(30);
-    for (const event of catalog.events) {
-      expect(catalogRequired[event.name], event.name).toEqual(fromValidator[event.name] ?? []);
-    }
+  it("lists the same standard events as the v2 schema, and keeps every frozen v1 event", () => {
+    const v2 = JSON.parse(read("schema/commerce-event.schema.json"));
+    expect([...v2.properties.event["x-omnirec-standard-events"]].sort()).toEqual(catalog.events.map((e) => e.name).sort());
+    const v1 = JSON.parse(read("schema/v1/commerce-event.schema.json"));
+    const known = new Set(catalog.events.flatMap((e) => [e.name, ...e.aliases]));
+    for (const name of v1.properties.eventType.enum) expect(known.has(name), name).toBe(true);
   });
 
-  it("defines the commerce block with the same fields and types as the schema", () => {
-    const schema = JSON.parse(read("schema/commerce-event.schema.json"));
-    const schemaFields: Record<string, { type: string }> = schema.properties.commerce.properties;
-    const block = catalog.blocks.find((b) => b.name === "commerce")!;
-    expect(Object.keys(block.fields).sort()).toEqual(Object.keys(schemaFields).sort());
-    for (const [name, field] of Object.entries(block.fields)) {
-      expect(field.type, `commerce.${name}`).toBe(schemaFields[name].type);
+  it("has a v2 home for every v1 commerce field", () => {
+    // V1Compat (Java) and the browser SDK's upconversion use this mapping.
+    const v1Fields: Record<string, string> = {
+      productId: "product.id", productIds: "list.productIds", categoryId: "category.id",
+      category: "category.name", quantity: "product.quantity", price: "product.price",
+      currency: "product.currency", cartId: "cart.id", orderId: "order.id", searchQuery: "search.query",
+      recommendationId: "recommendation.id", recommendationProvider: "recommendation.provider",
+      listId: "list.id", total: "order.total", items: "order.items",
+    };
+    const v1 = JSON.parse(read("schema/v1/commerce-event.schema.json"));
+    expect(Object.keys(v1.properties.commerce.properties).sort()).toEqual(Object.keys(v1Fields).sort());
+    for (const target of Object.values(v1Fields)) {
+      const [block, field] = target.split(".");
+      expect(catalog.blocks.find((b) => b.name === block)?.fields[field], target).toBeDefined();
     }
   });
 
@@ -100,6 +70,43 @@ describe("catalog parity with the v1 sources", () => {
   it("has an example for every event that requires fields", () => {
     for (const event of catalog.events.filter((e) => e.required.length > 0)) {
       expect(event.example, event.name).toBeDefined();
+    }
+  });
+});
+
+describe("catalog lint", () => {
+  it("uses every block and every vocabulary", () => {
+    const usedBlocks = new Set(catalog.events.flatMap((e) => e.blocks));
+    for (const block of catalog.blocks) expect(usedBlocks.has(block.name), `block ${block.name} is unused`).toBe(true);
+    const usedVocabs = new Set<string>();
+    const collect = (spec: { vocabulary?: string; items?: unknown; fields?: Record<string, unknown> }) => {
+      if (spec.vocabulary) usedVocabs.add(spec.vocabulary);
+      if (spec.items) collect(spec.items as never);
+      for (const child of Object.values(spec.fields ?? {})) collect(child as never);
+    };
+    for (const block of catalog.blocks) for (const field of Object.values(block.fields)) collect(field);
+    for (const event of catalog.events) for (const field of event.fields) collect(field);
+    for (const vocab of catalog.vocabularies) expect(usedVocabs.has(vocab.name), `vocabulary ${vocab.name} is unused`).toBe(true);
+  });
+
+  it("describes every event in a sentence", () => {
+    for (const event of catalog.events) {
+      expect(event.description.length, event.name).toBeGreaterThan(10);
+      expect(event.description.trim(), event.name).toMatch(/.$/);
+    }
+  });
+
+  it("has an example for every event that requires fields", () => {
+    for (const event of catalog.events.filter((e) => e.required.length > 0)) {
+      expect(event.example, event.name).toBeDefined();
+    }
+  });
+
+  it("keeps the expected shape: twelve domains and the full lifecycle", () => {
+    expect(catalog.domains).toHaveLength(12);
+    expect(catalog.events.length).toBeGreaterThanOrEqual(180);
+    for (const domain of catalog.domains) {
+      expect(catalog.events.some((e) => e.domain === domain.id), domain.id).toBe(true);
     }
   });
 });

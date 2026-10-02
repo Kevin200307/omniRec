@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Profile "lite": the collector alone, in one process. No RabbitMQ, no Redis,
+# no database. Events are delivered inline to the enabled destinations;
+# deduplication and identity links are in memory. For a single small store,
+# a trial, or a staging site. Start it with SPRING_PROFILES_ACTIVE=lite
+# (deploy/lite/docker-compose.yml does).
+#
+# What you give up, compared with deploy/standard: an event is not retried if a
+# destination fails, and in-memory state is lost on restart. Move to the
+# standard profile before you depend on delivery to a provider.
+
+spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+
+management:
+  health:
+    rabbit:
+      enabled: false
+    redis:
+      enabled: false
+
+omnirec:
+  events:
+    # No keys needed: browsers on allowed origins (or this collector's own
+    # origin, through a /omnirec proxy path) send to the default tenant.
+    auth-mode: ${OMNIREC_AUTH_MODE:open}
+    default-tenant-id: ${OMNIREC_DEFAULT_TENANT:default}
+    cors:
+      allowed-origins: ${OMNIREC_ALLOWED_ORIGINS:http://localhost:3000}
+  processing:
+    queue-enabled: false
+  state:
+    redis:
+      enabled: false
+  destinations:
+    recently-viewed:
+      enabled: false

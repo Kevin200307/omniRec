@@ -1,9 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 package io.omnirec.eventapi.normalize;
 
+import io.omnirec.commerce.catalog.EventDefinition;
+import io.omnirec.commerce.catalog.EventRegistry;
+import io.omnirec.commerce.compat.V1Compat;
 import io.omnirec.commerce.model.CommerceEvent;
 import io.omnirec.commerce.model.DeviceType;
 import io.omnirec.commerce.model.EventContext;
+import io.omnirec.commerce.model.EventData;
+import io.omnirec.commerce.model.EventName;
+import io.omnirec.commerce.model.EventSource;
+import io.omnirec.commerce.model.Platform;
 import io.omnirec.eventapi.dto.EventDto;
 
 import java.time.Duration;
@@ -25,7 +32,11 @@ import java.util.UUID;
  *       {@code timestamp} can still be reasoned about;</li>
  *   <li>an absurd {@code timestamp} is clamped rather than rejected — a device
  *       with a wrong clock is a real and common thing, and dropping its events
- *       loses more than accepting them with a corrected time.</li>
+ *       loses more than accepting them with a corrected time;</li>
+ *   <li>a v1 event ({@code eventType} + {@code commerce}) is converted to
+ *       envelope v2 with {@link V1Compat}, so everything downstream sees v2;</li>
+ *   <li>an alias is rewritten to its event's canonical name, and
+ *       {@code kind} and {@code eventVersion} come from the registry.</li>
  * </ul>
  */
 public class EventNormalizer {
@@ -34,14 +45,39 @@ public class EventNormalizer {
     private static final Duration MAX_CLOCK_SKEW = Duration.ofDays(2);
 
     private final boolean retainIpAddress;
+    private final EventRegistry registry;
 
     public EventNormalizer(boolean retainIpAddress) {
-        this.retainIpAddress = retainIpAddress;
+        this(retainIpAddress, EventRegistry.standard());
     }
 
+    public EventNormalizer(boolean retainIpAddress, EventRegistry registry) {
+        this.retainIpAddress = retainIpAddress;
+        this.registry = registry;
+    }
+
+    /** Normalizes against the default registry. */
     public CommerceEvent normalize(EventDto dto, String tenantId, RequestMetadata request) {
+        return normalize(dto, tenantId, request, registry);
+    }
+
+    /**
+     * Normalizes against a specific registry, for example a tenant's catalog
+     * plus tracking plan.
+     *
+     * @throws IllegalArgumentException when the event has no name
+     */
+    public CommerceEvent normalize(EventDto dto, String tenantId, RequestMetadata request, EventRegistry tenantRegistry) {
         Instant receivedAt = request.receivedAt();
         EventContext context = enrich(dto.context(), request);
+
+        EventName sent = dto.name();
+        if (sent == null) throw new IllegalArgumentException("event name is missing");
+        EventDefinition definition = tenantRegistry.find(sent.wireName()).orElse(null);
+        EventName name = definition == null ? sent : EventName.of(definition.name());
+        EventData data = dto.data() != null && !dto.data().isEmpty()
+                ? dto.data()
+                : V1Compat.toData(dto.commerce());
 
         return CommerceEvent.builder()
                 // A missing eventId would defeat deduplication, so we mint one
@@ -50,16 +86,25 @@ public class EventNormalizer {
                 .eventId(dto.eventId() == null || dto.eventId().isBlank()
                         ? UUID.randomUUID().toString()
                         : dto.eventId())
-                .eventType(dto.eventType())
-                .schemaVersion(dto.schemaVersion())
+                .eventType(name)
+                .eventVersion(dto.eventVersion() != null ? dto.eventVersion()
+                        : definition != null ? definition.version() : 1)
+                .kind(definition != null ? definition.kind() : CommerceEvent.KIND_CUSTOM)
+                .schemaVersion(CommerceEvent.CURRENT_SCHEMA_VERSION)
+                .source(dto.source() != null ? dto.source() : inferSource(context))
                 .timestamp(clampTimestamp(dto.timestamp(), receivedAt))
                 .tenantId(tenantId)
                 .identity(dto.identity())
                 .context(context)
-                .commerce(dto.commerce())
+                .data(data)
                 .properties(dto.properties())
                 .receivedAt(receivedAt)
                 .build();
+    }
+
+    /** v1 clients do not say where they run; the platform tells us. */
+    private static EventSource inferSource(EventContext context) {
+        return context.platform() == Platform.SERVER ? EventSource.SERVER : EventSource.BROWSER;
     }
 
     private EventContext enrich(EventContext clientContext, RequestMetadata request) {

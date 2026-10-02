@@ -22,6 +22,12 @@ spring:
     # because without them a broker nack is invisible and the event is lost.
     publisher-confirm-type: correlated
     publisher-returns: true
+  # Spring's own Redis connection is used only by the health check; point it at
+  # the state Redis so /actuator/health reports the Redis the pipeline uses.
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
 
 omnirec:
   events:
@@ -54,6 +60,23 @@ omnirec:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       identity-link-ttl: P365D
+
+  # Inbound webhooks at POST /v1/webhooks/{source} (docs/webhooks.md). Signed
+  # by the sender; no API key involved. Off until a source is configured.
+  webhooks:
+    stripe:
+      enabled: ${STRIPE_WEBHOOKS_ENABLED:false}
+      secret: ${STRIPE_WEBHOOK_SECRET:}
+
+  # Events nobody clicks (docs/derived-events.md): cart_abandoned,
+  # checkout_abandoned, return_visit, new_customer_purchase, repeat_purchase.
+  # Timers live in the state Redis when it is enabled, else in memory.
+  derived:
+    enabled: ${DERIVED_EVENTS_ENABLED:false}
+    cart-abandoned:
+      timeout: ${CART_ABANDONED_TIMEOUT:PT60M}
+    checkout-abandoned:
+      timeout: ${CHECKOUT_ABANDONED_TIMEOUT:PT30M}
 
   processing:
     queue-enabled: ${QUEUE_ENABLED:true}
@@ -117,6 +140,16 @@ omnirec:
       password: ${RECENTLY_VIEWED_REDIS_PASSWORD:}
       # Required when more than one tenant sends events: the serving keys carry no tenant.
       tenant-id: ${RECENTLY_VIEWED_TENANT_ID:}
+
+    # POST events to your own systems, signed (docs/webhooks.md). One queue,
+    # retry tiers and dead-letter queue per endpoint.
+    webhook:
+      enabled: false
+      # endpoints:
+      #   crm:
+      #     url: https://crm.example.com/hooks/omnirec
+      #     secret: ${CRM_WEBHOOK_SECRET}
+      #     events: [purchase_completed, cart_abandoned, refund_issued]
 
 management:
   endpoints:

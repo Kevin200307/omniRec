@@ -41,7 +41,7 @@ function harness(overrides: Record<string, unknown> = {}) {
 }
 
 function typesOf(events: CommerceEvent[]): EventType[] {
-  return events.map((e) => e.eventType);
+  return events.map((e) => e.event as EventType);
 }
 
 beforeEach(() => {
@@ -71,8 +71,8 @@ describe("every tracker produces a canonical event", () => {
     h.client.search.performed({ query: "gaming laptop", resultCount: 24 });
 
     const [event] = await h.flush();
-    expect(event.eventType).toBe("search_performed");
-    expect(event.commerce.searchQuery).toBe("gaming laptop");
+    expect(event.event).toBe("search_performed");
+    expect(event.data.search?.query).toBe("gaming laptop");
     expect(event.properties.resultCount).toBe(24);
   });
 
@@ -81,7 +81,7 @@ describe("every tracker produces a canonical event", () => {
     h.client.search.resultClicked({ query: "gaming laptop", productId: "p123", position: 3 });
 
     const [event] = await h.flush();
-    expect(event.commerce.productId).toBe("p123");
+    expect(event.data.product?.id).toBe("p123");
     expect(event.properties.position).toBe(3);
   });
 
@@ -90,8 +90,8 @@ describe("every tracker produces a canonical event", () => {
     h.client.productList.viewed({ listId: "gaming-laptops", productIds: ["p1", "p2", "p3"] });
 
     const [event] = await h.flush();
-    expect(event.commerce.productIds).toEqual(["p1", "p2", "p3"]);
-    expect(event.commerce.listId).toBe("gaming-laptops");
+    expect(event.data.list?.productIds).toEqual(["p1", "p2", "p3"]);
+    expect(event.data.list?.id).toBe("gaming-laptops");
   });
 
   it("category_viewed", async () => {
@@ -99,7 +99,7 @@ describe("every tracker produces a canonical event", () => {
     h.client.category.viewed({ categoryId: "gaming-laptops" });
 
     const [event] = await h.flush();
-    expect(event.commerce.categoryId).toBe("gaming-laptops");
+    expect(event.data.category?.id).toBe("gaming-laptops");
   });
 
   it("product_viewed carries price and currency", async () => {
@@ -107,7 +107,7 @@ describe("every tracker produces a canonical event", () => {
     h.client.product.viewed({ productId: "p123", categoryId: "laptops", price: 1500, currency: "USD" });
 
     const [event] = await h.flush();
-    expect(event.commerce).toMatchObject({ productId: "p123", price: 1500, currency: "USD" });
+    expect(event.data.product).toMatchObject({ id: "p123", price: 1500, currency: "USD" });
   });
 
   it("product_clicked, wishlisted, shared, compared, review viewed/submitted", async () => {
@@ -145,9 +145,9 @@ describe("every tracker produces a canonical event", () => {
       "product_removed_from_cart",
       "cart_quantity_updated",
     ]);
-    expect(events[1].commerce.quantity).toBe(2);
+    expect(events[1].data.product?.quantity).toBe(2);
     // newQuantity becomes the canonical quantity, previousQuantity stays a property.
-    expect(events[3].commerce.quantity).toBe(3);
+    expect(events[3].data.product?.quantity).toBe(3);
     expect(events[3].properties.previousQuantity).toBe(1);
   });
 
@@ -156,7 +156,7 @@ describe("every tracker produces a canonical event", () => {
     h.client.cart.productAdded({ cartId: "cart_123", productId: "p123" });
 
     const [event] = await h.flush();
-    expect(event.commerce.quantity).toBe(1);
+    expect(event.data.product?.quantity).toBe(1);
   });
 
   it("checkout events", async () => {
@@ -235,7 +235,7 @@ describe("automatic context", () => {
     const events = await h.flush();
     for (const event of events) {
       expect(event.eventId).toBeTruthy();
-      expect(event.schemaVersion).toBe("1.0");
+      expect(event.schemaVersion).toBe("2.0");
       expect(Number.isFinite(Date.parse(event.timestamp))).toBe(true);
       expect(event.identity.anonymousId).toBeTruthy();
       expect(event.identity.sessionId).toBeTruthy();
@@ -272,7 +272,7 @@ describe("identify and logout through the client", () => {
     h.client.identify({ userId: "customer_123" });
 
     const events = await h.flush();
-    const identify = events.find((e) => e.eventType === "identify");
+    const identify = events.find((e) => e.event === "identify");
     expect(identify).toBeDefined();
     expect(identify!.identity.userId).toBe("customer_123");
     expect(identify!.identity.anonymousId).toBe(anonymousBefore);
@@ -284,7 +284,7 @@ describe("identify and logout through the client", () => {
     h.client.identify({ userId: "customer_123" });
 
     const events = await h.flush();
-    expect(events.filter((e) => e.eventType === "identify")).toHaveLength(1);
+    expect(events.filter((e) => e.event === "identify")).toHaveLength(1);
   });
 
   it("keeps the anonymousId after logout", async () => {
@@ -305,7 +305,7 @@ describe("identify and logout through the client", () => {
     h.client.user.loggedOut();
 
     const events = await h.flush();
-    const loggedOut = events.find((e) => e.eventType === "user_logged_out");
+    const loggedOut = events.find((e) => e.event === "user_logged_out");
     expect(loggedOut!.identity.userId).toBe("customer_123");
   });
 
@@ -325,14 +325,16 @@ describe("invalid events are refused before they reach the network", () => {
     h.client.product.viewed({ productId: "" });
 
     expect(await h.flush()).toHaveLength(0);
-    expect(h.errors[0].message).toMatch(/commerce.productId/);
+    expect(h.errors[0].message).toMatch(/data.product.id/);
   });
 
-  it("does not send a negative-quantity add-to-cart", async () => {
+  it("leaves constraint checks such as a negative quantity to the server (and the debug plugin)", async () => {
+    // The production core checks required fields only, to stay within its size
+    // budget. The collector rejects the event; debug() warns in development.
     const h = harness();
     h.client.cart.productAdded({ cartId: "c1", productId: "p1", quantity: -1 });
 
-    expect(await h.flush()).toHaveLength(0);
+    expect(await h.flush()).toHaveLength(1);
   });
 
   it("can be turned off for merchants who validate server-side only", async () => {

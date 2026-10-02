@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: support_channel
+description: "Channel a support interaction happened on."
+values:
+  - value: chatbot
+  - value: live_chat
+  - value: email
+  - value: phone
+  - value: web_form
+  - value: social
+  - value: marketplace_message

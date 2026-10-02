@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+name: fraud_decision
+description: "Outcome of a fraud review."
+values:
+  - value: approved
+  - value: rejected
+  - value: manual_review

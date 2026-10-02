@@ -6,7 +6,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.omnirec.commerce.destination.DestinationException;
 import io.omnirec.commerce.destination.EventDestination;
 import io.omnirec.commerce.model.CommerceEvent;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.model.EventName;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 
@@ -85,10 +86,10 @@ public class RecentlyViewedDestination implements EventDestination {
 
     @Override
     public boolean supports(CommerceEvent event) {
-        return event.eventType() == EventType.PRODUCT_VIEWED
+        return event.eventType().equals(StandardEventNames.PRODUCT_VIEWED)
                 && !event.isEngagementUpdate()
                 && event.identity().isAuthenticated()
-                && event.commerce().productId() != null
+                && event.data().product().id() != null
                 && (properties.getTenantId() == null || properties.getTenantId().equals(event.tenantId()));
     }
 
@@ -101,7 +102,7 @@ public class RecentlyViewedDestination implements EventDestination {
         Instant viewedAt = event.timestamp() != null ? event.timestamp() : event.receivedAt();
         try {
             redis.execute(SCRIPT, List.of(list, list + INDEX_SUFFIX),
-                    encode(event.commerce().productId()),
+                    encode(event.data().product().id()),
                     Long.toString(viewedAt == null ? System.currentTimeMillis() : viewedAt.toEpochMilli()),
                     Integer.toString(properties.getMaxItems()),
                     Long.toString(properties.getTtl().toMillis()));

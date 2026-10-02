@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: payment_authorized
+domain: orders_payments
+version: 1
+sources: [server, webhook]
+description: "Payment for an order was authorised."
+aliases: [order_payment_authorized]
+blocks: [order, payment]
+properties:
+  order.id: { required: true }
+example:
+  order: { id: id_1 }

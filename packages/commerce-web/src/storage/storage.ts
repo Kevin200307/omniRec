@@ -19,7 +19,15 @@ export interface KeyValueStore {
 
 /** Survives tab close and browser restart. Used for anonymousId. */
 export class CookieStore implements KeyValueStore {
-  constructor(private maxAgeSeconds: number) {}
+  /**
+   * @param maxAgeSeconds cookie lifetime
+   * @param domain        e.g. ".shop.example" to share the cookie across subdomains; host-only when omitted
+   */
+  constructor(private maxAgeSeconds: number, private domain?: string) {}
+
+  private domainAttribute(): string {
+    return this.domain ? `; domain=${this.domain}` : "";
+  }
 
   get(key: string): string | null {
     if (typeof document === "undefined") return null;
@@ -36,7 +44,7 @@ export class CookieStore implements KeyValueStore {
     try {
       const secure = typeof location !== "undefined" && location.protocol === "https:" ? "; Secure" : "";
       document.cookie =
-        `${key}=${encodeURIComponent(value)}; path=/; max-age=${this.maxAgeSeconds}; SameSite=Lax${secure}`;
+        `${key}=${encodeURIComponent(value)}; path=/; max-age=${this.maxAgeSeconds}; SameSite=Lax${secure}${this.domainAttribute()}`;
     } catch {
       // Cookies blocked — caller falls back to in-memory identity.
     }
@@ -45,7 +53,7 @@ export class CookieStore implements KeyValueStore {
   remove(key: string): void {
     if (typeof document === "undefined") return;
     try {
-      document.cookie = `${key}=; path=/; max-age=0; SameSite=Lax`;
+      document.cookie = `${key}=; path=/; max-age=0; SameSite=Lax${this.domainAttribute()}`;
     } catch {
       // ignore
     }

@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: chatbot_answer_viewed
+domain: support
+version: 1
+sources: [browser, webhook]
+description: "The customer saw a chatbot answer."
+blocks: [support]
+properties:
+  support.id: { required: true }
+example:
+  support: { id: id_1 }

@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+name: message_delivered
+domain: acquisition_messaging
+version: 1
+sources: [webhook]
+description: "A message reached the customer's inbox or device."
+aliases: [email_delivered, sms_delivered]
+blocks: [message]
+properties:
+  message.id: { required: true }
+  message.channel: { required: true }
+example:
+  message: { id: id_1, channel: email }

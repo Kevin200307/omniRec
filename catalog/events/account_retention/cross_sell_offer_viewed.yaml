@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: cross_sell_offer_viewed
+domain: account_retention
+version: 1
+sources: [browser]
+description: "The customer saw a cross-sell or upsell offer."
+blocks: [product, promotion]
+properties:
+  product.id: { required: true }
+example:
+  product: { id: id_1 }

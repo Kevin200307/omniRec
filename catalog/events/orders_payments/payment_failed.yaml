@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: payment_failed
+domain: orders_payments
+version: 1
+sources: [server, webhook]
+description: "A payment attempt failed."
+aliases: [payment_authorization_failed]
+blocks: [order, payment]
+properties:
+  order.id: { required: true }
+example:
+  order: { id: id_1 }

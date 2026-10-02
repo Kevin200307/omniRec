@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: delivery_attempted
+domain: fulfilment
+version: 1
+sources: [webhook]
+description: "A delivery was attempted but not completed."
+blocks: [shipment]
+properties:
+  shipment.id: { required: true }
+example:
+  shipment: { id: id_1 }

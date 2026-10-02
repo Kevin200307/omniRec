@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: checkout_completed
+domain: cart_checkout
+version: 1
+sources: [browser, server]
+description: "Checkout finished and an order is being placed."
+blocks: [cart, order]
+properties:
+  cart.id: { required: true }
+example:
+  cart: { id: c1 }
+  order: { id: o1 }

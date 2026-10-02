@@ -18,6 +18,7 @@ const files = generateAll(loadCatalog(join(FIXTURE_ROOT, "catalog")), FIXTURE_RO
 describe("generateAll on the fixture catalog", () => {
   it("produces the expected set of files", () => {
     expect(files.map((f) => f.path)).toEqual([
+      "backend/omnirec-commerce-core/src/main/java/io/omnirec/commerce/catalog/generated/StandardEventNames.java",
       "backend/omnirec-commerce-core/src/main/java/io/omnirec/commerce/catalog/generated/StandardEvents.java",
       "backend/omnirec-commerce-core/src/main/resources/omnirec/catalog.json",
       "docs/events/account.md",
@@ -26,6 +27,7 @@ describe("generateAll on the fixture catalog", () => {
       "packages/commerce-web/src/events/generated/catalog.json",
       "packages/commerce-web/src/events/generated/catalog.ts",
       "schema/commerce-event.schema.json",
+      "tools/cli/src/standard/catalog.json",
     ]);
   });
 
@@ -46,16 +48,23 @@ describe("generateAll on the fixture catalog", () => {
     expect(again).toEqual(files);
   });
 
-  it("writes byte-identical runtime catalogs for the browser and the JVM", () => {
+  it("writes byte-identical runtime catalogs for the browser, the JVM and the CLI", () => {
     const browser = files.find((f) => f.path.endsWith("generated/catalog.json"))!;
     const jvm = files.find((f) => f.path.endsWith("resources/omnirec/catalog.json"))!;
+    const cli = files.find((f) => f.path.endsWith("cli/src/standard/catalog.json"))!;
     expect(browser.content).toBe(jvm.content);
+    expect(cli.content).toBe(jvm.content);
   });
 
-  it("fills the schema enum from the catalog and leaves the rest of the template alone", () => {
+  it("lists standard events and types every block in the schema, leaving the template alone", () => {
     const schema = JSON.parse(files.find((f) => f.path === "schema/commerce-event.schema.json")!.content);
-    expect(schema.properties.eventType.enum).toEqual(["product_shared", "product_viewed", "account_linked"]);
-    expect(schema.properties.eventType.type).toBe("string");
+    expect(schema.properties.event["x-omnirec-standard-events"]).toEqual(["product_shared", "product_viewed", "account_linked"]);
+    expect(schema.properties.event.pattern).toBe("^[a-z][a-z0-9_]{2,63}$");
+    const product = schema.properties.data.properties.product;
+    expect(product.additionalProperties).toBe(false);
+    expect(product.properties.price).toEqual({ type: ["number", "string"], pattern: "^-?[0-9]+(\\.[0-9]+)?$", minimum: 0 });
+    expect(product.properties.tags).toEqual({ type: "array", items: { type: "string" } });
+    expect(schema.properties.data.additionalProperties).toBe(true);
   });
 
   it("gives every generated source file a license header and a do-not-edit notice", () => {

@@ -24,7 +24,8 @@ import java.util.Map;
  * in a shared database.
  *
  * <pre>
- *   db/omnirec-storage/common/     V1 commerce_events, V2 identity_links, V3 indexes
+ *   db/omnirec-storage/common/     V1 commerce_events, V2 identity_links, V3 indexes, V5 envelope v2 columns,
+ *                                  V6 erasure tombstones
  *   db/omnirec-storage/postgres/   V4 primary key + BRIN index for retention
  *   db/omnirec-storage/timescale/  V4 extension, time-inclusive unique key, hypertable
  * </pre>

@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: Apache-2.0
+name: cart
+description: The shopping cart.
+fields:
+  id: { type: string, description: "Merchant cart identifier." }
+  total: { type: money, minimum: 0, description: "Cart value in currency." }
+  currency: { type: string, pattern: "^[A-Z]{3}$" }
+  items:
+    type: array
+    description: Cart lines.
+    items:
+      type: object
+      fields:
+        productId: { type: string, required: true }
+        quantity: { type: integer, minimum: 1 }
+        price: { type: money, minimum: 0 }
+        currency: { type: string, pattern: "^[A-Z]{3}$" }
+        categoryId: { type: string }

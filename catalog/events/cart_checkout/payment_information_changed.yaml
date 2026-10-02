@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: payment_information_changed
+domain: cart_checkout
+version: 1
+sources: [browser, server]
+description: "The shopper changed the payment method. No card data is tracked."
+aliases: [payment_method_changed]
+blocks: [cart, payment]
+properties:
+  cart.id: { required: true }
+example:
+  cart: { id: id_1 }

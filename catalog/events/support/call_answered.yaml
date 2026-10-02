@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: call_answered
+domain: support
+version: 1
+sources: [webhook]
+description: "A support call was answered."
+aliases: [phone_call_answered]
+blocks: [support]
+properties:
+  support.id: { required: true }
+example:
+  support: { id: id_1 }

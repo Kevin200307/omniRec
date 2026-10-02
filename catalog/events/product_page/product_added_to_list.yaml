@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+name: product_added_to_list
+domain: product_page
+version: 1
+sources: [browser, server]
+description: "The shopper added the product to a named list."
+blocks: [product, list]
+properties:
+  product.id: { required: true }
+  list.id: { required: true }
+example:
+  product: { id: id_1 }
+  list: { id: id_1 }

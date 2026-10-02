@@ -5,7 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.omnirec.commerce.destination.EventDestination;
 import io.omnirec.commerce.model.CommerceEvent;
 import io.omnirec.commerce.model.CommerceItem;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.model.EventName;
 import io.omnirec.commerce.model.Platform;
 import io.omnirec.commerce.validation.EventValidator;
 import io.omnirec.tracker.CommerceTracker;
@@ -120,7 +121,7 @@ class BackendSdkToEventApiTest {
         List<CommerceEvent> received = receivedFor(orderId);
         assertEquals(1, received.size());
         CommerceEvent event = received.get(0);
-        assertEquals(EventType.PURCHASE_COMPLETED, event.eventType());
+        assertEquals(StandardEventNames.PURCHASE_COMPLETED, event.eventType());
         assertEquals("evt:purchase_completed:" + orderId, event.eventId());
         assertEquals(0, new BigDecimal("100.00").compareTo(event.commerce().total()));
         assertEquals("customer_123", event.identity().userId());

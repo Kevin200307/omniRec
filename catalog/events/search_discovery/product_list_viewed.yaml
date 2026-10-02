@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: product_list_viewed
+domain: search_discovery
+version: 1
+sources: [browser]
+description: "A list of products was shown, such as a collection, a promotion row or a category grid."
+aliases: [search_result_impression]
+blocks: [list]
+properties:
+  list.productIds: { required: true, minItems: 1 }
+example:
+  list: { id: home_featured, productIds: [p123, p456] }

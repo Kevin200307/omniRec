@@ -3,7 +3,7 @@
 
   <groupId>io.omnirec</groupId>
   <artifactId>omnirec-parent</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>2.0.0</version>
   <packaging>pom</packaging>
 
   <name>Omnirec</name>
@@ -39,8 +39,11 @@
     <module>omnirec-amazon-personalize-destination</module>
     <module>omnirec-google-retail-destination</module>
     <module>omnirec-recently-viewed-destination</module>
+    <module>omnirec-webhook-destination</module>
     <module>omnirec-redis-state</module>
+    <module>omnirec-derived-events</module>
     <module>omnirec-event-storage</module>
+    <module>omnirec-tracker-java</module>
     <module>commerce-tracker-spring-boot</module>
     <module>omnirec-event-api-app</module>
     <module>omnirec-core</module>
@@ -72,6 +75,11 @@
       <dependency>
         <groupId>io.omnirec</groupId>
         <artifactId>omnirec-commerce-core</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>io.omnirec</groupId>
+        <artifactId>omnirec-tracker-java</artifactId>
         <version>${project.version}</version>
       </dependency>
       <!-- Every starter depends on the core interfaces + canonical DTOs. -->

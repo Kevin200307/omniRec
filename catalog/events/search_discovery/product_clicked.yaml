@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: product_clicked
+domain: search_discovery
+version: 1
+sources: [browser]
+description: "A product was clicked in a list, card or grid."
+blocks: [product, list]
+properties:
+  product.id: { required: true }
+example:
+  product: { id: p123 }
+  list: { id: home_featured }

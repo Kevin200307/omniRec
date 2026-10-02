@@ -3,7 +3,8 @@ package io.omnirec.contract;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.model.EventName;
 import io.omnirec.commerce.validation.EventValidator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -23,24 +24,21 @@ import java.util.regex.Pattern;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * The canonical event is defined three times — once per language that has to
- * understand it:
+ * Cross-language agreement on the canonical event.
  *
- * <ol>
- *   <li>{@code packages/commerce-web/src/events/generated/catalog.ts} (the frontend SDK)</li>
- *   <li>{@code io.omnirec.commerce.model.EventType} (everything on the JVM)</li>
- *   <li>{@code schema/commerce-event.schema.json} (the documented wire contract)</li>
- * </ol>
+ * <ul>
+ *   <li>Event names: the generated TypeScript catalog, the Java registry and the
+ *       v2 schema all come from {@code catalog/}. CI fails if generated files are
+ *       stale; this test catches a stale or hand-edited copy anyway.</li>
+ *   <li>The frozen v1 contract ({@code schema/v1/commerce-event.schema.json}),
+ *       the Java {@code CommerceData} DTO and the browser SDK's v1 types must
+ *       still agree, because v1 clients keep sending that shape until they
+ *       upgrade and the collector converts it.</li>
+ * </ul>
  *
- * Event names in the TypeScript file and the schema are generated from
- * {@code catalog/} by {@code omnirec generate}, and CI fails if they are stale.
- * The Java enum stays hand-written until Phase 2 of the v2 plan replaces it with
- * a registry loaded from the same catalog.
- *
- * What is not acceptable is letting them drift silently — a taxonomy entry added
- * to the frontend but missing from the Java enum means the API rejects an event
- * the SDK happily sends, and nobody finds out until production. So this test
- * parses the other definitions and compares them to the Java one.
+ * A taxonomy entry added to the frontend but missing from the registry means the
+ * API rejects an event the SDK happily sends, and nobody finds out until
+ * production. So this test parses the other definitions and compares them.
  */
 class CanonicalSchemaContractTest {
 
@@ -62,7 +60,7 @@ class CanonicalSchemaContractTest {
 
     private static Set<String> javaEventTypes() {
         Set<String> names = new TreeSet<>();
-        for (EventType type : EventType.values()) {
+        for (EventName type : io.omnirec.commerce.catalog.generated.StandardEvents.ALL.stream().map(EventName::of).toList()) {
             names.add(type.wireName());
         }
         return names;
@@ -70,8 +68,8 @@ class CanonicalSchemaContractTest {
 
     private static Set<String> schemaEventTypes() throws IOException {
         JsonNode schema = new ObjectMapper().readTree(read("schema/commerce-event.schema.json"));
-        JsonNode enumNode = schema.path("properties").path("eventType").path("enum");
-        assertTrue(enumNode.isArray(), "schema is missing properties.eventType.enum");
+        JsonNode enumNode = schema.path("properties").path("event").path("x-omnirec-standard-events");
+        assertTrue(enumNode.isArray(), "v2 schema is missing properties.event.x-omnirec-standard-events");
 
         Set<String> names = new TreeSet<>();
         enumNode.forEach(node -> names.add(node.asText()));
@@ -104,7 +102,7 @@ class CanonicalSchemaContractTest {
     @DisplayName("the Java enum and the JSON schema define the same event taxonomy")
     void javaAndSchemaAgree() throws IOException {
         assertEquals(javaEventTypes(), schemaEventTypes(),
-                "EventType and commerce-event.schema.json have drifted apart");
+                "EventName and commerce-event.schema.json have drifted apart");
     }
 
     @Test
@@ -198,7 +196,8 @@ class CanonicalSchemaContractTest {
             java.add(component.getName());
         }
 
-        JsonNode schema = new ObjectMapper().readTree(read("schema/commerce-event.schema.json"));
+        // v1 contract: still what v1 SDKs send, still what V1Compat converts.
+        JsonNode schema = new ObjectMapper().readTree(read("schema/v1/commerce-event.schema.json"));
         Set<String> schemaFields = new TreeSet<>();
         schema.path("properties").path("commerce").path("properties").fieldNames().forEachRemaining(schemaFields::add);
 
@@ -234,11 +233,31 @@ class CanonicalSchemaContractTest {
     @Test
     @DisplayName("identify is the only control event, and it is never delivered")
     void controlEventsAreMarkedAsSuch() {
-        List<EventType> controlEvents = java.util.Arrays.stream(EventType.values())
-                .filter(EventType::isControlEvent)
+        List<EventName> controlEvents = io.omnirec.commerce.catalog.generated.StandardEvents.ALL.stream().map(EventName::of)
+                .filter(EventName::isControlEvent)
                 .toList();
 
-        assertEquals(List.of(EventType.IDENTIFY), controlEvents);
+        assertEquals(List.of(StandardEventNames.IDENTIFY), controlEvents);
+    }
+
+    @Test
+    @DisplayName("every name in the frozen v1 contract is still accepted")
+    void v1NamesStillResolve() throws IOException {
+        JsonNode v1 = new ObjectMapper().readTree(read("schema/v1/commerce-event.schema.json"));
+        for (JsonNode name : v1.path("properties").path("eventType").path("enum")) {
+            assertTrue(io.omnirec.commerce.catalog.EventRegistry.standard().isKnown(name.asText()),
+                    name.asText() + " is in the v1 contract but no longer known");
+        }
+    }
+
+    @Test
+    @DisplayName("the v2 schema types every block the Java model reads")
+    void v2SchemaHasTheStandardBlocks() throws IOException {
+        JsonNode data = new ObjectMapper().readTree(read("schema/commerce-event.schema.json"))
+                .path("properties").path("data").path("properties");
+        for (String block : List.of("product", "category", "list", "search", "cart", "order", "recommendation")) {
+            assertTrue(data.has(block), "schema has no data." + block + " block");
+        }
     }
 
     @Test
@@ -250,7 +269,7 @@ class CanonicalSchemaContractTest {
         schema.path("required").forEach(node -> required.add(node.asText()));
 
         assertTrue(required.contains("eventId"), "deduplication depends on eventId");
-        assertTrue(required.contains("eventType"), "routing depends on eventType");
+        assertTrue(required.contains("event"), "routing depends on the event name");
         assertTrue(required.contains("identity"), "attribution depends on identity");
 
         Set<String> identityRequired = new LinkedHashSet<>();

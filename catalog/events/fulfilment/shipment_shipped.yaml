@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: shipment_shipped
+domain: fulfilment
+version: 1
+sources: [server, webhook]
+description: "A shipment left the warehouse."
+aliases: [order_shipped]
+blocks: [order, shipment]
+properties:
+  shipment.id: { required: true }
+example:
+  shipment: { id: id_1 }

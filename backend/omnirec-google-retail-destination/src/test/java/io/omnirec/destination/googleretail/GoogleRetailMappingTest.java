@@ -7,7 +7,8 @@ import io.omnirec.commerce.model.CommerceEvent;
 import io.omnirec.commerce.model.CommerceItem;
 import io.omnirec.commerce.model.EventContext;
 import io.omnirec.commerce.model.EventIdentity;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.model.EventName;
 import io.omnirec.commerce.model.Platform;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -25,7 +26,7 @@ class GoogleRetailMappingTest {
 
     private final GoogleRetailEventMapper mapper = new GoogleRetailEventMapper();
 
-    private CommerceEvent.Builder base(EventType type) {
+    private CommerceEvent.Builder base(EventName type) {
         return CommerceEvent.builder()
                 .eventId("evt_1")
                 .eventType(type)
@@ -50,7 +51,7 @@ class GoogleRetailMappingTest {
          */
         @Test
         void visitorIdIsAlwaysTheAnonymousId() {
-            UserEvent mapped = mapper.toUserEvent(base(EventType.PRODUCT_VIEWED)
+            UserEvent mapped = mapper.toUserEvent(base(StandardEventNames.PRODUCT_VIEWED)
                     .commerce(CommerceData.builder().productId("p1").build())
                     .build());
 
@@ -59,7 +60,7 @@ class GoogleRetailMappingTest {
 
         @Test
         void visitorIdStaysAnonymousEvenWhenTheVisitorIsLoggedIn() {
-            UserEvent mapped = mapper.toUserEvent(base(EventType.PRODUCT_VIEWED)
+            UserEvent mapped = mapper.toUserEvent(base(StandardEventNames.PRODUCT_VIEWED)
                     .identity(EventIdentity.authenticated("anon_A", "customer_123", "session_1"))
                     .commerce(CommerceData.builder().productId("p1").build())
                     .build());
@@ -72,7 +73,7 @@ class GoogleRetailMappingTest {
 
         @Test
         void anAnonymousVisitorCarriesNoUserInfo() {
-            UserEvent mapped = mapper.toUserEvent(base(EventType.PRODUCT_VIEWED)
+            UserEvent mapped = mapper.toUserEvent(base(StandardEventNames.PRODUCT_VIEWED)
                     .commerce(CommerceData.builder().productId("p1").build())
                     .build());
 
@@ -81,7 +82,7 @@ class GoogleRetailMappingTest {
 
         @Test
         void sessionIdRoundTrips() {
-            assertEquals("session_1", mapper.toUserEvent(base(EventType.PRODUCT_VIEWED)
+            assertEquals("session_1", mapper.toUserEvent(base(StandardEventNames.PRODUCT_VIEWED)
                     .commerce(CommerceData.builder().productId("p1").build())
                     .build()).getSessionId());
         }
@@ -93,12 +94,12 @@ class GoogleRetailMappingTest {
 
         @Test
         void mapsEachSupportedTypeToItsRetailCounterpart() {
-            assertEquals("detail-page-view", mapper.retailEventType(EventType.PRODUCT_VIEWED));
-            assertEquals("add-to-cart", mapper.retailEventType(EventType.PRODUCT_ADDED_TO_CART));
-            assertEquals("purchase-complete", mapper.retailEventType(EventType.PURCHASE_COMPLETED));
-            assertEquals("search", mapper.retailEventType(EventType.SEARCH_PERFORMED));
-            assertEquals("home-page-view", mapper.retailEventType(EventType.HOME_PAGE_VIEWED));
-            assertEquals("shopping-cart-page-view", mapper.retailEventType(EventType.CART_VIEWED));
+            assertEquals("detail-page-view", mapper.retailEventType(StandardEventNames.PRODUCT_VIEWED));
+            assertEquals("add-to-cart", mapper.retailEventType(StandardEventNames.PRODUCT_ADDED_TO_CART));
+            assertEquals("purchase-complete", mapper.retailEventType(StandardEventNames.PURCHASE_COMPLETED));
+            assertEquals("search", mapper.retailEventType(StandardEventNames.SEARCH_PERFORMED));
+            assertEquals("home-page-view", mapper.retailEventType(StandardEventNames.HOME_PAGE_VIEWED));
+            assertEquals("shopping-cart-page-view", mapper.retailEventType(StandardEventNames.CART_VIEWED));
         }
 
         /**
@@ -111,7 +112,7 @@ class GoogleRetailMappingTest {
             Set<String> documented = Set.of("home-page-view", "search", "category-page-view",
                     "detail-page-view", "add-to-cart", "shopping-cart-page-view", "purchase-complete");
 
-            for (EventType type : EventType.values()) {
+            for (EventName type : io.omnirec.commerce.catalog.generated.StandardEvents.ALL.stream().map(EventName::of).toList()) {
                 String mapped = mapper.retailEventType(type);
                 if (mapped != null) {
                     assertTrue(documented.contains(mapped), type + " maps to undocumented type " + mapped);
@@ -121,8 +122,8 @@ class GoogleRetailMappingTest {
 
         @Test
         void dropsRemovalAndPageViewsWhichHaveNoValidRetailType() {
-            assertFalse(mapper.supports(EventType.PRODUCT_REMOVED_FROM_CART));
-            assertFalse(mapper.supports(EventType.PAGE_VIEWED));
+            assertFalse(mapper.supports(StandardEventNames.PRODUCT_REMOVED_FROM_CART));
+            assertFalse(mapper.supports(StandardEventNames.PAGE_VIEWED));
         }
 
         /**
@@ -133,18 +134,18 @@ class GoogleRetailMappingTest {
          */
         @Test
         void dropsEventsThatWouldDoubleCountAnotherEvent() {
-            for (EventType type : List.of(EventType.PRODUCT_CLICKED, EventType.SEARCH_RESULT_CLICKED,
-                    EventType.RECOMMENDATION_CLICKED, EventType.RECOMMENDATION_ADDED_TO_CART,
-                    EventType.RECOMMENDATION_PURCHASED)) {
+            for (EventName type : List.of(StandardEventNames.PRODUCT_CLICKED, StandardEventNames.SEARCH_RESULT_CLICKED,
+                    StandardEventNames.RECOMMENDATION_CLICKED, StandardEventNames.RECOMMENDATION_ADDED_TO_CART,
+                    StandardEventNames.RECOMMENDATION_PURCHASED)) {
                 assertFalse(mapper.supports(type), type + " would double-count");
             }
         }
 
         @Test
         void dropsTypesWithNoGenuineCounterpart() {
-            for (EventType type : List.of(EventType.SESSION_STARTED, EventType.PRODUCT_WISHLISTED,
-                    EventType.PRODUCT_SHARED, EventType.CHECKOUT_FAILED, EventType.ORDER_REFUNDED,
-                    EventType.USER_LOGGED_OUT, EventType.IDENTIFY, EventType.CART_ABANDONED)) {
+            for (EventName type : List.of(StandardEventNames.SESSION_STARTED, StandardEventNames.PRODUCT_WISHLISTED,
+                    StandardEventNames.PRODUCT_SHARED, StandardEventNames.CHECKOUT_FAILED, StandardEventNames.ORDER_REFUNDED,
+                    StandardEventNames.USER_LOGGED_OUT, StandardEventNames.IDENTIFY, StandardEventNames.CART_ABANDONED)) {
                 assertFalse(mapper.supports(type),
                         type + " has no honest Retail counterpart and must be dropped, not coerced");
             }
@@ -152,7 +153,7 @@ class GoogleRetailMappingTest {
 
         @Test
         void skipsADwellTimeUpdateSoAViewIsCountedOnce() {
-            CommerceEvent dwellUpdate = base(EventType.PRODUCT_VIEWED)
+            CommerceEvent dwellUpdate = base(StandardEventNames.PRODUCT_VIEWED)
                     .commerce(CommerceData.builder().productId("p1").build())
                     .properties(Map.of(CommerceEvent.PROPERTY_DWELL_TIME_MS, 4200,
                             CommerceEvent.PROPERTY_VIEW_EVENT_ID, "evt_view"))
@@ -163,15 +164,15 @@ class GoogleRetailMappingTest {
 
         @Test
         void skipsEventsMissingFieldsRetailRequires() {
-            assertFalse(mapper.supports(base(EventType.CATEGORY_VIEWED).build()), "no category");
-            assertFalse(mapper.supports(base(EventType.PRODUCT_LIST_VIEWED)
+            assertFalse(mapper.supports(base(StandardEventNames.CATEGORY_VIEWED).build()), "no category");
+            assertFalse(mapper.supports(base(StandardEventNames.PRODUCT_LIST_VIEWED)
                     .commerce(CommerceData.builder().productIds(List.of("p1")).build()).build()), "no category");
-            assertFalse(mapper.supports(base(EventType.SEARCH_PERFORMED).build()), "no query");
+            assertFalse(mapper.supports(base(StandardEventNames.SEARCH_PERFORMED).build()), "no query");
         }
 
         @Test
         void refusesToMapAnUnsupportedType() {
-            CommerceEvent event = base(EventType.PRODUCT_SHARED)
+            CommerceEvent event = base(StandardEventNames.PRODUCT_SHARED)
                     .commerce(CommerceData.builder().productId("p1").build())
                     .build();
 
@@ -185,7 +186,7 @@ class GoogleRetailMappingTest {
 
         @Test
         void searchCarriesTheQueryRetailDemands() {
-            UserEvent mapped = mapper.toUserEvent(base(EventType.SEARCH_PERFORMED)
+            UserEvent mapped = mapper.toUserEvent(base(StandardEventNames.SEARCH_PERFORMED)
                     .commerce(CommerceData.builder().searchQuery("gaming laptop").build())
                     .build());
 
@@ -194,7 +195,7 @@ class GoogleRetailMappingTest {
 
         @Test
         void categoryViewCarriesPageCategories() {
-            UserEvent mapped = mapper.toUserEvent(base(EventType.CATEGORY_VIEWED)
+            UserEvent mapped = mapper.toUserEvent(base(StandardEventNames.CATEGORY_VIEWED)
                     .commerce(CommerceData.builder().categoryId("laptops").build())
                     .build());
 
@@ -203,7 +204,7 @@ class GoogleRetailMappingTest {
 
         @Test
         void purchaseCarriesTheTransactionRetailDemands() {
-            UserEvent mapped = mapper.toUserEvent(base(EventType.PURCHASE_COMPLETED)
+            UserEvent mapped = mapper.toUserEvent(base(StandardEventNames.PURCHASE_COMPLETED)
                     .identity(EventIdentity.authenticated("anon_A", "customer_123", "session_1"))
                     .commerce(CommerceData.builder()
                             .orderId("order_1")
@@ -225,7 +226,7 @@ class GoogleRetailMappingTest {
 
         @Test
         void sendsASingleProduct() {
-            UserEvent mapped = mapper.toUserEvent(base(EventType.PRODUCT_VIEWED)
+            UserEvent mapped = mapper.toUserEvent(base(StandardEventNames.PRODUCT_VIEWED)
                     .commerce(CommerceData.builder().productId("p1").build())
                     .build());
 
@@ -235,7 +236,7 @@ class GoogleRetailMappingTest {
 
         @Test
         void sendsQuantityWithACartAddition() {
-            UserEvent mapped = mapper.toUserEvent(base(EventType.PRODUCT_ADDED_TO_CART)
+            UserEvent mapped = mapper.toUserEvent(base(StandardEventNames.PRODUCT_ADDED_TO_CART)
                     .commerce(CommerceData.builder().productId("p1").quantity(3).cartId("c1").build())
                     .build());
 
@@ -244,7 +245,7 @@ class GoogleRetailMappingTest {
 
         @Test
         void sendsEveryLineOfAnOrder() {
-            UserEvent mapped = mapper.toUserEvent(base(EventType.PURCHASE_COMPLETED)
+            UserEvent mapped = mapper.toUserEvent(base(StandardEventNames.PURCHASE_COMPLETED)
                     .commerce(CommerceData.builder()
                             .orderId("order_1")
                             .items(List.of(
@@ -260,7 +261,7 @@ class GoogleRetailMappingTest {
 
         @Test
         void sendsEveryProductOfAListView() {
-            UserEvent mapped = mapper.toUserEvent(base(EventType.PRODUCT_LIST_VIEWED)
+            UserEvent mapped = mapper.toUserEvent(base(StandardEventNames.PRODUCT_LIST_VIEWED)
                     .commerce(CommerceData.builder()
                             .productIds(List.of("p1", "p2", "p3"))
                             .categoryId("laptops")
@@ -277,7 +278,7 @@ class GoogleRetailMappingTest {
 
         @Test
         void forwardsAttributionOnlyForARecommendationGoogleServed() {
-            UserEvent mapped = mapper.toUserEvent(base(EventType.PRODUCT_VIEWED)
+            UserEvent mapped = mapper.toUserEvent(base(StandardEventNames.PRODUCT_VIEWED)
                     .commerce(CommerceData.builder().productId("p1")
                             .recommendationId("google-token-1").recommendationProvider("google-retail").build())
                     .build());
@@ -291,11 +292,11 @@ class GoogleRetailMappingTest {
          */
         @Test
         void neverForwardsAnotherProvidersRecommendationIdAsAttribution() {
-            UserEvent fromAmazon = mapper.toUserEvent(base(EventType.PRODUCT_VIEWED)
+            UserEvent fromAmazon = mapper.toUserEvent(base(StandardEventNames.PRODUCT_VIEWED)
                     .commerce(CommerceData.builder().productId("p1")
                             .recommendationId("rec_1").recommendationProvider("amazon-personalize").build())
                     .build());
-            UserEvent unattributed = mapper.toUserEvent(base(EventType.PRODUCT_VIEWED)
+            UserEvent unattributed = mapper.toUserEvent(base(StandardEventNames.PRODUCT_VIEWED)
                     .commerce(CommerceData.builder().productId("p1").recommendationId("rec_1").build())
                     .build());
 
@@ -305,7 +306,7 @@ class GoogleRetailMappingTest {
 
         @Test
         void carriesTheUrlAndReferrer() {
-            UserEvent mapped = mapper.toUserEvent(base(EventType.PRODUCT_VIEWED)
+            UserEvent mapped = mapper.toUserEvent(base(StandardEventNames.PRODUCT_VIEWED)
                     .commerce(CommerceData.builder().productId("p1").build())
                     .build());
 
@@ -315,7 +316,7 @@ class GoogleRetailMappingTest {
 
         @Test
         void preservesTheEventTime() {
-            UserEvent mapped = mapper.toUserEvent(base(EventType.PRODUCT_VIEWED)
+            UserEvent mapped = mapper.toUserEvent(base(StandardEventNames.PRODUCT_VIEWED)
                     .commerce(CommerceData.builder().productId("p1").build())
                     .build());
 

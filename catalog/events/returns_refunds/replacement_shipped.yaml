@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: replacement_shipped
+domain: returns_refunds
+version: 1
+sources: [server, webhook]
+description: "A replacement was shipped."
+blocks: [order, shipment]
+properties:
+  shipment.id: { required: true }
+example:
+  shipment: { id: id_1 }

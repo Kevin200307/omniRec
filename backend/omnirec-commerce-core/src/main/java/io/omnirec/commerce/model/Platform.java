@@ -22,7 +22,7 @@ public enum Platform {
         return wireName;
     }
 
-    /** Unlike EventType, an unrecognised platform degrades to UNKNOWN — it affects nothing downstream. */
+    /** Unlike an unknown event name, an unrecognised platform degrades to UNKNOWN — it affects nothing downstream. */
     @JsonCreator
     public static Platform fromWireName(String value) {
         if (value == null) return UNKNOWN;

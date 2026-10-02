@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: live_chat_transferred
+domain: support
+version: 1
+sources: [webhook]
+description: "A live chat was transferred to another agent or team."
+blocks: [support]
+properties:
+  support.id: { required: true }
+example:
+  support: { id: id_1 }

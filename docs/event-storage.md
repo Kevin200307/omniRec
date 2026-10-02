@@ -404,6 +404,58 @@ Retention is measured by event time. Identity links are not purged: they are
 small, and a link that outlives its events is harmless. This is a storage setting
 only and implies no plan or billing logic.
 
+### Per-tenant retention (postgres)
+
+```yaml
+omnirec:
+  storage:
+    retention:
+      max-age: 400d
+      tenants:
+        store-eu: 90d        # keeps less
+        store-archive: 1000d # keeps more: the global max-age never touches it
+```
+
+Each listed tenant is purged by its own age only. Everyone else gets
+`max-age`. With the `timescale` provider, per-tenant retention is refused at
+startup, because its chunks are shared by all tenants.
+
+### Customer deletion
+
+```bash
+curl -X DELETE https://collector.example.com/v1/customers/customer_123 \
+  -H "Authorization: Bearer $STORE_SECRET_KEY"
+```
+
+```json
+{ "receiptId": "del_5b0c…", "tenantId": "store-a", "customerId": "customer_123",
+  "erasedAt": "2026-10-02T09:14:03Z", "eventsDeleted": 412, "identityLinksDeleted": 3, "devicesErased": 3 }
+```
+
+It is authenticated like the history API: the tenant's secret key, or a
+platform key with `X-Omnirec-Tenant`. In order:
+
+1. **Find the customer's devices.** These come from the identity links (the
+   database and the pipeline's Redis store) and from the anonymous ids on the
+   customer's own events.
+2. **Write tombstones** for the customer id and each device's anonymous id, in
+   `erasure_tombstones`. Only a fingerprint is stored, SHA-256 of the tenant
+   and the id, never the id itself. From this moment the collector
+   acknowledges and drops their events, and so does the storage worker for
+   events already queued. Other instances pick up tombstones within
+   `omnirec.storage.erasure-refresh-interval` (30 s).
+3. **Delete** the customer's events, the devices' anonymous events, and every
+   identity link touching either, in one transaction. A device shared with
+   someone else loses its anonymous history too: an erasure errs on the side
+   of deleting more.
+4. **Forget the links** in the pipeline's link store, so the devices no longer
+   resolve to the customer and an `identify` cannot re-link them.
+
+Repeating the request is harmless and reports zero. The receipt id and counts
+are logged, never the customer id. Copies already delivered to providers
+(Personalize, Google Retail, your webhooks) are outside omniRec and must be
+deleted there.
+
 ## 12. Local development
 
 `docker-compose.yml` defines one database per provider under a Compose profile,

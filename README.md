@@ -1,17 +1,19 @@
 # Omnirec
 
-Provider-independent commerce event tracking. Omnirec collects customer
-interactions once, normalizes them into a canonical schema, resolves the
-identity each event belongs to, and delivers them to Amazon Personalize, Google
-Cloud Retail, or any destination added later, without provider credentials ever
-being present in the browser.
+Open-source commerce event tracking. Omnirec collects shopper and business
+events once, from the browser, your server and other systems' webhooks. It
+validates them against a catalog of about 200 standard commerce events plus
+your own custom events, resolves the identity each one belongs to, and delivers
+them to Amazon Personalize, Google Cloud Retail, your own webhooks, historical
+storage, or any destination you add. Provider credentials never reach the
+browser.
 
 ```
-Capture -> Normalize -> Resolve identity -> Queue -> Transform -> Deliver
+Capture -> Normalize -> Validate -> Resolve identity -> Queue -> Deliver
 ```
 
-Omnirec is infrastructure rather than an analytics product. It provides no
-dashboard, no reporting interface, and no machine learning model of its own.
+Omnirec is infrastructure you host yourself, for one store or many. It has no
+dashboard and no machine learning model of its own.
 
 ## License
 
@@ -19,152 +21,153 @@ Omnirec is licensed under the [Apache License, Version 2.0](./LICENSE).
 
 ## Status
 
-Version 0.1.0. The pipeline, both SDKs, and the Amazon Personalize and Google
-Retail adapters are implemented and covered by automated tests, including tests
-that run against a real RabbitMQ broker and a real Redis instance. The provider
-adapters have not yet been executed against live provider accounts; see
-[Known limitations](docs/guide.md#10-known-limitations).
+Version 2.0.0. The highlights:
+
+- the event catalog, with 205 events across 12 domains
+- typed SDKs for the browser, React, Next.js, Vue, Node, Java and Spring Boot
+- declarative HTML tracking
+- tracking plans for custom events
+- inbound webhooks (Stripe and generic JSON)
+- derived events (abandoned carts, return visits, first and repeat purchases)
+- outbound webhooks
+- historical storage with customer deletion
+- a CLI with a local development collector
+
+All of this is covered by automated tests, including tests against real
+RabbitMQ, Redis and PostgreSQL. The provider adapters have not yet been run
+against live provider accounts; see
+[Known limitations](docs/guide.md#10-known-limitations). Upgrading from 0.x:
+[migration-v1-to-v2.md](docs/migration-v1-to-v2.md).
+
+## Quick start
+
+From nothing to a validated event, with no Java or Docker:
+
+```bash
+npx @omnirec/cli init     # detects Next.js, React, Vue, Spring Boot or plain HTML;
+                          # writes omnirec.plan.yaml and prints the code to paste
+npx @omnirec/cli dev      # local collector on http://localhost:8124, live list at /
+```
+
+```js
+import { createOmnirec } from "@omnirec/commerce-web";
+
+const omnirec = createOmnirec({ endpoint: "http://localhost:8124" });
+omnirec.track("product_viewed", { product: { id: "P100", price: 89.99, currency: "USD" } });
+omnirec.track("add_to_cart", { product: { id: "P100", quantity: 1 } });
+```
+
+Each event appears in the terminal, either accepted or with the exact field
+that is wrong. When you are ready, run the real collector
+([self-hosting.md](docs/self-hosting.md)):
+
+```bash
+docker compose -f deploy/lite/docker-compose.yml up -d --build       # one container
+docker compose -f deploy/standard/docker-compose.yml up -d --build   # + RabbitMQ, Redis
+```
+
+Then point `endpoint` at it, ideally through a `/omnirec` path on your own domain.
+
+## Usage
+
+**Browser.** `track()` is typed from the catalog and your plan:
+
+```js
+import { createOmnirec } from "@omnirec/commerce-web";
+import { dom } from "@omnirec/commerce-web/dom";
+import { autocapture } from "@omnirec/commerce-web/autocapture";
+
+const omnirec = createOmnirec({ endpoint: "/omnirec", plugins: [dom(), autocapture()] });
+omnirec.track("search_performed", { search: { query: "gaming laptop", resultsCount: 24 } });
+omnirec.identify("customer_123");
+```
+
+**HTML.** No JavaScript per element ([html-attributes.md](docs/html-attributes.md)):
+
+```html
+<button data-omnirec-event="product_added_to_cart" data-omnirec-product="P100" data-omnirec-quantity="1">Add</button>
+```
+
+**React, Next.js, Vue.** Use `@omnirec/commerce-react` (`OmnirecProvider`,
+`useTrack`, `<Track>`), `@omnirec/commerce-next` or `@omnirec/commerce-vue`
+(`v-track`, `v-impression`).
+
+**Server.** Purchases and refunds are reported where the payment result is
+known. The visitor's browsing identity is read from the cookies the browser
+SDK sets:
+
+```java
+tracker.track(StandardEvents.PURCHASE_COMPLETED,
+        Map.of("order", Map.of("id", order.getId(), "total", order.getTotal(), "currency", "USD", "items", lines)),
+        order.getCustomerId(), order.getId());
+```
+
+**Custom events** go in `omnirec.plan.yaml`. `omnirec generate` types them, and
+`omnirec validate --against origin/main` stops breaking changes in CI
+([custom-events.md](docs/custom-events.md)).
 
 ## Repository layout
 
 ```
+catalog/                         the event catalog (YAML): events, blocks, vocabularies
+tools/cli/                       @omnirec/cli: init, dev, generate, validate
 packages/
-  commerce-web/         @omnirec/commerce-web    browser SDK, no React dependency
-  commerce-react/       @omnirec/commerce-react  React bindings
-  core/ react/ react-ui/ create-omnirec-app/     serving-side packages
-
+  commerce-web/                  @omnirec/commerce-web    browser SDK, plugins, script tag
+  commerce-react/ commerce-next/ commerce-vue/ commerce-node/
 backend/
-  omnirec-commerce-core/                    canonical event, taxonomy, validation,
-                                            identity linking, deduplication,
-                                            EventDestination interface
-  omnirec-event-api/                        gateway: authentication, rate limiting,
-                                            normalization, validation, deduplication,
-                                            identity resolution
-  omnirec-event-processing/                 RabbitMQ topology, consumers, dispatcher,
-                                            retry tiers, dead-letter queues
-  omnirec-amazon-personalize-destination/   Amazon Personalize adapter
-  omnirec-google-retail-destination/        Google Retail adapter
-  omnirec-recently-viewed-destination/      recently-viewed lists for the serving side
-  omnirec-redis-state/                      shared deduplication and identity links
-  omnirec-event-storage/                    optional historical storage: storage worker,
-                                            PostgreSQL/TimescaleDB EventStore, customer
-                                            history API
-  commerce-tracker-spring-boot/             server-side SDK for business events
-  omnirec-event-api-app/                    deployable Event API service
-
-  omnirec-core/ omnirec-web/ and related    serving side: recommendations, search,
-                                            recently viewed
-  omnirec-contract-tests/                   cross-language schema parity tests
-
-examples/nextjs-demo-store/                 reference Next.js storefront
-schema/commerce-event.schema.json           the wire contract
-scripts/verify-bundle-security.mjs          fails the build if a credential is bundled
-scripts/e2e/run.sh                          end-to-end verification with live components
-docs/                                       architecture, identity, security, operations
+  omnirec-commerce-core/         event model, catalog registry, validation, identity, EventDestination
+  omnirec-event-api/             collector: auth modes, tenants, tracking plans, webhooks in
+  omnirec-event-processing/      RabbitMQ topology, retry tiers, dead-letter queues and replay
+  omnirec-derived-events/        cart_abandoned, return_visit, new/repeat purchase rules
+  omnirec-webhook-destination/   signed outbound webhooks
+  omnirec-amazon-personalize-destination/ omnirec-google-retail-destination/
+  omnirec-recently-viewed-destination/ omnirec-redis-state/
+  omnirec-event-storage/         optional history (PostgreSQL/TimescaleDB), deletion, retention
+  omnirec-tracker-java/ commerce-tracker-spring-boot/   server-side SDKs
+  omnirec-event-api-app/         the deployable collector
+deploy/lite/ deploy/standard/    Docker Compose profiles
+examples/nextjs-demo-store/      reference storefront
 ```
-
-## Quick start
-
-Requirements: Docker, Node.js 20 or later, and JDK 17 with Maven for backend
-builds.
-
-```bash
-docker-compose up -d           # RabbitMQ, Redis, Event API (8081), serving API (8080)
-
-npm install
-cd examples/nextjs-demo-store && cp .env.local.example .env.local && cd ../..
-npx turbo run dev --filter=nextjs-demo-store
-```
-
-Open `http://localhost:3000`. The demo storefront displays the identity in use
-and the events produced. Batches are visible in the browser network panel, and
-queue activity in the RabbitMQ management interface at `http://localhost:15672`
-(default credentials `guest` / `guest`).
-
-All destinations are disabled by default, so the stack runs end to end without a
-cloud account.
-
-## Usage
-
-Browser:
-
-```js
-import { createCommerceClient } from "@omnirec/commerce-web";
-
-const commerce = createCommerceClient({
-  apiKey: "pk_live_xxxxx",             // publishable key, safe in browser code
-  endpoint: "https://events.example.com",
-});
-
-commerce.product.viewed({ productId: "p123", price: 1500, currency: "USD" });
-commerce.cart.productAdded({ cartId: "c1", productId: "p123", quantity: 2 });
-commerce.user.loggedIn({ userId: "customer_123" });
-```
-
-The caller does not supply `anonymousId`, `sessionId`, `eventId`, `timestamp`,
-or page context. The SDK attaches these fields.
-
-Purchases are reported from the merchant backend, where the payment result is
-known:
-
-```java
-commerce.purchase.completed(PurchaseCompleted.builder()
-        .orderId(order.getId())
-        .userId(order.getCustomerId())
-        .anonymousId(order.getTrackingAnonymousId())
-        .items(lines).total(order.getTotal()).currency("USD")
-        .build());
-```
-
-See the [guide](docs/guide.md) for complete integration instructions.
 
 ## Design principles
 
-**Credentials are never present in the browser.** The frontend holds a
-publishable key whose only capability is submitting events for its own tenant.
-`scripts/verify-bundle-security.mjs` fails the build if a provider credential or
-SDK appears in a bundle.
+**Credentials are never present in the browser.** A keyless collector accepts
+events only from allowed origins. A publishable key can only submit events for
+its own tenant. `scripts/verify-bundle-security.mjs` fails the build if a
+provider credential or SDK appears in a bundle.
 
-**The core has no knowledge of providers.** `omnirec-commerce-core` depends only
-on Jackson and SLF4J. Supporting an additional provider requires one
-`EventDestination` implementation registered as a bean; the core, gateway,
-queue layer, and both SDKs are unchanged. The constraint is enforced by the
-module graph rather than by convention.
+**One catalog, every language.** Events are defined once in YAML. TypeScript
+types, Java constants, the JSON Schema, the runtime catalog and the docs are
+generated from it, and CI fails if any of them is stale.
 
-**History is never rewritten.** Authentication records a link from the anonymous
-identifier to the user identifier. Previously captured events are not modified,
-so attribution is performed as a join and the information genuinely available at
-capture time is preserved.
+**The core has no knowledge of providers.** Supporting another provider is one
+`EventDestination` implementation registered as a bean
+([extending.md](docs/extending.md)).
 
-**Provider outages do not cause event loss.** The system uses durable queues,
-per-destination retry queues, dead-letter queues, and idempotent consumers. An
-outage affecting one provider backs up only that provider's queues.
+**History is never rewritten, except to delete it.** Authentication records a
+link from the anonymous id to the user id, and attribution is a join.
+`DELETE /v1/customers/{id}` removes a customer across all their devices and
+leaves a tombstone, so late events cannot bring the history back.
 
-**Historical storage is optional and asynchronous.** With
-`omnirec.storage.enabled=true`, a storage worker consumes its own RabbitMQ queue
-and writes every event to PostgreSQL (local, Neon, or any hosted PostgreSQL) or
-TimescaleDB through the `EventStore` interface, and
-`GET /v1/customers/{customerId}/events` returns a customer's journey, including
-linked anonymous history, to a caller holding that tenant's secret key. Disabled,
-which is the default, no database is required. See
-[event-storage.md](docs/event-storage.md).
+**Provider outages do not cause event loss.** Durable queues, per-destination
+retry tiers, dead-letter queues with replay, and idempotent consumers.
 
-**Authoritative events originate server-side.** A confirmation page may be
-reloaded, bookmarked, or never rendered. Purchases, refunds, and accepted
-reviews are reported from the merchant backend.
+**Authoritative events originate server-side.** Purchases, refunds and
+disputes come from the merchant backend or the payment provider's webhooks.
 
 ## Building and testing
 
 ```bash
-npm install && npx turbo run build test typecheck   # 160 frontend tests
-cd backend && mvn clean install                     # 406 backend tests
+npm install && npx turbo run build typecheck test   # frontend, SDK and CLI tests
+npm run catalog:check                                # generated files match catalog/
+cd backend && mvn clean install                     # backend tests (Docker for the real-infrastructure ones)
 node scripts/verify-bundle-security.mjs
-bash scripts/e2e/run.sh                             # end-to-end verification, requires Docker
+npm run test:browser                                 # Playwright
+bash scripts/e2e/run.sh                              # end-to-end with real components, requires Docker
 ```
 
-Tests that require a real RabbitMQ broker or Redis instance use Testcontainers
-and are skipped automatically when Docker is unavailable. See
-[testing.md](docs/testing.md).
+Tests that need RabbitMQ, Redis or PostgreSQL use Testcontainers and are
+skipped when Docker is unavailable. See [testing.md](docs/testing.md).
 
 ## Observability
 
@@ -178,36 +181,34 @@ omnirec.events.queued          omnirec.provider.delivery.success
                                omnirec.provider.delivery.failure
 ```
 
-With historical storage enabled, additionally `omnirec.storage.events.received`,
-`.persisted`, `.duplicates`, and `.failed`, plus `omnirec.storage.write.duration`,
-`omnirec.storage.lag`, and `omnirec.storage.history.duration`. See
-[event-storage.md](docs/event-storage.md#observability).
-
-Logs record event identifiers and field names only. Payloads and field values
-are never logged.
+With storage enabled there are also `omnirec.storage.*` metrics. Dead-letter
+queue sizes and replay are available at `/actuator/deadletters` once that
+endpoint is exposed. Logs record event ids and field names only, never payloads
+or field values.
 
 ## Documentation
 
 | Document | Contents |
 | --- | --- |
-| [guide.md](docs/guide.md) | Recommended starting point: architecture and complete usage instructions |
-| [architecture.md](docs/architecture.md) | Modules, pipeline order, failure behaviour |
-| [event-schema.md](docs/event-schema.md) | Event taxonomy, validation rules, dwell time, cart abandonment |
-| [identity.md](docs/identity.md) | Identity model and anonymous-to-registered linking |
-| [event-storage.md](docs/event-storage.md) | Optional historical storage: PostgreSQL/Neon/TimescaleDB, identity links, customer history API, retention |
-| [frontend-sdk.md](docs/frontend-sdk.md) | `@omnirec/commerce-web` reference |
-| [spring-boot-sdk.md](docs/spring-boot-sdk.md) | `commerce-tracker-spring-boot` reference |
-| [configuration.md](docs/configuration.md) | Complete property reference and production checklist |
-| [amazon-personalize.md](docs/amazon-personalize.md) | Amazon Personalize mapping and identity constraints |
-| [google-retail.md](docs/google-retail.md) | Google Retail mapping and supported event types |
-| [rabbitmq.md](docs/rabbitmq.md) | Queue topology, retry, dead-lettering, scaling |
-| [security.md](docs/security.md) | Trust boundaries, sensitive data handling, request controls |
-| [testing.md](docs/testing.md) | Test coverage and contribution guidance for tests |
+| [guide.md](docs/guide.md) | Recommended starting point: architecture and complete usage |
+| [catalog.md](docs/catalog.md) | The event catalog: domains, blocks, vocabularies, aliases |
+| [events/](docs/events/README.md) | Generated reference for every standard event |
+| [custom-events.md](docs/custom-events.md) | Tracking plans, typed custom events, breaking-change checks |
+| [html-attributes.md](docs/html-attributes.md) | Declarative tracking with `data-omnirec-*` |
+| [frontend-sdk.md](docs/frontend-sdk.md) | `@omnirec/commerce-web` and its plugins |
+| [spring-boot-sdk.md](docs/spring-boot-sdk.md) | Java client and Spring Boot starter |
+| [self-hosting.md](docs/self-hosting.md) | Lite and standard deployments, single or multi-tenant |
+| [webhooks.md](docs/webhooks.md) | Inbound (Stripe, generic JSON) and outbound webhooks |
+| [derived-events.md](docs/derived-events.md) | Abandoned carts, return visits, first and repeat purchases |
+| [event-storage.md](docs/event-storage.md) | History, customer deletion, retention |
+| [extending.md](docs/extending.md) | Destinations, webhook adapters, derived rules, tenant registries |
+| [migration-v1-to-v2.md](docs/migration-v1-to-v2.md) | Upgrading from 0.x |
+| [configuration.md](docs/configuration.md) | Complete property reference |
+| [identity.md](docs/identity.md) | Identity model and linking |
+| [security.md](docs/security.md) | Trust boundaries and request controls |
+| [rabbitmq.md](docs/rabbitmq.md) | Queue topology, retries, dead letters |
+| [amazon-personalize.md](docs/amazon-personalize.md), [google-retail.md](docs/google-retail.md) | Provider mappings |
 | [troubleshooting.md](docs/troubleshooting.md) | Symptom-based diagnostics |
-| [AUDIT.md](docs/AUDIT.md) | Audit findings, resolutions, and current status |
-
-[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) records the historical plan for
-the serving side and is retained for context.
 
 ## Contributing
 
@@ -219,4 +220,3 @@ development setup, coding conventions, and the pull request process, and
 
 Do not report security vulnerabilities through public issues. See
 [SECURITY.md](SECURITY.md) for the disclosure process.
-

@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+name: review_media_uploaded
+domain: reviews_advocacy
+version: 1
+sources: [browser, server]
+description: "The customer added photos or video to a review."
+aliases: [review_photo_uploaded, review_video_uploaded]
+blocks: [review, product]
+properties:
+  review.id: { required: true }
+  mediaType: { type: enum, required: true, vocabulary: media_type }
+example:
+  review: { id: id_1 }
+  mediaType: image

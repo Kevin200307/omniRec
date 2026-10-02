@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: review_request_viewed
+domain: reviews_advocacy
+version: 1
+sources: [browser, webhook]
+description: "The customer opened a review request."
+blocks: [order, message]
+properties:
+  order.id: { required: true }
+example:
+  order: { id: id_1 }

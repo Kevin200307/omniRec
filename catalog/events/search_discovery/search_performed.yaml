@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: search_performed
+domain: search_discovery
+version: 1
+sources: [browser]
+description: "The shopper ran a search."
+blocks: [search]
+properties:
+  search.query: { required: true }
+example:
+  search: { query: "running shoes" }

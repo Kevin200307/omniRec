@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+name: payment
+description: "A payment, refund or chargeback amount."
+fields:
+  id: { type: string }
+  method: { type: enum, vocabulary: payment_method }
+  provider: { type: string }
+  amount: { type: money, minimum: 0 }
+  currency: { type: string, pattern: "^[A-Z]{3}$" }
+  failureReason: { type: string }

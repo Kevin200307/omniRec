@@ -168,7 +168,7 @@ describe("DwellTimeTracker integrated with the client", () => {
       maxBatchSize: 1000,
       fetchImpl,
     });
-    return { client, sent, viewed: () => sent.filter((e) => e.eventType === "product_viewed") };
+    return { client, sent, viewed: () => sent.filter((e) => e.event === "product_viewed") };
   }
 
   it("sends the dwell as an engagement update that points at its view", async () => {

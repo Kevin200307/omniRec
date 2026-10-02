@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: search_suggestion_selected
+domain: search_discovery
+version: 1
+sources: [browser]
+description: "The shopper picked an autocomplete suggestion."
+aliases: [search_query_autocomplete_selected]
+blocks: [search]
+properties:
+  search.query: { required: true }
+example:
+  search: { query: query_1 }

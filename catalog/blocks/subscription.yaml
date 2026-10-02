@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+name: subscription
+description: "A product subscription (subscribe and save, replenishment)."
+fields:
+  id: { type: string }
+  plan: { type: string }
+  interval: { type: string, description: "For example P1M for monthly." }

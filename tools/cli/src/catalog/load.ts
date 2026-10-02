@@ -35,6 +35,9 @@ export class CatalogLoadError extends Error {
   }
 }
 
+/** Block names are data keys, so two characters (ad) are allowed. */
+const BLOCK_NAME_PATTERN = /^[a-z][a-z0-9_]{1,63}$/;
+
 const NUMERIC_TYPES = new Set(["integer", "number", "money"]);
 const REFINEMENT_ONLY_KEYS: (keyof FieldConstraints)[] = [
   "required",
@@ -475,7 +478,8 @@ class LoadContext {
     if (basename(file, ".yaml") !== data.name) {
       this.issue(this.rel(file), `file name must match name "${data.name}" (expected ${data.name}.yaml)`);
     }
-    if (!NAME_PATTERN.test(data.name)) this.issue(this.rel(file), `name "${data.name}" does not match ${NAME_PATTERN}`);
+    const pattern = this.rel(file).includes("/blocks/") ? BLOCK_NAME_PATTERN : NAME_PATTERN;
+    if (!pattern.test(data.name)) this.issue(this.rel(file), `name "${data.name}" does not match ${pattern}`);
     this.files.set(data, this.rel(file));
     return data;
   }

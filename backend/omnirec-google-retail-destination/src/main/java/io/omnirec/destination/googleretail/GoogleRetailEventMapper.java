@@ -8,10 +8,11 @@ import com.google.cloud.retail.v2.UserEvent;
 import com.google.cloud.retail.v2.UserInfo;
 import com.google.protobuf.Int32Value;
 import com.google.protobuf.Timestamp;
-import io.omnirec.commerce.model.CommerceData;
+import io.omnirec.commerce.model.EventData;
 import io.omnirec.commerce.model.CommerceEvent;
 import io.omnirec.commerce.model.CommerceItem;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.model.EventName;
 
 import java.util.List;
 import java.util.Map;
@@ -53,19 +54,19 @@ public class GoogleRetailEventMapper {
     public static final String PROVIDER_NAME = "google-retail";
     private static final int MAX_ID_LENGTH = 128;
 
-    private static final Map<EventType, String> EVENT_TYPES = Map.of(
-            EventType.HOME_PAGE_VIEWED, "home-page-view",
-            EventType.CATEGORY_VIEWED, "category-page-view",
-            EventType.PRODUCT_LIST_VIEWED, "category-page-view",
-            EventType.PRODUCT_VIEWED, "detail-page-view",
-            EventType.SEARCH_PERFORMED, "search",
-            EventType.CART_VIEWED, "shopping-cart-page-view",
-            EventType.PRODUCT_ADDED_TO_CART, "add-to-cart",
-            EventType.PURCHASE_COMPLETED, "purchase-complete"
+    private static final Map<EventName, String> EVENT_TYPES = Map.of(
+            StandardEventNames.HOME_PAGE_VIEWED, "home-page-view",
+            StandardEventNames.CATEGORY_VIEWED, "category-page-view",
+            StandardEventNames.PRODUCT_LIST_VIEWED, "category-page-view",
+            StandardEventNames.PRODUCT_VIEWED, "detail-page-view",
+            StandardEventNames.SEARCH_PERFORMED, "search",
+            StandardEventNames.CART_VIEWED, "shopping-cart-page-view",
+            StandardEventNames.PRODUCT_ADDED_TO_CART, "add-to-cart",
+            StandardEventNames.PURCHASE_COMPLETED, "purchase-complete"
     );
 
     /** True when Retail has a genuine counterpart for this event type. */
-    public boolean supports(EventType eventType) {
+    public boolean supports(EventName eventType) {
         return EVENT_TYPES.containsKey(eventType);
     }
 
@@ -78,18 +79,24 @@ public class GoogleRetailEventMapper {
     public boolean supports(CommerceEvent event) {
         String type = EVENT_TYPES.get(event.eventType());
         if (type == null || event.isEngagementUpdate()) return false;
-        CommerceData c = event.commerce();
+        EventData d = event.data();
+        EventData.OrderData order = d.order();
         return switch (type) {
-            case "category-page-view" -> category(c) != null;
-            case "search" -> notBlank(c.searchQuery());
-            case "detail-page-view", "add-to-cart" -> notBlank(c.productId());
-            case "purchase-complete" -> c.items() != null && !c.items().isEmpty()
-                    && c.total() != null && notBlank(c.currency());
+            case "category-page-view" -> category(d) != null;
+            case "search" -> notBlank(d.search().query());
+            case "detail-page-view", "add-to-cart" -> notBlank(d.product().id());
+            case "purchase-complete" -> order.items() != null && !order.items().isEmpty()
+                    && order.total() != null && notBlank(order.currency());
             default -> true;
         };
     }
 
-    public String retailEventType(EventType eventType) {
+    /** The catalog events this destination maps; everything else is skipped. */
+    public static java.util.Set<String> handledEvents() {
+        return EVENT_TYPES.keySet().stream().map(EventName::wireName).collect(java.util.stream.Collectors.toUnmodifiableSet());
+    }
+
+    public String retailEventType(EventName eventType) {
         return EVENT_TYPES.get(eventType);
     }
 
@@ -99,7 +106,7 @@ public class GoogleRetailEventMapper {
                     "No valid Google Retail event for " + event.eventType().wireName());
         }
         String retailEventType = EVENT_TYPES.get(event.eventType());
-        CommerceData c = event.commerce();
+        EventData d = event.data();
 
         UserEvent.Builder builder = UserEvent.newBuilder()
                 .setEventType(retailEventType)
@@ -119,25 +126,28 @@ public class GoogleRetailEventMapper {
         switch (retailEventType) {
             case "detail-page-view" ->
                     // Exactly one product per detail-page-view.
-                    builder.addProductDetails(productDetail(c.productId(), null));
-            case "add-to-cart" ->
-                    builder.addProductDetails(productDetail(c.productId(), c.quantity() == null ? 1 : c.quantity()));
+                    builder.addProductDetails(productDetail(d.product().id(), null));
+            case "add-to-cart" -> {
+                Integer quantity = d.product().quantity();
+                builder.addProductDetails(productDetail(d.product().id(), quantity == null ? 1 : quantity));
+            }
             case "search" -> {
-                builder.setSearchQuery(c.searchQuery());
-                addProductIds(builder, c.productIds());
+                builder.setSearchQuery(d.search().query());
+                addProductIds(builder, d.list().productIds());
             }
             case "category-page-view" -> {
-                builder.addPageCategories(category(c));
-                addProductIds(builder, c.productIds());
+                builder.addPageCategories(category(d));
+                addProductIds(builder, d.list().productIds());
             }
             case "purchase-complete" -> {
-                for (CommerceItem item : c.items()) {
+                EventData.OrderData order = d.order();
+                for (CommerceItem item : order.items()) {
                     builder.addProductDetails(productDetail(item.productId(), item.quantity()));
                 }
                 PurchaseTransaction.Builder transaction = PurchaseTransaction.newBuilder()
-                        .setRevenue(c.total().floatValue())
-                        .setCurrencyCode(c.currency());
-                if (c.orderId() != null) transaction.setId(c.orderId());
+                        .setRevenue(order.total().floatValue())
+                        .setCurrencyCode(order.currency());
+                if (order.id() != null) transaction.setId(order.id());
                 builder.setPurchaseTransaction(transaction.build());
             }
             default -> {
@@ -145,8 +155,9 @@ public class GoogleRetailEventMapper {
             }
         }
 
-        if (c.recommendationId() != null && PROVIDER_NAME.equals(c.recommendationProvider())) {
-            builder.setAttributionToken(c.recommendationId());
+        EventData.RecommendationData recommendation = d.recommendation();
+        if (recommendation.id() != null && PROVIDER_NAME.equals(recommendation.provider())) {
+            builder.setAttributionToken(recommendation.id());
         }
         if (event.context().url() != null) builder.setUri(event.context().url());
         if (event.context().referrer() != null) builder.setReferrerUri(event.context().referrer());
@@ -168,9 +179,9 @@ public class GoogleRetailEventMapper {
         return detail.build();
     }
 
-    private static String category(CommerceData c) {
-        if (notBlank(c.category())) return c.category();
-        return notBlank(c.categoryId()) ? c.categoryId() : null;
+    private static String category(EventData d) {
+        if (notBlank(d.category().name())) return d.category().name();
+        return notBlank(d.category().id()) ? d.category().id() : null;
     }
 
     private static boolean notBlank(String value) {

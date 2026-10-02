@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: return_received
+domain: returns_refunds
+version: 1
+sources: [server, webhook]
+description: "The return arrived at the warehouse."
+blocks: [return]
+properties:
+  return.id: { required: true }
+example:
+  return: { id: id_1 }

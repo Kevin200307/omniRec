@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: similar_product_clicked
+domain: search_discovery
+version: 1
+sources: [browser]
+description: "The shopper clicked a similar-product suggestion."
+aliases: [competitor_product_to_your_product_click]
+blocks: [product, recommendation]
+properties:
+  product.id: { required: true }
+example:
+  product: { id: id_1 }

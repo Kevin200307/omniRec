@@ -2,6 +2,7 @@
 package io.omnirec.tracker.transport;
 
 import io.omnirec.commerce.model.CommerceEvent;
+import io.omnirec.tracker.BatchDelivery;
 import io.omnirec.tracker.EventSender;
 import io.omnirec.tracker.config.CommerceTrackerProperties;
 import org.slf4j.Logger;
@@ -49,7 +50,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * transactional outbox and replay from it — the deterministic eventIds make any
  * replay safe.
  */
-public class HttpEventSender implements EventSender, AutoCloseable {
+public class HttpEventSender implements EventSender, BatchDelivery, AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(HttpEventSender.class);
 
@@ -168,10 +169,22 @@ public class HttpEventSender implements EventSender, AutoCloseable {
         return Duration.ofMillis(exponential <= 0 || exponential > max ? max : exponential);
     }
 
+    @Override
+    public BatchDelivery.Outcome deliverOnce(List<CommerceEvent> events) {
+        return switch (post(events)) {
+            case DELIVERED -> BatchDelivery.Outcome.DELIVERED;
+            case RETRYABLE -> BatchDelivery.Outcome.RETRYABLE;
+            case REJECTED -> BatchDelivery.Outcome.REJECTED;
+        };
+    }
+
     Outcome post(List<CommerceEvent> events) {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.set("X-Omnirec-Key", properties.getApiKey());
+        if (properties.getApiKey() != null && !properties.getApiKey().isBlank()) {
+            // Only needed when the collector runs in keys mode.
+            headers.set("X-Omnirec-Key", properties.getApiKey());
+        }
 
         Map<String, Object> body = Map.of("events", events);
 

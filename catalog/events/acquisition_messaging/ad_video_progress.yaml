@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+name: ad_video_progress
+domain: acquisition_messaging
+version: 1
+sources: [browser, webhook]
+description: "A video ad reached a quartile."
+aliases: [ad_video_quartile]
+blocks: [ad]
+properties:
+  ad.id: { required: true }
+  percent: { type: integer, required: true, minimum: 25, maximum: 75, description: "25, 50 or 75." }
+example:
+  ad: { id: id_1 }
+  percent: 25

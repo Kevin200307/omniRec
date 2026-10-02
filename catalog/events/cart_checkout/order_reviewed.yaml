@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: order_reviewed
+domain: cart_checkout
+version: 1
+sources: [browser]
+description: "The shopper reached the order review step."
+blocks: [cart]
+properties:
+  cart.id: { required: true }
+example:
+  cart: { id: id_1 }

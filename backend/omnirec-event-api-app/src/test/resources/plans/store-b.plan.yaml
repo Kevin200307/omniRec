@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+events:
+  newsletter_popup_closed:
+    description: "The newsletter popup was closed."
+    properties:
+      subscribed: { type: boolean, required: true }

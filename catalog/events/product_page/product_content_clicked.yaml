@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+name: product_content_clicked
+domain: product_page
+version: 1
+sources: [browser]
+description: "The shopper clicked inside a product content module, such as A+ content."
+aliases: [a_plus_module_clicked]
+blocks: [product]
+properties:
+  product.id: { required: true }
+  section: { type: enum, required: true, vocabulary: content_section }
+  moduleId: { type: string }
+example:
+  product: { id: id_1 }
+  section: description

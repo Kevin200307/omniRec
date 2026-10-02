@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: fulfilment_started
+domain: fulfilment
+version: 1
+sources: [server, webhook]
+description: "Picking and packing began for an order."
+aliases: [order_fulfilment_started]
+blocks: [order, shipment]
+properties:
+  order.id: { required: true }
+example:
+  order: { id: id_1 }

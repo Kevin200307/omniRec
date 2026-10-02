@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: seller_message_received
+domain: support
+version: 1
+sources: [webhook]
+description: "The customer sent the seller a message, for example through a marketplace."
+blocks: [support, order]
+properties:
+  support.id: { required: true }
+example:
+  support: { id: id_1 }

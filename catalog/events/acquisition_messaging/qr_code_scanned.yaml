@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: qr_code_scanned
+domain: acquisition_messaging
+version: 1
+sources: [browser]
+description: "The shopper arrived by scanning a QR code."
+aliases: [qr_code_scan]
+properties:
+  qrCodeId: { type: string, required: true }
+example:
+  qrCodeId: qrcode_1

@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 package io.omnirec.storage.config;
 
+import io.omnirec.commerce.identity.IdentityLinkStore;
+import io.omnirec.commerce.privacy.ErasureRegistry;
+import io.omnirec.storage.api.CustomerErasureController;
+import io.omnirec.storage.postgres.JdbcErasureRegistry;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.omnirec.commerce.storage.EventStore;
 import io.omnirec.eventapi.config.EventApiProperties;
@@ -87,6 +91,10 @@ public class EventStorageAutoConfiguration {
     @ConditionalOnMissingBean(EventStore.class)
     public EventStore omnirecEventStore(StorageDatabase database, EventStorageProperties properties) {
         if (properties.getProvider() == Provider.TIMESCALE) {
+            if (!properties.getRetention().getTenants().isEmpty()) {
+                throw new IllegalStateException("omnirec.storage.retention.tenants is supported by the postgres "
+                        + "provider only: TimescaleDB retention drops whole chunks across all tenants");
+            }
             TimescaleEventStore store = new TimescaleEventStore(database);
             store.verifyHypertable();
             store.applyRetentionPolicy(properties.getRetention().getMaxAge());
@@ -105,13 +113,25 @@ public class EventStorageAutoConfiguration {
         return new StorageMetrics(meterRegistry.getIfAvailable());
     }
 
+    /**
+     * Tombstones of deleted customers, in the storage database. Ingestion and
+     * the storage worker both consult it, so a deleted customer's late events
+     * are dropped.
+     */
+    @Bean
+    @ConditionalOnMissingBean(ErasureRegistry.class)
+    public ErasureRegistry omnirecErasureRegistry(StorageDatabase database, EventStorageProperties properties) {
+        return new JdbcErasureRegistry(database, properties.getErasureRefreshInterval());
+    }
+
     /** The storage worker. Being an EventDestination is all it takes to get a durable queue. */
     @Bean
     @ConditionalOnMissingBean
-    public EventStorageDestination omnirecEventStorageDestination(EventStore store, StorageMetrics metrics) {
+    public EventStorageDestination omnirecEventStorageDestination(EventStore store, StorageMetrics metrics,
+                                                                  ErasureRegistry erasures) {
         log.info("Historical event storage enabled: events are queued to destination '{}' and written "
                 + "asynchronously by the storage worker", EventStorageDestination.ID);
-        return new EventStorageDestination(store, metrics);
+        return new EventStorageDestination(store, metrics, erasures);
     }
 
     /** postgres provider only; TimescaleDB enforces retention itself through its policy. */
@@ -123,13 +143,16 @@ public class EventStorageAutoConfiguration {
         @Bean
         @ConditionalOnMissingBean
         public PostgresRetentionJob omnirecStorageRetentionJob(EventStore store, EventStorageProperties properties) {
-            if (properties.getRetention().getMaxAge() != null && !(store instanceof PostgresEventStore)) {
+            boolean anyRetention = properties.getRetention().getMaxAge() != null
+                    || !properties.getRetention().getTenants().isEmpty();
+            if (anyRetention && !(store instanceof PostgresEventStore)) {
                 throw new IllegalStateException("omnirec.storage.retention.max-age with the postgres provider "
                         + "requires the PostgresEventStore, but a custom EventStore bean is defined");
             }
             EventStorageProperties.Retention retention = properties.getRetention();
             return new PostgresRetentionJob(store instanceof PostgresEventStore postgres ? postgres : null,
-                    retention.getMaxAge(), retention.getPurgeInterval(), retention.getPurgeBatchSize());
+                    retention.getMaxAge(), retention.getTenants(), retention.getPurgeInterval(),
+                    retention.getPurgeBatchSize());
         }
     }
 
@@ -146,9 +169,10 @@ public class EventStorageAutoConfiguration {
         @Bean
         @ConditionalOnMissingBean
         public HistoryAccessAuthenticator omnirecHistoryAccessAuthenticator(
-                EventApiProperties eventApiProperties, EventStorageProperties properties) {
-            HistoryAccessAuthenticator authenticator =
-                    new HistoryAccessAuthenticator(eventApiProperties, properties.getHistoryApi());
+                EventApiProperties eventApiProperties, EventStorageProperties properties,
+                org.springframework.beans.factory.ObjectProvider<io.omnirec.eventapi.tenant.TenantRegistry> tenants) {
+            HistoryAccessAuthenticator authenticator = new HistoryAccessAuthenticator(
+                    eventApiProperties, properties.getHistoryApi(), tenants.getIfAvailable());
             if (!authenticator.hasAnyKeyConfigured()) {
                 log.warn("No history read keys are configured — every GET /v1/customers/{id}/events request "
                         + "will be rejected with 401. Set omnirec.events.tenants.<id>.secret-key.");
@@ -171,6 +195,14 @@ public class EventStorageAutoConfiguration {
         public CustomerHistoryController omnirecCustomerHistoryController(
                 EventStore store, EventStorageProperties properties, StorageMetrics metrics) {
             return new CustomerHistoryController(store, properties.getHistoryApi(), metrics);
+        }
+
+        /** DELETE /v1/customers/{customerId}, behind the same secret-key filter. */
+        @Bean
+        @ConditionalOnMissingBean
+        public CustomerErasureController omnirecCustomerErasureController(
+                EventStore store, ErasureRegistry erasures, ObjectProvider<IdentityLinkStore> linkStore) {
+            return new CustomerErasureController(store, erasures, linkStore.getIfAvailable(), java.time.Clock.systemUTC());
         }
 
         @Bean

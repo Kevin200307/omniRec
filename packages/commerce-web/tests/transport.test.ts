@@ -9,13 +9,14 @@ import { MemoryStore } from "../src/storage/storage";
 function event(id: string): CommerceEvent {
   return {
     eventId: id,
-    eventType: "product_viewed",
+    event: "product_viewed",
+    source: "browser",
     schemaVersion: SCHEMA_VERSION,
     // Fresh, so the batcher maximum-age filter keeps it.
     timestamp: new Date().toISOString(),
     identity: { anonymousId: "anon_A", userId: null, sessionId: "session_1" },
     context: { platform: "web" },
-    commerce: { productId: "p1" },
+    data: { product: { id: "p1" } },
     properties: {},
   };
 }

@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: review_requested
+domain: reviews_advocacy
+version: 1
+sources: [server]
+description: "The customer was asked for an honest review. Never offer incentives for positive reviews."
+blocks: [order, message]
+properties:
+  order.id: { required: true }
+example:
+  order: { id: id_1 }

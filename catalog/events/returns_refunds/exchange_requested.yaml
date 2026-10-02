@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: exchange_requested
+domain: returns_refunds
+version: 1
+sources: [browser, server]
+description: "The customer asked to exchange an item."
+blocks: [return, order]
+properties:
+  return.id: { required: true }
+example:
+  return: { id: id_1 }

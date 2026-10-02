@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: product_review_viewed
+domain: product_page
+version: 1
+sources: [browser]
+description: "Reviews for a product were opened."
+aliases: [review_list_opened, review_summary_viewed]
+blocks: [product]
+properties:
+  product.id: { required: true }
+example:
+  product: { id: p123 }

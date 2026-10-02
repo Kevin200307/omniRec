@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: shipment_out_for_delivery
+domain: fulfilment
+version: 1
+sources: [webhook]
+description: "The shipment is out for delivery."
+blocks: [shipment]
+properties:
+  shipment.id: { required: true }
+example:
+  shipment: { id: id_1 }

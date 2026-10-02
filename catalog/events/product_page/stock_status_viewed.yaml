@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+name: stock_status_viewed
+domain: product_page
+version: 1
+sources: [browser]
+description: "The shopper saw the product's availability."
+aliases: [in_stock_viewed, out_of_stock_viewed]
+blocks: [product]
+properties:
+  product.id: { required: true }
+  stockStatus: { type: enum, required: true, vocabulary: stock_status }
+example:
+  product: { id: id_1 }
+  stockStatus: in_stock

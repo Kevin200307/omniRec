@@ -25,13 +25,17 @@ export const PATHS = {
   javaDir: "backend/omnirec-commerce-core/src/main/java/io/omnirec/commerce/catalog/generated",
   javaStandardEvents:
     "backend/omnirec-commerce-core/src/main/java/io/omnirec/commerce/catalog/generated/StandardEvents.java",
+  javaStandardEventNames:
+    "backend/omnirec-commerce-core/src/main/java/io/omnirec/commerce/catalog/generated/StandardEventNames.java",
   javaResourceDir: "backend/omnirec-commerce-core/src/main/resources/omnirec",
   javaCatalogJson: "backend/omnirec-commerce-core/src/main/resources/omnirec/catalog.json",
-  schemaTemplate: "catalog/envelope/v1.schema.json",
+  cliDir: "tools/cli/src/standard",
+  cliCatalogJson: "tools/cli/src/standard/catalog.json",
+  schemaTemplate: "catalog/envelope/v2.schema.json",
   schema: "schema/commerce-event.schema.json",
   docsDir: "docs/events",
 } as const;
 
 export const OWNED: OutputLayout = {
-  ownedDirectories: [PATHS.tsDir, PATHS.javaDir, PATHS.javaResourceDir, PATHS.docsDir],
+  ownedDirectories: [PATHS.tsDir, PATHS.javaDir, PATHS.javaResourceDir, PATHS.cliDir, PATHS.docsDir],
 };

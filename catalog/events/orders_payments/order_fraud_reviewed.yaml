@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+name: order_fraud_reviewed
+domain: orders_payments
+version: 1
+sources: [server]
+description: "An order went through fraud review."
+blocks: [order]
+properties:
+  order.id: { required: true }
+  decision: { type: enum, required: true, vocabulary: fraud_decision }
+example:
+  order: { id: id_1 }
+  decision: approved

@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: refund_approved
+domain: returns_refunds
+version: 1
+sources: [server]
+description: "A refund was approved."
+blocks: [order, payment]
+properties:
+  order.id: { required: true }
+example:
+  order: { id: id_1 }

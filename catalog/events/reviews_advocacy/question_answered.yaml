@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+name: question_answered
+domain: reviews_advocacy
+version: 1
+sources: [browser, server, webhook]
+description: "A product question was answered."
+blocks: [product]
+properties:
+  product.id: { required: true }
+  questionId: { type: string, required: true }
+example:
+  product: { id: id_1 }
+  questionId: question_1

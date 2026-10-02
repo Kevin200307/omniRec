@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+name: chargeback_resolved
+domain: returns_refunds
+version: 1
+sources: [webhook]
+description: "A payment dispute was resolved."
+blocks: [order, payment]
+properties:
+  order.id: { required: true }
+  outcome: { type: enum, required: true, vocabulary: chargeback_outcome }
+example:
+  order: { id: id_1 }
+  outcome: won

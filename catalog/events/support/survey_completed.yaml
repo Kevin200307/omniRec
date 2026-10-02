@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+name: survey_completed
+domain: support
+version: 1
+sources: [browser, webhook]
+description: "The customer answered a satisfaction survey."
+aliases: [csat_completed, nps_completed]
+blocks: [survey, support]
+properties:
+  survey.type: { required: true }
+  survey.score: { required: true }
+example:
+  survey: { type: csat, score: 0 }

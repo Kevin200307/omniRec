@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: buy_now_clicked
+domain: cart_checkout
+version: 1
+sources: [browser]
+description: "The shopper skipped the cart with buy now."
+blocks: [product]
+properties:
+  product.id: { required: true }
+example:
+  product: { id: id_1 }

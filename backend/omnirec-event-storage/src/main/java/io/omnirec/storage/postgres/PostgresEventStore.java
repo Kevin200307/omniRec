@@ -10,10 +10,14 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.omnirec.commerce.model.CommerceData;
+import io.omnirec.commerce.compat.V1Compat;
 import io.omnirec.commerce.model.CommerceEvent;
+import io.omnirec.commerce.model.EventData;
+import io.omnirec.commerce.model.EventSource;
 import io.omnirec.commerce.model.EventContext;
 import io.omnirec.commerce.model.EventIdentity;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.model.EventName;
 import io.omnirec.commerce.storage.CustomerEventPage;
 import io.omnirec.commerce.storage.EventCursor;
 import io.omnirec.commerce.storage.EventQuery;
@@ -70,7 +74,8 @@ public class PostgresEventStore implements EventStore {
     private static final TypeReference<Map<String, Object>> MAP = new TypeReference<>() {};
 
     private static final String COLUMNS = "tenant_id, event_id, event_type, schema_version, occurred_at, "
-            + "received_at, anonymous_id, user_id, session_id, commerce, properties, context";
+            + "received_at, anonymous_id, user_id, session_id, commerce, properties, context, "
+            + "event_version, kind, source, data";
 
     protected final DataSource dataSource;
     protected final String schema;
@@ -90,8 +95,10 @@ public class PostgresEventStore implements EventStore {
 
         this.insertEventSql = "INSERT INTO " + table("commerce_events")
                 + " (tenant_id, event_id, event_type, schema_version, occurred_at, received_at,"
-                + " anonymous_id, user_id, session_id, product_id, commerce, properties, context)"
-                + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), CAST(? AS jsonb), CAST(? AS jsonb))"
+                + " anonymous_id, user_id, session_id, product_id, commerce, properties, context,"
+                + " event_version, kind, source, data)"
+                + " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS jsonb), CAST(? AS jsonb), CAST(? AS jsonb),"
+                + " ?, ?, ?, CAST(? AS jsonb))"
                 + " ON CONFLICT DO NOTHING";
 
         // Most recent assertion wins, by event time rather than arrival time:
@@ -121,6 +128,8 @@ public class PostgresEventStore implements EventStore {
                 .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
                 .enable(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN)
                 .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                // Stored money is read back with its exact scale.
+                .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
                 .build();
     }
 
@@ -142,8 +151,13 @@ public class PostgresEventStore implements EventStore {
         String commerce;
         String properties;
         String context;
+        String data;
         try {
-            commerce = json.writeValueAsString(event.commerce());
+            // The v1 view is still written for one release so v1 readers keep working.
+            @SuppressWarnings("deprecation")
+            CommerceData v1View = event.commerce();
+            commerce = json.writeValueAsString(v1View);
+            data = json.writeValueAsString(event.data());
             properties = json.writeValueAsString(event.properties());
             context = json.writeValueAsString(event.context());
         } catch (JsonProcessingException e) {
@@ -165,10 +179,14 @@ public class PostgresEventStore implements EventStore {
                     insert.setString(7, blankToNull(identity.anonymousId()));
                     insert.setString(8, blankToNull(identity.userId()));
                     insert.setString(9, blankToNull(identity.sessionId()));
-                    insert.setString(10, blankToNull(event.commerce().productId()));
+                    insert.setString(10, blankToNull(event.data().product().id()));
                     insert.setString(11, commerce);
                     insert.setString(12, properties);
                     insert.setString(13, context);
+                    insert.setInt(14, event.eventVersion());
+                    insert.setString(15, event.kind());
+                    insert.setString(16, event.source() == null ? null : event.source().wireName());
+                    insert.setString(17, data);
                     inserted = insert.executeUpdate();
                 }
 
@@ -283,7 +301,7 @@ public class PostgresEventStore implements EventStore {
         }
         if (!query.eventTypes().isEmpty()) {
             sql.append(" AND event_type = ANY (?)", query.eventTypes().stream()
-                    .map(EventType::wireName).sorted().toArray(String[]::new));
+                    .map(EventName::wireName).sorted().toArray(String[]::new));
         }
     }
 
@@ -295,25 +313,30 @@ public class PostgresEventStore implements EventStore {
         Instant occurredAt = rs.getObject("occurred_at", OffsetDateTime.class).toInstant();
         String typeName = rs.getString("event_type");
 
-        EventType type = EventType.find(typeName).orElse(null);
+        EventName type = EventName.parse(typeName).orElse(null);
         if (type == null) {
-            // Written by a newer Omnirec with a type this version doesn't know.
-            // Skip it rather than fail the whole page.
+            // Not a well-formed event name, so it cannot have been written by
+            // this pipeline. Skip it rather than fail the whole page. Unknown but
+            // well-formed names (custom events, newer catalogs) are read normally.
             log.warn("Skipping stored event {} with unknown event type '{}'", eventId, typeName);
             return new Row(occurredAt, eventId, null);
         }
 
         OffsetDateTime receivedAt = rs.getObject("received_at", OffsetDateTime.class);
+        // schema_version records what the row was written as; events are always read as v2.
         try {
             CommerceEvent event = CommerceEvent.builder()
                     .eventId(eventId)
                     .eventType(type)
-                    .schemaVersion(rs.getString("schema_version"))
+                    .schemaVersion(CommerceEvent.CURRENT_SCHEMA_VERSION)
                     .timestamp(occurredAt)
                     .tenantId(rs.getString("tenant_id"))
                     .identity(new EventIdentity(
                             rs.getString("anonymous_id"), rs.getString("user_id"), rs.getString("session_id")))
-                    .commerce(json.readValue(rs.getString("commerce"), CommerceData.class))
+                    .eventVersion(rs.getInt("event_version"))
+                    .kind(rs.getString("kind"))
+                    .source(EventSource.fromWireName(rs.getString("source")))
+                    .data(readData(rs))
                     .properties(json.readValue(rs.getString("properties"), MAP))
                     .context(json.readValue(rs.getString("context"), EventContext.class))
                     .receivedAt(receivedAt == null ? null : receivedAt.toInstant())
@@ -337,16 +360,33 @@ public class PostgresEventStore implements EventStore {
      * @return rows deleted
      */
     public long deleteEventsOccurredBefore(Instant cutoff, int batchSize) {
+        return deleteEventsOccurredBefore(cutoff, batchSize, null, List.of());
+    }
+
+    /**
+     * As {@link #deleteEventsOccurredBefore(Instant, int)}, for one tenant
+     * ({@code tenantId}), or for every tenant except {@code exceptTenants}
+     * ({@code tenantId} null): how per-tenant retention coexists with the
+     * global one.
+     */
+    public long deleteEventsOccurredBefore(Instant cutoff, int batchSize, String tenantId,
+                                           java.util.Collection<String> exceptTenants) {
+        String scope = tenantId != null ? " AND tenant_id = ?" : exceptTenants.isEmpty() ? "" : " AND tenant_id <> ALL (?)";
         String sql = "DELETE FROM " + table("commerce_events") + " WHERE ctid IN ("
-                + "SELECT ctid FROM " + table("commerce_events") + " WHERE occurred_at < ? LIMIT ?)";
+                + "SELECT ctid FROM " + table("commerce_events") + " WHERE occurred_at < ?" + scope + " LIMIT ?)";
         long total = 0;
         try (Connection connection = dataSource.getConnection();
              PreparedStatement delete = connection.prepareStatement(sql)) {
             connection.setAutoCommit(true);
+            java.sql.Array excluded = tenantId == null && !exceptTenants.isEmpty()
+                    ? connection.createArrayOf("text", exceptTenants.toArray(new String[0])) : null;
             int deleted;
             do {
-                delete.setObject(1, timestamp(cutoff));
-                delete.setInt(2, batchSize);
+                int i = 1;
+                delete.setObject(i++, timestamp(cutoff));
+                if (tenantId != null) delete.setString(i++, tenantId);
+                else if (excluded != null) delete.setArray(i++, excluded);
+                delete.setInt(i, batchSize);
                 deleted = delete.executeUpdate();
                 total += deleted;
             } while (deleted >= batchSize);
@@ -354,6 +394,65 @@ public class PostgresEventStore implements EventStore {
             throw SqlFailures.translate("could not purge expired events", e);
         }
         return total;
+    }
+
+    // ----------------------------------------------------------------- erasure
+
+    @Override
+    public List<String> anonymousIdsOf(String tenantId, String customerId) {
+        String sql = "SELECT anonymous_id FROM " + table("identity_links") + " WHERE tenant_id = ? AND user_id = ?"
+                + " UNION SELECT DISTINCT anonymous_id FROM " + table("commerce_events")
+                + " WHERE tenant_id = ? AND user_id = ? AND anonymous_id IS NOT NULL";
+        try (Connection connection = dataSource.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, tenantId);
+            statement.setString(2, customerId);
+            statement.setString(3, tenantId);
+            statement.setString(4, customerId);
+            List<String> ids = new ArrayList<>();
+            try (ResultSet rs = statement.executeQuery()) {
+                while (rs.next()) ids.add(rs.getString(1));
+            }
+            return ids;
+        } catch (SQLException e) {
+            throw SqlFailures.translate("could not look up the customer's devices", e);
+        }
+    }
+
+    /**
+     * One transaction: the customer's events, the anonymous events of their
+     * devices, and every identity link touching either. A device shared with
+     * someone else loses its anonymous history too; deleting too much is the
+     * safe side of an erasure request.
+     */
+    @Override
+    public CustomerErasure eraseCustomer(String tenantId, String customerId, java.util.Collection<String> anonymousIds) {
+        String[] devices = anonymousIds.toArray(new String[0]);
+        String deleteEvents = "DELETE FROM " + table("commerce_events")
+                + " WHERE tenant_id = ? AND (user_id = ? OR anonymous_id = ANY (?))";
+        String deleteLinks = "DELETE FROM " + table("identity_links")
+                + " WHERE tenant_id = ? AND (user_id = ? OR anonymous_id = ANY (?))";
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setAutoCommit(false);
+            try (PreparedStatement events = connection.prepareStatement(deleteEvents);
+                 PreparedStatement links = connection.prepareStatement(deleteLinks)) {
+                java.sql.Array array = connection.createArrayOf("text", devices);
+                for (PreparedStatement statement : List.of(events, links)) {
+                    statement.setString(1, tenantId);
+                    statement.setString(2, customerId);
+                    statement.setArray(3, array);
+                }
+                long eventsDeleted = events.executeUpdate();
+                long linksDeleted = links.executeUpdate();
+                connection.commit();
+                return new CustomerErasure(eventsDeleted, linksDeleted, List.copyOf(anonymousIds));
+            } catch (SQLException | RuntimeException e) {
+                rollbackQuietly(connection);
+                throw e;
+            }
+        } catch (SQLException e) {
+            throw SqlFailures.translate("could not delete the customer's history", e);
+        }
     }
 
     // ----------------------------------------------------------------- helpers
@@ -411,5 +510,12 @@ public class PostgresEventStore implements EventStore {
                 throw e;
             }
         }
+    }
+
+    /** v2 rows carry data; rows written before migration V5 only have the v1 commerce column. */
+    private EventData readData(ResultSet rs) throws SQLException, JsonProcessingException {
+        EventData data = json.readValue(rs.getString("data"), EventData.class);
+        if (!data.isEmpty()) return data;
+        return V1Compat.toData(json.readValue(rs.getString("commerce"), CommerceData.class));
     }
 }

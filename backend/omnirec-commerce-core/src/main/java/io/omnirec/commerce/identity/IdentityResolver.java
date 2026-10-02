@@ -2,7 +2,7 @@
 package io.omnirec.commerce.identity;
 
 import io.omnirec.commerce.model.CommerceEvent;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,7 +72,7 @@ public class IdentityResolver {
      */
     public CommerceEvent process(CommerceEvent event) {
         recordLinkIfPresent(event);
-        if (event.eventType() == EventType.IDENTIFY) {
+        if (event.eventType().equals(StandardEventNames.IDENTIFY)) {
             return null;
         }
         return resolve(event);

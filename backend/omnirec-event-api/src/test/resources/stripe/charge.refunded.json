@@ -1,0 +1,30 @@
+{
+  "id": "evt_3PxRefund0001",
+  "object": "event",
+  "api_version": "2022-08-01",
+  "created": 1790000000,
+  "livemode": false,
+  "type": "charge.refunded",
+  "data": {
+    "object": {
+      "id": "ch_3PxCharge0001",
+      "object": "charge",
+      "amount": 4800,
+      "amount_captured": 4800,
+      "amount_refunded": 2400,
+      "currency": "usd",
+      "customer": "cus_Q1Customer",
+      "metadata": { "order_id": "ord_1001", "user_id": "user_42" },
+      "payment_intent": "pi_3PxIntent0001",
+      "refunded": false,
+      "refunds": {
+        "object": "list",
+        "data": [
+          { "id": "re_3PxRefund0001", "object": "refund", "amount": 2400, "currency": "usd", "charge": "ch_3PxCharge0001", "status": "succeeded" }
+        ],
+        "has_more": false
+      },
+      "status": "succeeded"
+    }
+  }
+}

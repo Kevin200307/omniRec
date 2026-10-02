@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: social_post_viewed
+domain: acquisition_messaging
+version: 1
+sources: [browser, webhook]
+description: "The shopper viewed a brand's social post."
+aliases: [external_social_post_view]
+properties:
+  network: { type: string, required: true }
+  postId: { type: string }
+example:
+  network: network_1

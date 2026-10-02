@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+name: promotion
+description: "A promotion, coupon or deal."
+fields:
+  id: { type: string }
+  name: { type: string }
+  couponCode: { type: string, maxLength: 64 }
+  discount: { type: money, minimum: 0 }
+  currency: { type: string, pattern: "^[A-Z]{3}$" }
+  type: { type: string, description: "For example percent_off, amount_off, free_shipping, bundle." }

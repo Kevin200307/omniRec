@@ -2,8 +2,12 @@
 import { describe, expect, it } from "vitest";
 import { SCHEMA_VERSION, type CommerceData, type CommerceEvent, type EventType } from "../src/events/types";
 import { EventValidator } from "../src/validation/validator";
+import { toData } from "../src/compat/v1";
 
-const validator = new EventValidator();
+import { EVENT_RULES } from "../src/events/generated/catalog";
+
+// Full rules: these tests cover constraints, which the core skips in production.
+const validator = new EventValidator(EVENT_RULES);
 
 function event(
   eventType: EventType,
@@ -12,12 +16,13 @@ function event(
 ): CommerceEvent {
   return {
     eventId: "evt_1",
-    eventType,
+    event: eventType,
+    source: "browser",
     schemaVersion: SCHEMA_VERSION,
     timestamp: "2026-01-01T00:00:00.000Z",
     identity: { anonymousId: "anon_A", userId: null, sessionId: "session_1" },
     context: { platform: "web" },
-    commerce,
+    data: toData(commerce),
     properties: {},
     ...overrides,
   };
@@ -39,11 +44,19 @@ describe("EventValidator — universal rules", () => {
     expect(errorFields(result)).toContain("eventId");
   });
 
-  it("rejects an unknown eventType", () => {
+  it("leaves unknown but well-formed names to the server, flagging them", () => {
+    // Custom events from a tracking plan are not in the SDK's built-in catalog.
     const result = validator.validate(event("not_a_real_event" as EventType));
 
+    expect(result.valid).toBe(true);
+    expect(result.unknownEvent).toBe(true);
+  });
+
+  it("rejects a malformed event name", () => {
+    const result = validator.validate(event("Not A Name" as EventType));
+
     expect(result.valid).toBe(false);
-    expect(errorFields(result)).toContain("eventType");
+    expect(errorFields(result)).toContain("event");
   });
 
   it("rejects an invalid timestamp", () => {
@@ -83,7 +96,7 @@ describe("EventValidator — product rules", () => {
     const result = validator.validate(event("product_viewed"));
 
     expect(result.valid).toBe(false);
-    expect(errorFields(result)).toContain("commerce.productId");
+    expect(errorFields(result)).toContain("data.product.id");
   });
 
   it("requires productId on product_clicked", () => {
@@ -106,15 +119,15 @@ describe("EventValidator — cart rules", () => {
   it("requires productId and quantity on product_added_to_cart", () => {
     const result = validator.validate(event("product_added_to_cart"));
 
-    expect(errorFields(result)).toContain("commerce.productId");
-    expect(errorFields(result)).toContain("commerce.quantity");
+    expect(errorFields(result)).toContain("data.product.id");
+    expect(errorFields(result)).toContain("data.product.quantity");
   });
 
   it("rejects a zero quantity", () => {
     const result = validator.validate(event("product_added_to_cart", { productId: "p1", quantity: 0 }));
 
     expect(result.valid).toBe(false);
-    expect(errorFields(result)).toContain("commerce.quantity");
+    expect(errorFields(result)).toContain("data.product.quantity");
   });
 
   it("rejects a negative quantity", () => {
@@ -158,19 +171,19 @@ describe("EventValidator — purchase rules", () => {
   it("requires orderId", () => {
     const result = validator.validate(event("purchase_completed", { ...validPurchase, orderId: undefined }));
 
-    expect(errorFields(result)).toContain("commerce.orderId");
+    expect(errorFields(result)).toContain("data.order.id");
   });
 
   it("requires a non-empty items list", () => {
     const result = validator.validate(event("purchase_completed", { ...validPurchase, items: [] }));
 
-    expect(errorFields(result)).toContain("commerce.items");
+    expect(errorFields(result)).toContain("data.order.items");
   });
 
   it("requires currency", () => {
     const result = validator.validate(event("purchase_completed", { ...validPurchase, currency: undefined }));
 
-    expect(errorFields(result)).toContain("commerce.currency");
+    expect(errorFields(result)).toContain("data.order.currency");
   });
 
   it("rejects a currency that is not ISO 4217", () => {
@@ -183,13 +196,13 @@ describe("EventValidator — purchase rules", () => {
   it("requires total", () => {
     const result = validator.validate(event("purchase_completed", { ...validPurchase, total: undefined }));
 
-    expect(errorFields(result)).toContain("commerce.total");
+    expect(errorFields(result)).toContain("data.order.total");
   });
 
   it("rejects a negative total", () => {
     const result = validator.validate(event("purchase_completed", { ...validPurchase, total: -5 }));
 
-    expect(errorFields(result)).toContain("commerce.total");
+    expect(errorFields(result)).toContain("data.order.total");
   });
 
   it("rejects an item without a productId", () => {
@@ -197,7 +210,7 @@ describe("EventValidator — purchase rules", () => {
       event("purchase_completed", { ...validPurchase, items: [{ productId: "" }] })
     );
 
-    expect(errorFields(result)).toContain("commerce.items[0].productId");
+    expect(errorFields(result)).toContain("data.order.items[0].productId");
   });
 });
 
@@ -210,14 +223,14 @@ describe("EventValidator — search and recommendation rules", () => {
   it("requires query and productId on search_result_clicked", () => {
     const result = validator.validate(event("search_result_clicked", { searchQuery: "laptop" }));
 
-    expect(errorFields(result)).toContain("commerce.productId");
+    expect(errorFields(result)).toContain("data.product.id");
   });
 
   it("requires recommendationId and productIds on an impression", () => {
     const result = validator.validate(event("recommendation_impression"));
 
-    expect(errorFields(result)).toContain("commerce.recommendationId");
-    expect(errorFields(result)).toContain("commerce.productIds");
+    expect(errorFields(result)).toContain("data.recommendation.id");
+    expect(errorFields(result)).toContain("data.list.productIds");
   });
 
   it("requires recommendationId and productId on a click", () => {

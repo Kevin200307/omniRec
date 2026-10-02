@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: purchase_failed
+domain: orders_payments
+version: 1
+sources: [browser, server]
+description: "Payment for an order failed."
+blocks: [order]
+properties:
+  order.id: { required: true }
+example:
+  order: { id: o1 }

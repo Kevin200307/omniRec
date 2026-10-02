@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: review_media_viewed
+domain: product_page
+version: 1
+sources: [browser]
+description: "The shopper viewed photos or videos in reviews."
+blocks: [product]
+properties:
+  product.id: { required: true }
+example:
+  product: { id: id_1 }

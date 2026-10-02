@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+name: variant_selected
+domain: product_page
+version: 1
+sources: [browser]
+description: "The shopper chose a product option: colour, size, style, pack size or bundle."
+blocks: [product]
+properties:
+  product.id: { required: true }
+  attribute: { type: enum, required: true, vocabulary: variant_attribute }
+  value: { type: string, required: true }
+example:
+  product: { id: id_1 }
+  attribute: color
+  value: value_1

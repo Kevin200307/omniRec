@@ -18,12 +18,13 @@ import { Transport } from "../src/transport/transport";
 function event(id: string, timestamp = new Date().toISOString()): CommerceEvent {
   return {
     eventId: id,
-    eventType: "product_viewed",
+    event: "product_viewed",
+    source: "browser",
     schemaVersion: SCHEMA_VERSION,
     timestamp,
     identity: { anonymousId: "anon_A", userId: null, sessionId: "s1" },
     context: { platform: "web" },
-    commerce: { productId: "p1" },
+    data: { product: { id: "p1" } },
     properties: {},
   };
 }

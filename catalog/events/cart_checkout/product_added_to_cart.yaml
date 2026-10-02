@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+name: product_added_to_cart
+domain: cart_checkout
+version: 1
+sources: [browser, server]
+description: "A product was added to the cart."
+aliases: [add_to_cart]
+blocks: [product, cart]
+properties:
+  product.id: { required: true }
+  product.quantity: { required: true, minimum: 1 }
+example:
+  product: { id: p123, price: 89.99, quantity: 2, currency: USD }
+  cart: { id: c1 }

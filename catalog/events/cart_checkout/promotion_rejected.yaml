@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+name: promotion_rejected
+domain: cart_checkout
+version: 1
+sources: [browser, server]
+description: "A promotion could not be applied."
+aliases: [cart_promotion_rejected]
+blocks: [cart, promotion]
+properties:
+  promotion.id: { required: true }
+  reason: { type: string, required: true }
+example:
+  promotion: { id: id_1 }
+  reason: reason_1

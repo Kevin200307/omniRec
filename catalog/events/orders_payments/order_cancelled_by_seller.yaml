@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: order_cancelled_by_seller
+domain: orders_payments
+version: 1
+sources: [server, webhook]
+description: "The seller cancelled the order."
+blocks: [order]
+properties:
+  order.id: { required: true }
+  reason: { type: string }
+example:
+  order: { id: id_1 }

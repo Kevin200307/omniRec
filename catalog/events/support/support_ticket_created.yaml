@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: support_ticket_created
+domain: support
+version: 1
+sources: [server, webhook]
+description: "A support ticket was opened."
+aliases: [email_support_received]
+blocks: [support, order]
+properties:
+  support.id: { required: true }
+example:
+  support: { id: id_1 }

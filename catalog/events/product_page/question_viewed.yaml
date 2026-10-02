@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+name: question_viewed
+domain: product_page
+version: 1
+sources: [browser]
+description: "The shopper viewed a customer question or the FAQ on the product page."
+aliases: [review_question_clicked]
+blocks: [product]
+properties:
+  product.id: { required: true }
+  questionId: { type: string }
+example:
+  product: { id: id_1 }

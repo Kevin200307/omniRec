@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: influencer_content_viewed
+domain: acquisition_messaging
+version: 1
+sources: [browser, webhook]
+description: "The shopper viewed a creator's content featuring the brand."
+aliases: [influencer_content_view]
+properties:
+  creatorId: { type: string, required: true }
+  contentId: { type: string }
+example:
+  creatorId: creator_1

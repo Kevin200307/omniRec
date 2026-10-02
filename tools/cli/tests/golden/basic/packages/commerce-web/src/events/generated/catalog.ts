@@ -29,6 +29,28 @@ export type EventDomain =
 /** Control events steer the pipeline and are never delivered to providers. */
 export const CONTROL_EVENTS: readonly EventName[] = ["account_linked"];
 
+/** A product as shown to the shopper. */
+export interface ProductBlock {
+  /** Product identifier. */
+  id?: string;
+  price?: number | string;
+  currency?: string;
+  tags?: Array<string>;
+}
+
+/** The `data` object of an event: catalog blocks, plus inline fields a tracking plan declares. */
+export interface EventData {
+  product?: ProductBlock;
+  [field: string]: unknown;
+}
+
+/** Domain of each standard event at runtime, for plugins such as consent. Tree-shaken when unused. */
+export const EVENT_DOMAINS: Readonly<Record<EventName, EventDomain>> = {
+  product_shared: "shop",
+  product_viewed: "shop",
+  account_linked: "account",
+};
+
 /** Domain of each event. Type-only. */
 export interface EventDomainMap {
   product_shared: "shop";
@@ -42,3 +64,58 @@ export interface EventRequiredPaths {
   product_viewed: "product.id";
   account_linked: "identity.userId";
 }
+
+/** The `data` each standard event takes. Drives the types of `track()`. */
+export interface EventDataMap {
+  product_shared: { product: ProductBlock & { id: string }; channel: "email" | "whatsapp" | "copy_link" };
+  product_viewed: { product: ProductBlock & { id: string } };
+  account_linked: Record<string, never>;
+  item_shared: EventDataMap["product_shared"];
+}
+
+/** A field constraint the browser checks before sending. */
+export interface FieldRule {
+  min?: number;
+  max?: number;
+  minItems?: number;
+  maxLength?: number;
+  pattern?: string;
+  values?: readonly string[];
+  /** For arrays of objects: required keys and per-key rules of each element. */
+  item?: { required: readonly string[]; fields: Readonly<Record<string, FieldRule>> };
+}
+
+export interface EventRule {
+  required: readonly string[];
+  fields?: Readonly<Record<string, FieldRule>>;
+}
+
+/** Required paths and constraints per standard event, from the catalog. */
+
+/** Older or alternative names, mapped to the canonical event. The collector rewrites them. */
+export const EVENT_ALIASES: Readonly<Record<string, EventName>> = {
+  item_shared: "product_shared",
+};
+
+
+/**
+ * Required paths per canonical event, comma-separated: the compact table the
+ * browser core checks in production. Full rules (EVENT_RULES) are for the debug
+ * plugin and tests; the server always validates in full.
+ */
+export const REQUIRED_FIELDS: Readonly<Record<EventName, string>> = {
+  product_shared: "product.id,channel",
+  product_viewed: "product.id",
+  account_linked: "identity.userId",
+};
+
+/** Events in the acquisition and messaging domain: marketing, for consent purposes. */
+export const MARKETING_EVENTS: readonly EventName[] = [];
+
+/** Rules by canonical name or alias. A static literal so bundlers drop it when unused. */
+export const EVENT_RULES: Readonly<Record<string, EventRule>> = {
+  product_shared: {"required":["product.id","channel"],"fields":{"channel":{"values":["email","whatsapp","copy_link"]}}},
+  item_shared: {"required":["product.id","channel"],"fields":{"channel":{"values":["email","whatsapp","copy_link"]}}},
+  product_viewed: {"required":["product.id"]},
+  account_linked: {"required":["identity.userId"]},
+};

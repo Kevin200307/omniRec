@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+name: review_voted
+domain: product_page
+version: 1
+sources: [browser]
+description: "The shopper voted a review helpful or not."
+aliases: [review_helpful_vote]
+blocks: [product, review]
+properties:
+  review.id: { required: true }
+  helpful: { type: boolean, required: true }
+example:
+  review: { id: id_1 }
+  helpful: true

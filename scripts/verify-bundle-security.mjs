@@ -21,6 +21,10 @@ const ROOT = new URL("..", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "
 const SCAN_TARGETS = [
   "packages/commerce-web/dist",
   "packages/commerce-react/dist",
+  "packages/commerce-vue/dist",
+  // Client entry of the Next.js bindings. Its server entry (dist/server.*) runs on
+  // the server only, but sits in the same folder and is scanned too.
+  "packages/commerce-next/dist",
   "examples/nextjs-demo-store/.next/static",
 ];
 

@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: recovery_offer_redeemed
+domain: returns_refunds
+version: 1
+sources: [browser, server]
+description: "The customer used a goodwill offer."
+blocks: [promotion, order]
+properties:
+  promotion.id: { required: true }
+example:
+  promotion: { id: id_1 }

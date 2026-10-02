@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
-import type { CommerceEvent, EventType } from "../events/types";
-import { EVENT_TYPES } from "../events/types";
+import type { CommerceEvent } from "../events/types";
+import { REQUIRED_FIELDS, type EventRule, type FieldRule } from "../events/generated/catalog";
 
 export interface ValidationError {
   field: string;
@@ -10,6 +10,8 @@ export interface ValidationError {
 export interface ValidationResult {
   valid: boolean;
   errors: ValidationError[];
+  /** The event name is not in the catalog the SDK was built with. The server decides whether to accept it. */
+  unknownEvent?: boolean;
 }
 
 /**
@@ -49,179 +51,51 @@ const FORBIDDEN_FIELDS = [
   "iban",
 ];
 
-const ISO_4217 = /^[A-Z]{3}$/;
-
-type Rule = (event: CommerceEvent, errors: ValidationError[]) => void;
-
-const requireProductId: Rule = (event, errors) => {
-  if (!isNonEmptyString(event.commerce.productId)) {
-    errors.push({ field: "commerce.productId", message: "productId is required" });
-  }
-};
-
-const requireCartId: Rule = (event, errors) => {
-  if (!isNonEmptyString(event.commerce.cartId)) {
-    errors.push({ field: "commerce.cartId", message: "cartId is required" });
-  }
-};
-
-const requireOrderId: Rule = (event, errors) => {
-  if (!isNonEmptyString(event.commerce.orderId)) {
-    errors.push({ field: "commerce.orderId", message: "orderId is required" });
-  }
-};
-
-const requirePositiveQuantity: Rule = (event, errors) => {
-  const { quantity } = event.commerce;
-  if (quantity === undefined || quantity === null) {
-    errors.push({ field: "commerce.quantity", message: "quantity is required" });
-    return;
-  }
-  if (typeof quantity !== "number" || !Number.isFinite(quantity)) {
-    errors.push({ field: "commerce.quantity", message: "quantity must be a number" });
-    return;
-  }
-  if (quantity <= 0) {
-    errors.push({ field: "commerce.quantity", message: "quantity must be greater than 0" });
-  }
-};
-
-const requireCurrency: Rule = (event, errors) => {
-  const { currency } = event.commerce;
-  if (!isNonEmptyString(currency)) {
-    errors.push({ field: "commerce.currency", message: "currency is required" });
-    return;
-  }
-  if (!ISO_4217.test(currency)) {
-    errors.push({ field: "commerce.currency", message: "currency must be a 3-letter ISO 4217 code" });
-  }
-};
-
-const requireTotal: Rule = (event, errors) => {
-  const { total } = event.commerce;
-  if (total === undefined || total === null) {
-    errors.push({ field: "commerce.total", message: "total is required" });
-    return;
-  }
-  if (typeof total !== "number" || !Number.isFinite(total) || total < 0) {
-    errors.push({ field: "commerce.total", message: "total must be a non-negative number" });
-  }
-};
-
-const requireItems: Rule = (event, errors) => {
-  const { items } = event.commerce;
-  if (!Array.isArray(items) || items.length === 0) {
-    errors.push({ field: "commerce.items", message: "items is required and must be non-empty" });
-    return;
-  }
-  items.forEach((item, index) => {
-    if (!isNonEmptyString(item?.productId)) {
-      errors.push({ field: `commerce.items[${index}].productId`, message: "productId is required" });
-    }
-    if (item?.quantity !== undefined && (typeof item.quantity !== "number" || item.quantity <= 0)) {
-      errors.push({ field: `commerce.items[${index}].quantity`, message: "quantity must be greater than 0" });
-    }
-  });
-};
-
-const requireSearchQuery: Rule = (event, errors) => {
-  if (!isNonEmptyString(event.commerce.searchQuery)) {
-    errors.push({ field: "commerce.searchQuery", message: "query is required" });
-  }
-};
-
-const requireCategoryId: Rule = (event, errors) => {
-  if (!isNonEmptyString(event.commerce.categoryId)) {
-    errors.push({ field: "commerce.categoryId", message: "categoryId is required" });
-  }
-};
-
-const requireRecommendationId: Rule = (event, errors) => {
-  if (!isNonEmptyString(event.commerce.recommendationId)) {
-    errors.push({ field: "commerce.recommendationId", message: "recommendationId is required" });
-  }
-};
-
-const requireProductIds: Rule = (event, errors) => {
-  const { productIds } = event.commerce;
-  if (!Array.isArray(productIds) || productIds.length === 0) {
-    errors.push({ field: "commerce.productIds", message: "productIds is required and must be non-empty" });
-  }
-};
-
-const requireUserId: Rule = (event, errors) => {
-  if (!isNonEmptyString(event.identity.userId)) {
-    errors.push({ field: "identity.userId", message: "userId is required for this event type" });
-  }
-};
+const NAME = /^[a-z][a-z0-9_]{2,63}$/;
 
 /**
- * Per-event-type rules. An event type absent from this map has no
- * type-specific requirements beyond the universal ones — that is intentional,
- * not an oversight: session_started and page_viewed genuinely need nothing
- * more than identity and context.
- */
-const RULES: Partial<Record<EventType, Rule[]>> = {
-  search_performed: [requireSearchQuery],
-  search_result_clicked: [requireSearchQuery, requireProductId],
-  product_list_viewed: [requireProductIds],
-  category_viewed: [requireCategoryId],
-  product_viewed: [requireProductId],
-  product_clicked: [requireProductId],
-  product_wishlisted: [requireProductId],
-  product_shared: [requireProductId],
-  product_compared: [requireProductId],
-  product_review_viewed: [requireProductId],
-  product_review_submitted: [requireProductId],
-  cart_viewed: [requireCartId],
-  product_added_to_cart: [requireProductId, requirePositiveQuantity],
-  product_removed_from_cart: [requireProductId],
-  cart_quantity_updated: [requireProductId],
-  cart_abandoned: [requireCartId],
-  checkout_started: [requireCartId],
-  shipping_information_added: [requireCartId],
-  payment_information_added: [requireCartId],
-  checkout_completed: [requireCartId],
-  checkout_failed: [requireCartId],
-  purchase_completed: [requireOrderId, requireItems, requireCurrency, requireTotal],
-  purchase_failed: [requireOrderId],
-  order_cancelled: [requireOrderId],
-  order_refunded: [requireOrderId],
-  recommendation_impression: [requireRecommendationId, requireProductIds],
-  recommendation_clicked: [requireRecommendationId, requireProductId],
-  recommendation_added_to_cart: [requireRecommendationId, requireProductId],
-  recommendation_purchased: [requireRecommendationId, requireProductId],
-  user_registered: [requireUserId],
-  user_logged_in: [requireUserId],
-  user_profile_updated: [requireUserId],
-  identify: [requireUserId],
-};
-
-/**
- * Validates a canonical event. Runs on both sides of the wire: the SDK calls it
- * before enqueueing so a developer sees the mistake in their console, and the
- * Event API calls the Java equivalent because a client-side check is a
- * convenience, never a guarantee.
+ * Pre-send check. Runs in the browser so a developer sees a mistake in their
+ * console; the Event API runs the full catalog validation because a client-side
+ * check is a convenience, never a guarantee.
+ *
+ * Per-event rules come from the generated catalog. By default only required
+ * fields are checked, from a compact table, to keep the browser bundle small;
+ * pass the full `EVENT_RULES` (the debug plugin does) to also check
+ * constraints such as minimum quantities and currency formats. The server
+ * always validates in full. Events the catalog does not know — custom events
+ * from a tracking plan — pass here and are checked by the server against the
+ * tenant's plan.
  */
 export class EventValidator {
+  constructor(private readonly rules?: Readonly<Record<string, EventRule>>) {}
+
+  private ruleFor(name: string): EventRule | undefined {
+    if (this.rules) return this.rules[name];
+    // Canonical names only: aliases are typed at compile time, checked by the
+    // debug plugin in development and by the server always. Keeping the alias
+    // table out of the core keeps it inside its 10 KB budget.
+    const required = (REQUIRED_FIELDS as Record<string, string>)[name];
+    if (required === undefined) return undefined;
+    return { required: required ? required.split(",") : [] };
+  }
+
   validate(event: CommerceEvent): ValidationResult {
     const errors: ValidationError[] = [];
 
     this.validateUniversal(event, errors);
-    for (const rule of RULES[event.eventType] ?? []) {
-      rule(event, errors);
-    }
+    const rule = this.ruleFor(event.event);
+    if (rule) checkRule(rule, event, errors);
     this.assertNoSensitiveFields(event, errors);
 
-    return { valid: errors.length === 0, errors };
+    return { valid: errors.length === 0, errors, ...(rule || !NAME.test(event.event) ? {} : { unknownEvent: true }) };
   }
 
   private validateUniversal(event: CommerceEvent, errors: ValidationError[]): void {
     if (!isNonEmptyString(event.eventId)) {
       errors.push({ field: "eventId", message: "eventId is required" });
     }
-    if (!EVENT_TYPES.includes(event.eventType)) {
-      errors.push({ field: "eventType", message: `unknown eventType "${event.eventType}"` });
+    if (typeof event.event !== "string" || !NAME.test(event.event)) {
+      errors.push({ field: "event", message: `event name "${String(event.event)}" must match ${NAME.source}` });
     }
     if (!isNonEmptyString(event.schemaVersion)) {
       errors.push({ field: "schemaVersion", message: "schemaVersion is required" });
@@ -238,9 +112,9 @@ export class EventValidator {
   }
 
   /**
-   * Walks the whole event. Cost is bounded by payload size, which the API caps
-   * anyway, and the alternative — checking only the top level — would miss the
-   * realistic accident of nesting a form object one level down.
+   * Walks data and properties. Cost is bounded by payload size, which the API
+   * caps anyway, and the alternative — checking only the top level — would miss
+   * the realistic accident of nesting a form object one level down.
    */
   private assertNoSensitiveFields(event: CommerceEvent, errors: ValidationError[]): void {
     const seen = new Set<unknown>();
@@ -267,8 +141,105 @@ export class EventValidator {
       }
     };
 
-    walk(event.commerce, "commerce", 0);
+    walk(event.data, "data", 0);
     walk(event.properties, "properties", 0);
+  }
+}
+
+/** Catalog paths are relative to data, except identity.*. Errors use the wire path. */
+function wirePath(path: string): string {
+  return path.startsWith("identity.") ? path : `data.${path}`;
+}
+
+function valueAt(event: CommerceEvent, path: string): unknown {
+  let current: unknown = path.startsWith("identity.") ? event : event.data;
+  for (const part of path.split(".")) {
+    if (current === null || typeof current !== "object") return undefined;
+    current = (current as Record<string, unknown>)[part];
+  }
+  return current;
+}
+
+function isMissing(value: unknown): boolean {
+  return (
+    value === undefined ||
+    value === null ||
+    (typeof value === "string" && value.trim() === "") ||
+    (Array.isArray(value) && value.length === 0)
+  );
+}
+
+function leaf(path: string): string {
+  return path.slice(path.lastIndexOf(".") + 1);
+}
+
+function checkRule(rule: EventRule, event: CommerceEvent, errors: ValidationError[]): void {
+  for (const path of rule.required) {
+    if (!isMissing(valueAt(event, path))) continue;
+    const isArray = rule.fields?.[path]?.minItems !== undefined || rule.fields?.[path]?.item !== undefined;
+    errors.push({
+      field: wirePath(path),
+      message:
+        path === "identity.userId"
+          ? "userId is required for this event type"
+          : `${leaf(path)} is required${isArray ? " and must be non-empty" : ""}`,
+    });
+  }
+  for (const [path, fieldRule] of Object.entries(rule.fields ?? {})) {
+    const value = valueAt(event, path);
+    if (!isMissing(value)) checkField(wirePath(path), leaf(path), value, fieldRule, errors);
+  }
+}
+
+function checkField(path: string, name: string, value: unknown, rule: FieldRule, errors: ValidationError[]): void {
+  if (rule.min !== undefined || rule.max !== undefined) {
+    const number = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+    if (!Number.isFinite(number)) {
+      errors.push({ field: path, message: `${name} must be a number` });
+      return;
+    }
+    if (rule.min !== undefined && number < rule.min) {
+      errors.push({
+        field: path,
+        message:
+          rule.min === 0
+            ? `${name} must be a non-negative number`
+            : rule.min === 1
+              ? `${name} must be greater than 0`
+              : `${name} must be at least ${rule.min}`,
+      });
+    }
+    if (rule.max !== undefined && number > rule.max) errors.push({ field: path, message: `${name} must be at most ${rule.max}` });
+  }
+  if (typeof value === "string") {
+    if (rule.maxLength !== undefined && value.length > rule.maxLength) {
+      errors.push({ field: path, message: `${name} must be at most ${rule.maxLength} characters` });
+    }
+    if (rule.pattern !== undefined && !new RegExp(rule.pattern).test(value)) {
+      errors.push({
+        field: path,
+        message: rule.pattern === "^[A-Z]{3}$" ? `${name} must be a 3-letter ISO 4217 code` : `${name} has an invalid format`,
+      });
+    }
+    if (rule.values && !rule.values.includes(value)) {
+      errors.push({ field: path, message: `${name} must be one of ${rule.values.join(", ")}` });
+    }
+  }
+  if (Array.isArray(value)) {
+    if (rule.minItems !== undefined && value.length < rule.minItems) {
+      errors.push({ field: path, message: `${name} must have at least ${rule.minItems} item(s)` });
+    }
+    if (rule.item) {
+      value.forEach((element, index) => {
+        const line = (element ?? {}) as Record<string, unknown>;
+        for (const key of rule.item!.required) {
+          if (isMissing(line[key])) errors.push({ field: `${path}[${index}].${key}`, message: `${key} is required` });
+        }
+        for (const [key, child] of Object.entries(rule.item!.fields)) {
+          if (!isMissing(line[key])) checkField(`${path}[${index}].${key}`, key, line[key], child, errors);
+        }
+      });
+    }
   }
 }
 

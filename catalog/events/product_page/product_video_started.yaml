@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: product_video_started
+domain: product_page
+version: 1
+sources: [browser]
+description: "A product video started playing."
+blocks: [product]
+properties:
+  product.id: { required: true }
+  videoId: { type: string }
+example:
+  product: { id: id_1 }

@@ -2,40 +2,277 @@
 
 # Event catalog
 
-Catalog version 1, envelope schema 1.0, 38 events.
+Catalog version 2, envelope schema 2.0, 205 events.
 
 | Domain | Events | Description |
 |---|---|---|
-| [Session and navigation](session.md) | 4 | Sessions starting and ending, and pages being viewed. |
-| [Search and discovery](discovery.md) | 6 | How shoppers find products through search, lists and categories. |
-| [Product interaction](product_interaction.md) | 5 | Engagement with a single product beyond viewing it. |
-| [Cart](cart.md) | 5 | Changes to the shopping cart. |
-| [Checkout](checkout.md) | 5 | Progress through checkout before an order exists. |
-| [Purchase and orders](purchase.md) | 4 | Commercial outcomes, reported from the merchant backend where the payment result is known. |
-| [Recommendations](recommendation.md) | 4 | Interactions with recommendation lists, used for attribution back to the provider that served them. |
-| [User account](user.md) | 4 | Account lifecycle of an identified customer. |
+| [Session and engagement](session_engagement.md) | 6 | Sessions, page views, return visits and on-page engagement. Mostly autocaptured. |
+| [Acquisition and messaging](acquisition_messaging.md) | 17 | How shoppers arrive: ads, social, affiliates, referrals, QR codes, and the email, SMS and push messages sent to them. |
+| [Search and discovery](search_discovery.md) | 24 | How shoppers find products: search, filters, lists, categories, brand pages and recommendations. |
+| [Product page](product_page.md) | 30 | Evaluation of a single product: media, content sections, variants, delivery and stock information, reviews and questions. |
+| [Cart and checkout](cart_checkout.md) | 25 | Changes to the cart and progress through checkout, before an order exists. |
+| [Orders and payments](orders_payments.md) | 17 | Orders, payments and subscriptions. Report from the backend, where the outcome is known. |
+| [Fulfilment and delivery](fulfilment.md) | 13 | Shipping and delivery after an order is placed, including delivery problems the customer reports. |
+| [Support and service](support.md) | 24 | Help centre, chatbot, live chat, tickets, calls, complaints and satisfaction surveys. |
+| [Returns and refunds](returns_refunds.md) | 18 | Returns, refunds, replacements, exchanges, chargebacks and recovery offers. |
+| [Reviews and advocacy](reviews_advocacy.md) | 15 | Reviews, questions and answers, user-generated content and referrals. Never incentivise positive reviews. |
+| [Account and retention](account_retention.md) | 15 | Accounts, consent, channel subscriptions, loyalty and lifecycle signals. |
 | [Identity](identity.md) | 1 | Control events that link an anonymous visitor to a customer. Never delivered to providers. |
 
 ## Blocks
 
-### `commerce`
+### `ad`
 
-The v1 commerce payload: a flat set of optional fields shared by every event. Each event decides which of them it requires. Mirrors the "commerce" object in schema/commerce-event.schema.json. Replaced by the product, cart, order and search blocks in envelope v2.
+An ad the shopper saw or clicked.
 
 | Field | Type | Constraints | Description |
 |---|---|---|---|
-| `productId` | string |  | Merchant's product identifier. |
-| `productIds` | array of string |  | Products shown together, in display order. |
-| `categoryId` | string |  | Merchant's category identifier. |
-| `category` | string |  | Human-readable category name. |
-| `quantity` | integer | min 1 | Number of units. |
-| `price` | number |  | Unit price in the event's currency. |
-| `currency` | string | pattern `^[A-Z]{3}$` | ISO 4217 currency code. |
-| `cartId` | string |  | Merchant's cart identifier. |
-| `orderId` | string |  | Merchant's order identifier. |
-| `searchQuery` | string |  | The text the shopper searched for. |
-| `recommendationId` | string |  | Identifier of the recommendation list, issued by the provider that served it. |
-| `recommendationProvider` | string |  | Who served the recommendation list, for example amazon-personalize. Adapters forward recommendationId as attribution only to the provider that issued it. |
-| `listId` | string |  | Identifier of the product list or placement. |
-| `total` | number | min 0 | Order total in the event's currency. |
+| `id` | string |  | Ad or creative identifier. |
+| `campaignId` | string |  |  |
+| `adGroupId` | string |  |  |
+| `network` | string |  | Ad network, for example google_ads, meta, amazon_ads. |
+| `format` | enum | one of `ad_format` |  |
+| `placement` | string |  |  |
+| `keyword` | string |  |  |
+| `targetingType` | string |  |  |
+| `position` | integer | min 1 |  |
+
+### `brand`
+
+A brand or brand store.
+
+| Field | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | string |  |  |
+| `name` | string |  |  |
+
+### `cart`
+
+The shopping cart.
+
+| Field | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | string |  | Merchant cart identifier. |
+| `total` | money | min 0 | Cart value in currency. |
+| `currency` | string | pattern `^[A-Z]{3}$` |  |
+| `items` | array of object |  | Cart lines. |
+
+### `category`
+
+A product category.
+
+| Field | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | string |  | Merchant category identifier. |
+| `name` | string |  | Human-readable category name. |
+
+### `list`
+
+A list or placement of several products, such as a grid, carousel or promotion row.
+
+| Field | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | string |  | Identifier of the list or placement. |
+| `name` | string |  |  |
+| `position` | integer | min 1 | 1-based position of the product the event is about, within the list. |
+| `productIds` | array of string |  | Products shown, in display order. |
+| `type` | string |  | For example search, category, best_sellers, deals, coupons, carousel. |
+
+### `loyalty`
+
+Loyalty programme status.
+
+| Field | Type | Constraints | Description |
+|---|---|---|---|
+| `tier` | string |  |  |
+| `previousTier` | string |  |  |
+| `points` | integer |  |  |
+| `rewardId` | string |  |  |
+
+### `message`
+
+An email, SMS, push or in-app message.
+
+| Field | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | string |  | Message or send identifier from the messaging tool. |
+| `channel` | enum | one of `message_channel` |  |
+| `campaignId` | string |  |  |
+| `templateId` | string |  |  |
+| `category` | string |  | For example newsletter, price_drop_alert, back_in_stock_alert, win_back, replenishment. |
+
+### `order`
+
+An order. Report authoritative order facts from the server.
+
+| Field | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | string |  | Merchant order identifier, or a hashed reference. |
+| `total` | money | min 0 | Order total in currency. |
+| `currency` | string | pattern `^[A-Z]{3}$` |  |
 | `items` | array of object |  | Order lines. |
+| `tax` | money | min 0 |  |
+| `shipping` | money | min 0 |  |
+| `discount` | money | min 0 |  |
+| `coupon` | string | max length 64 |  |
+| `fulfilmentMethod` | enum | one of `fulfilment_method` |  |
+| `marketplace` | string |  | Marketplace or storefront, for example amazon_us or web. |
+
+### `payment`
+
+A payment, refund or chargeback amount.
+
+| Field | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | string |  |  |
+| `method` | enum | one of `payment_method` |  |
+| `provider` | string |  |  |
+| `amount` | money | min 0 |  |
+| `currency` | string | pattern `^[A-Z]{3}$` |  |
+| `failureReason` | string |  |  |
+
+### `product`
+
+The single product an event is about.
+
+| Field | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | string | max length 256 | Merchant product identifier. |
+| `variantId` | string |  | Selected variant (size, colour) when it differs from the product id. |
+| `name` | string |  | Product name as shown to the shopper. |
+| `brand` | string |  |  |
+| `price` | money | min 0 | Unit price in currency. |
+| `currency` | string | pattern `^[A-Z]{3}$` | ISO 4217 code of price. |
+| `quantity` | integer | min 1 | Units involved in this event. |
+| `sku` | string |  | Merchant SKU. |
+| `parentId` | string |  | Parent product, for example a parent ASIN or a product group. |
+
+### `promotion`
+
+A promotion, coupon or deal.
+
+| Field | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | string |  |  |
+| `name` | string |  |  |
+| `couponCode` | string | max length 64 |  |
+| `discount` | money | min 0 |  |
+| `currency` | string | pattern `^[A-Z]{3}$` |  |
+| `type` | string |  | For example percent_off, amount_off, free_shipping, bundle. |
+
+### `recommendation`
+
+The recommendation list an interaction came from, for attribution back to the provider that served it.
+
+| Field | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | string |  | Recommendation id issued by the provider. |
+| `provider` | string |  | Who served the list, for example amazon-personalize. Attribution goes only to this provider. |
+
+### `referral`
+
+A referral.
+
+| Field | Type | Constraints | Description |
+|---|---|---|---|
+| `code` | string | max length 64 |  |
+| `channel` | string |  |  |
+
+### `return`
+
+A return.
+
+| Field | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | string |  |  |
+| `orderId` | string |  |  |
+| `reason` | enum | one of `return_reason` |  |
+| `method` | string |  |  |
+| `refundAmount` | money | min 0 |  |
+| `currency` | string | pattern `^[A-Z]{3}$` |  |
+| `items` | array of object |  |  |
+
+### `review`
+
+A review of a product or seller.
+
+| Field | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | string |  |  |
+| `rating` | integer | min 1, max 5 |  |
+| `hasMedia` | boolean |  |  |
+| `verifiedPurchase` | boolean |  |  |
+| `textLength` | integer | min 0 |  |
+
+### `search`
+
+A search the shopper ran.
+
+| Field | Type | Constraints | Description |
+|---|---|---|---|
+| `query` | string | max length 1024 | The text searched for. |
+| `resultsCount` | integer | min 0 |  |
+
+### `shipment`
+
+A shipment of an order.
+
+| Field | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | string |  |  |
+| `orderId` | string |  |  |
+| `carrier` | string |  |  |
+| `method` | string |  | For example standard, express, same_day, pickup. |
+| `estimatedDeliveryAt` | timestamp |  |  |
+| `fulfilmentMethod` | enum | one of `fulfilment_method` |  |
+
+### `subscription`
+
+A product subscription (subscribe and save, replenishment).
+
+| Field | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | string |  |  |
+| `plan` | string |  |  |
+| `interval` | string |  | For example P1M for monthly. |
+
+### `support`
+
+A support conversation or ticket.
+
+| Field | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | string |  | Ticket, conversation or call identifier. |
+| `channel` | enum | one of `support_channel` |  |
+| `topic` | string |  |  |
+| `intent` | string |  |  |
+| `priority` | string |  |  |
+| `resolution` | string |  |  |
+
+### `survey`
+
+A satisfaction survey.
+
+| Field | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | string |  |  |
+| `type` | enum | one of `survey_type` |  |
+| `score` | integer | min 0, max 10 |  |
+
+## Vocabularies
+
+- **`ad_format`**: `search`, `display`, `video`, `shopping`, `sponsored_product`, `sponsored_brand`, `sponsored_display`, `social`, `retargeting`, `native`, `other`
+- **`chargeback_outcome`**: `won`, `lost`, `accepted`
+- **`consent_category`**: `analytics`, `marketing`, `personalization`
+- **`content_section`**: `description`, `bullet_points`, `a_plus`, `comparison_chart`, `technical_details`, `ingredients_or_materials`, `safety`, `dimensions`, `size_chart`, `compatibility`, `warranty`, `return_policy`, `seller`, `shipping`, `faq`
+- **`delivery_issue`**: `damaged`, `wrong_item`, `missing_item`, `late`, `not_received`, `other`
+- **`fraud_decision`**: `approved`, `rejected`, `manual_review`
+- **`fulfilment_method`**: `merchant`, `marketplace`, `third_party_logistics`, `store_pickup`, `dropship`
+- **`media_type`**: `image`, `video`, `spin_360`, `ar`, `document`
+- **`message_channel`**: `email`, `sms`, `push`, `in_app`, `whatsapp`
+- **`payment_method`**: `card`, `wallet`, `bank_transfer`, `buy_now_pay_later`, `cash_on_delivery`, `gift_card`, `store_credit`, `other`
+- **`return_reason`**: `damaged_or_defective`, `wrong_item`, `not_as_described`, `poor_quality`, `size_or_fit_issue`, `late_delivery`, `changed_mind`, `duplicate_order`, `missing_parts`, `compatibility_issue`, `price_issue`, `other`
+- **`stock_status`**: `in_stock`, `low_stock`, `out_of_stock`, `preorder`, `backorder`
+- **`support_channel`**: `chatbot`, `live_chat`, `email`, `phone`, `web_form`, `social`, `marketplace_message`
+- **`survey_type`**: `csat`, `nps`, `ces`
+- **`variant_attribute`**: `color`, `size`, `style`, `pack_size`, `bundle`, `material`, `other`

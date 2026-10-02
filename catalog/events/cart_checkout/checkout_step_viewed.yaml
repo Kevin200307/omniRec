@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+name: checkout_step_viewed
+domain: cart_checkout
+version: 1
+sources: [browser]
+description: "A checkout step was shown."
+blocks: [cart]
+properties:
+  cart.id: { required: true }
+  step: { type: integer, required: true, minimum: 1 }
+  stepName: { type: string }
+example:
+  cart: { id: id_1 }
+  step: 1

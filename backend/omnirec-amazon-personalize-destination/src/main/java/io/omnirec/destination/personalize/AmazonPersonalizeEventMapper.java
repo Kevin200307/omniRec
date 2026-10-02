@@ -3,10 +3,11 @@ package io.omnirec.destination.personalize;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.omnirec.commerce.model.CommerceData;
+import io.omnirec.commerce.model.EventData;
 import io.omnirec.commerce.model.CommerceEvent;
 import io.omnirec.commerce.model.CommerceItem;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.model.EventName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.services.personalizeevents.model.Event;
@@ -82,7 +83,7 @@ public class AmazonPersonalizeEventMapper {
      * order becomes one per line.
      */
     public List<Event> toPersonalizeEvents(CommerceEvent event) {
-        List<CommerceItem> items = event.commerce().items();
+        List<CommerceItem> items = lineItems(event.data());
         String properties = serializeProperties(event);
 
         if (items == null || items.size() <= 1) {
@@ -119,21 +120,31 @@ public class AmazonPersonalizeEventMapper {
         List<String> impression = resolveImpression(event);
         if (!impression.isEmpty()) builder.impression(impression);
 
-        String recommendationId = resolveRecommendationId(event.commerce());
+        String recommendationId = resolveRecommendationId(event.data().recommendation());
         if (recommendationId != null) builder.recommendationId(recommendationId);
 
         return builder.build();
     }
 
+    /** Order lines, else cart lines. */
+    private static List<CommerceItem> lineItems(EventData data) {
+        List<CommerceItem> orderItems = data.order().items();
+        return orderItems != null ? orderItems : data.cart().items();
+    }
+
     private String resolveItemId(CommerceEvent event) {
-        if (event.commerce().productId() != null) return event.commerce().productId();
-        List<CommerceItem> items = event.commerce().items();
-        return items != null && !items.isEmpty() ? items.get(0).productId() : null;
+        String productId = event.data().product().id();
+        if (productId != null) return productId;
+        List<CommerceItem> items = lineItems(event.data());
+        return items != null && !items.isEmpty() && items.get(0) != null ? items.get(0).productId() : null;
     }
 
     /** Personalize uses eventValue to weight and threshold interactions. */
     private BigDecimal resolveEventValue(CommerceEvent event) {
-        return event.commerce().total() != null ? event.commerce().total() : event.commerce().price();
+        EventData data = event.data();
+        if (data.order().total() != null) return data.order().total();
+        if (data.cart().total() != null) return data.cart().total();
+        return data.product().price();
     }
 
     /**
@@ -141,11 +152,11 @@ public class AmazonPersonalizeEventMapper {
      * click informative. Capped at the API's 25.
      */
     private List<String> resolveImpression(CommerceEvent event) {
-        if (event.eventType() != EventType.RECOMMENDATION_IMPRESSION
-                && event.eventType() != EventType.PRODUCT_LIST_VIEWED) {
+        if (!event.eventType().equals(StandardEventNames.RECOMMENDATION_IMPRESSION)
+                && !event.eventType().equals(StandardEventNames.PRODUCT_LIST_VIEWED)) {
             return List.of();
         }
-        List<String> productIds = event.commerce().productIds();
+        List<String> productIds = event.data().list().productIds();
         if (productIds == null || productIds.isEmpty()) return List.of();
         return productIds.size() > MAX_IMPRESSION_ITEMS ? productIds.subList(0, MAX_IMPRESSION_ITEMS) : productIds;
     }
@@ -155,9 +166,9 @@ public class AmazonPersonalizeEventMapper {
      * id in this field is meaningless to Personalize at best and pollutes its
      * attribution metrics at worst.
      */
-    private String resolveRecommendationId(CommerceData commerce) {
-        String id = commerce.recommendationId();
-        if (id == null || !PROVIDER_NAME.equals(commerce.recommendationProvider())) return null;
+    private String resolveRecommendationId(EventData.RecommendationData recommendation) {
+        String id = recommendation.id();
+        if (id == null || !PROVIDER_NAME.equals(recommendation.provider())) return null;
         if (id.length() > MAX_RECOMMENDATION_ID_LENGTH) {
             log.debug("recommendationId longer than {} chars — not forwarded as attribution", MAX_RECOMMENDATION_ID_LENGTH);
             return null;
@@ -177,15 +188,17 @@ public class AmazonPersonalizeEventMapper {
         if (allowedPropertyKeys.isEmpty()) return null;
 
         Map<String, Object> candidates = new LinkedHashMap<>();
-        CommerceData c = event.commerce();
-        putIfPresent(candidates, "categoryId", c.categoryId());
-        putIfPresent(candidates, "category", c.category());
-        putIfPresent(candidates, "currency", c.currency());
-        putIfPresent(candidates, "quantity", c.quantity());
-        putIfPresent(candidates, "cartId", c.cartId());
-        putIfPresent(candidates, "orderId", c.orderId());
-        putIfPresent(candidates, "searchQuery", c.searchQuery());
-        putIfPresent(candidates, "listId", c.listId());
+        // Property names are the ones merchants configure in their Personalize
+        // schema, so they keep their v1 spelling.
+        EventData d = event.data();
+        putIfPresent(candidates, "categoryId", d.category().id());
+        putIfPresent(candidates, "category", d.category().name());
+        putIfPresent(candidates, "currency", firstNonNull(d.order().currency(), d.cart().currency(), d.product().currency()));
+        putIfPresent(candidates, "quantity", d.product().quantity());
+        putIfPresent(candidates, "cartId", d.cart().id());
+        putIfPresent(candidates, "orderId", d.order().id());
+        putIfPresent(candidates, "searchQuery", d.search().query());
+        putIfPresent(candidates, "listId", d.list().id());
         event.properties().forEach((key, value) -> candidates.putIfAbsent(key, value));
 
         Map<String, String> selected = new LinkedHashMap<>();
@@ -218,5 +231,11 @@ public class AmazonPersonalizeEventMapper {
 
     private static String truncate(String value, int max) {
         return value.length() <= max ? value : value.substring(0, max);
+    }
+
+    @SafeVarargs
+    private static <T> T firstNonNull(T... values) {
+        for (T value : values) if (value != null) return value;
+        return null;
     }
 }

@@ -4,7 +4,8 @@ package io.omnirec.tracker.transport;
 import io.omnirec.commerce.model.CommerceData;
 import io.omnirec.commerce.model.CommerceEvent;
 import io.omnirec.commerce.model.EventIdentity;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.model.EventName;
 import io.omnirec.tracker.config.CommerceTrackerProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -57,7 +58,7 @@ class HttpEventSenderTest {
     private CommerceEvent purchase() {
         return CommerceEvent.builder()
                 .eventId("evt:purchase_completed:order_1")
-                .eventType(EventType.PURCHASE_COMPLETED)
+                .eventType(StandardEventNames.PURCHASE_COMPLETED)
                 .identity(EventIdentity.authenticated("anon_A", "customer_123", "s1"))
                 .commerce(CommerceData.builder().orderId("order_1").build())
                 .build();

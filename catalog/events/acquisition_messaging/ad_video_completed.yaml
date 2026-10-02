@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: ad_video_completed
+domain: acquisition_messaging
+version: 1
+sources: [browser, webhook]
+description: "A video ad played to the end."
+aliases: [ad_video_complete]
+blocks: [ad]
+properties:
+  ad.id: { required: true }
+example:
+  ad: { id: id_1 }

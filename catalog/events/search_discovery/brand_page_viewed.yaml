@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: brand_page_viewed
+domain: search_discovery
+version: 1
+sources: [browser]
+description: "A brand page or brand store page was viewed."
+aliases: [brand_store_visited, brand_store_page_viewed]
+blocks: [brand]
+properties:
+  brand.id: { required: true }
+example:
+  brand: { id: id_1 }

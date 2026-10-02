@@ -9,8 +9,8 @@
     "start": "next start"
   },
   "dependencies": {
-    "@omnirec/commerce-web": "1.0.0",
-    "@omnirec/commerce-react": "1.0.0",
+    "@omnirec/commerce-web": "2.0.0",
+    "@omnirec/commerce-react": "2.0.0",
     "next": "^14.2.15",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"

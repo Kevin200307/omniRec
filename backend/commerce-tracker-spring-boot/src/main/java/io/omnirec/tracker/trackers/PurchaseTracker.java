@@ -3,7 +3,8 @@ package io.omnirec.tracker.trackers;
 
 import io.omnirec.commerce.model.CommerceData;
 import io.omnirec.commerce.model.CommerceItem;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.model.EventName;
 import io.omnirec.tracker.ServerEventEmitter;
 import io.omnirec.tracker.ServerEventEmitter.ServerIdentity;
 
@@ -30,7 +31,7 @@ public class PurchaseTracker {
 
     public void completed(PurchaseCompleted purchase) {
         emitter.emit(
-                EventType.PURCHASE_COMPLETED,
+                StandardEventNames.PURCHASE_COMPLETED,
                 purchase.identity(),
                 CommerceData.builder()
                         .orderId(purchase.orderId())
@@ -45,7 +46,7 @@ public class PurchaseTracker {
 
     public void failed(String orderId, String userId, String reason) {
         emitter.emit(
-                EventType.PURCHASE_FAILED,
+                StandardEventNames.PURCHASE_FAILED,
                 ServerIdentity.ofUser(userId),
                 CommerceData.builder().orderId(orderId).build(),
                 reason == null ? Map.of() : Map.of("reason", reason),
@@ -54,7 +55,7 @@ public class PurchaseTracker {
 
     public void orderCancelled(String orderId, String userId, String reason) {
         emitter.emit(
-                EventType.ORDER_CANCELLED,
+                StandardEventNames.ORDER_CANCELLED,
                 ServerIdentity.ofUser(userId),
                 CommerceData.builder().orderId(orderId).build(),
                 reason == null ? Map.of() : Map.of("reason", reason),
@@ -63,7 +64,7 @@ public class PurchaseTracker {
 
     public void orderRefunded(String orderId, String userId, BigDecimal amount, String currency) {
         emitter.emit(
-                EventType.ORDER_REFUNDED,
+                StandardEventNames.ORDER_REFUNDED,
                 ServerIdentity.ofUser(userId),
                 CommerceData.builder().orderId(orderId).total(amount).currency(currency).build(),
                 Map.of(),

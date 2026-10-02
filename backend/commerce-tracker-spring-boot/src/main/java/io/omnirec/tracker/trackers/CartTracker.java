@@ -3,7 +3,8 @@ package io.omnirec.tracker.trackers;
 
 import io.omnirec.commerce.model.CommerceData;
 import io.omnirec.commerce.model.CommerceItem;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.model.EventName;
 import io.omnirec.tracker.ServerEventEmitter;
 import io.omnirec.tracker.ServerEventEmitter.ServerIdentity;
 
@@ -50,7 +51,7 @@ public class CartTracker {
      */
     public void abandoned(String cartId, String userId, String anonymousId, List<CommerceItem> items) {
         emitter.emit(
-                EventType.CART_ABANDONED,
+                StandardEventNames.CART_ABANDONED,
                 ServerIdentity.of(anonymousId, userId),
                 CommerceData.builder().cartId(cartId).items(items).build(),
                 Map.of(),
@@ -59,7 +60,7 @@ public class CartTracker {
 
     public void productAdded(String cartId, String productId, int quantity, String userId, String anonymousId) {
         emitter.emit(
-                EventType.PRODUCT_ADDED_TO_CART,
+                StandardEventNames.PRODUCT_ADDED_TO_CART,
                 ServerIdentity.of(anonymousId, userId),
                 CommerceData.builder().cartId(cartId).productId(productId).quantity(quantity).build(),
                 Map.of());
@@ -67,7 +68,7 @@ public class CartTracker {
 
     public void productRemoved(String cartId, String productId, String userId, String anonymousId) {
         emitter.emit(
-                EventType.PRODUCT_REMOVED_FROM_CART,
+                StandardEventNames.PRODUCT_REMOVED_FROM_CART,
                 ServerIdentity.of(anonymousId, userId),
                 CommerceData.builder().cartId(cartId).productId(productId).build(),
                 Map.of());

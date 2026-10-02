@@ -4,7 +4,8 @@ package io.omnirec.commerce.identity;
 import io.omnirec.commerce.CommerceEventFixtures;
 import io.omnirec.commerce.model.CommerceEvent;
 import io.omnirec.commerce.model.EventIdentity;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.model.EventName;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -222,7 +223,7 @@ class IdentityResolverTest {
     void logoutDoesNotDestroyTheLink() {
         resolver.process(CommerceEventFixtures.identify());
 
-        CommerceEvent loggedOut = CommerceEventFixtures.base(EventType.USER_LOGGED_OUT)
+        CommerceEvent loggedOut = CommerceEventFixtures.base(StandardEventNames.USER_LOGGED_OUT)
                 .identity(EventIdentity.anonymous(CommerceEventFixtures.ANON, "session_after_logout"))
                 .build();
         resolver.process(loggedOut);

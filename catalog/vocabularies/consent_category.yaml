@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+name: consent_category
+description: "What a consent choice covers."
+values:
+  - value: analytics
+  - value: marketing
+  - value: personalization

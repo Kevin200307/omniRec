@@ -6,7 +6,8 @@ import io.omnirec.commerce.dedup.InMemoryDeduplicationStore;
 import io.omnirec.commerce.destination.DestinationException;
 import io.omnirec.commerce.metrics.EventMetrics;
 import io.omnirec.commerce.model.CommerceEvent;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.model.EventName;
 import io.omnirec.commerce.storage.CustomerEventPage;
 import io.omnirec.commerce.storage.EventQuery;
 import io.omnirec.commerce.storage.EventStore;
@@ -166,7 +167,7 @@ class EventStorageDestinationTest {
 
     @Test
     void aDuplicateIsCountedAndAcknowledgedWithoutAnError() {
-        CommerceEvent event = event(tenant(), EventType.PRODUCT_VIEWED,
+        CommerceEvent event = event(tenant(), StandardEventNames.PRODUCT_VIEWED,
                 io.omnirec.commerce.model.EventIdentity.anonymous("a", "s"), "p1", T0);
         worker.send(event);
 

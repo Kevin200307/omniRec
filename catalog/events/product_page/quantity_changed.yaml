@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: quantity_changed
+domain: product_page
+version: 1
+sources: [browser]
+description: "The shopper changed the quantity on the product page."
+blocks: [product]
+properties:
+  product.id: { required: true }
+  product.quantity: { required: true }
+example:
+  product: { id: id_1, quantity: 1 }

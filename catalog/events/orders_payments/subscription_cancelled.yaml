@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: subscription_cancelled
+domain: orders_payments
+version: 1
+sources: [server, webhook]
+description: "A product subscription was cancelled."
+blocks: [subscription]
+properties:
+  subscription.id: { required: true }
+example:
+  subscription: { id: id_1 }

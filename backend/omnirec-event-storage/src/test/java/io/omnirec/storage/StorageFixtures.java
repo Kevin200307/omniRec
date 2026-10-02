@@ -7,7 +7,8 @@ import io.omnirec.commerce.model.CommerceItem;
 import io.omnirec.commerce.model.DeviceType;
 import io.omnirec.commerce.model.EventContext;
 import io.omnirec.commerce.model.EventIdentity;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.model.EventName;
 import io.omnirec.commerce.model.Platform;
 import io.omnirec.commerce.storage.CustomerEventPage;
 import io.omnirec.commerce.storage.EventQuery;
@@ -38,18 +39,18 @@ public final class StorageFixtures {
     }
 
     public static CommerceEvent anonymousView(String tenant, String anonymousId, String productId, Instant at) {
-        return event(tenant, EventType.PRODUCT_VIEWED, EventIdentity.anonymous(anonymousId, "session_1"), productId, at);
+        return event(tenant, StandardEventNames.PRODUCT_VIEWED, EventIdentity.anonymous(anonymousId, "session_1"), productId, at);
     }
 
     public static CommerceEvent userView(String tenant, String anonymousId, String userId, String productId, Instant at) {
-        return event(tenant, EventType.PRODUCT_VIEWED,
+        return event(tenant, StandardEventNames.PRODUCT_VIEWED,
                 EventIdentity.authenticated(anonymousId, userId, "session_2"), productId, at);
     }
 
     public static CommerceEvent identify(String tenant, String anonymousId, String userId, Instant at) {
         return CommerceEvent.builder()
                 .eventId(eventId())
-                .eventType(EventType.IDENTIFY)
+                .eventType(StandardEventNames.IDENTIFY)
                 .timestamp(at)
                 .tenantId(tenant)
                 .identity(EventIdentity.authenticated(anonymousId, userId, "session_login"))
@@ -58,7 +59,7 @@ public final class StorageFixtures {
                 .build();
     }
 
-    public static CommerceEvent event(String tenant, EventType type, EventIdentity identity, String productId, Instant at) {
+    public static CommerceEvent event(String tenant, EventName type, EventIdentity identity, String productId, Instant at) {
         return CommerceEvent.builder()
                 .eventId(eventId())
                 .eventType(type)
@@ -75,7 +76,7 @@ public final class StorageFixtures {
     public static CommerceEvent fullyPopulatedPurchase(String tenant) {
         return CommerceEvent.builder()
                 .eventId(eventId())
-                .eventType(EventType.PURCHASE_COMPLETED)
+                .eventType(StandardEventNames.PURCHASE_COMPLETED)
                 .timestamp(Instant.parse("2026-09-28T08:15:20.123456Z"))
                 .tenantId(tenant)
                 .identity(EventIdentity.authenticated("anon_full", "user_full", "session_full"))

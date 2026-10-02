@@ -1,0 +1,18 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>omnirec script tag</title>
+    <script>
+      !function(w){var o=w.omnirec=w.omnirec||{q:[]};["track","identify","logout","flush"]
+      .forEach(function(m){o[m]=o[m]||function(){o.q.push([m,[].slice.call(arguments)])}})}(window);
+      omnirec.track("product_viewed", { product: { id: "P1" } });
+      omnirec.identify("customer_9");
+    </script>
+    <script async src="/sdk/web/omnirec.min.js" data-endpoint="/collector"></script>
+  </head>
+  <body>
+    <button id="add" data-omnirec-event="product_added_to_cart" data-omnirec-product="P1" data-omnirec-quantity="1">Add</button>
+  </body>
+</html>

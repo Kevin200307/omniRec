@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+name: refund_issued
+domain: returns_refunds
+version: 1
+sources: [server, webhook]
+description: "Money was returned to the customer, in full or in part."
+aliases: [partial_refund_issued]
+blocks: [order, payment, return]
+properties:
+  order.id: { required: true }
+  payment.amount: { required: true }
+  payment.currency: { required: true }
+example:
+  order: { id: id_1 }
+  payment: { amount: "24.00", currency: USD }

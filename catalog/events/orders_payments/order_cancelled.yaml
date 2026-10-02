@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: order_cancelled
+domain: orders_payments
+version: 1
+sources: [browser, server]
+description: "An order was cancelled."
+aliases: [order_cancelled_by_customer]
+blocks: [order]
+properties:
+  order.id: { required: true }
+example:
+  order: { id: o1 }

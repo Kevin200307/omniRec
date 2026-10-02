@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+name: ugc_created
+domain: reviews_advocacy
+version: 1
+sources: [browser, webhook]
+description: "The customer created content about the brand, such as an unboxing post."
+properties:
+  ugcId: { type: string, required: true }
+example:
+  ugcId: ugc_1

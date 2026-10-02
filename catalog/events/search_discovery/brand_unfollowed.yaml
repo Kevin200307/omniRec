@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: brand_unfollowed
+domain: search_discovery
+version: 1
+sources: [browser, server]
+description: "The shopper unfollowed a brand."
+blocks: [brand]
+properties:
+  brand.id: { required: true }
+example:
+  brand: { id: id_1 }

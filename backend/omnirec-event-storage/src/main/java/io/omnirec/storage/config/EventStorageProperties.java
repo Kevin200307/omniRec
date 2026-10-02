@@ -49,6 +49,12 @@ public class EventStorageProperties {
      */
     private boolean migrateOnStartup = true;
 
+    /** How often each instance reloads erasure tombstones written by other instances. */
+    private java.time.Duration erasureRefreshInterval = java.time.Duration.ofSeconds(30);
+
+    public java.time.Duration getErasureRefreshInterval() { return erasureRefreshInterval; }
+    public void setErasureRefreshInterval(java.time.Duration erasureRefreshInterval) { this.erasureRefreshInterval = erasureRefreshInterval; }
+
     private final Postgres postgres = new Postgres();
     private final Timescale timescale = new Timescale();
     private final Retention retention = new Retention();
@@ -120,7 +126,15 @@ public class EventStorageProperties {
         private Duration purgeInterval = Duration.ofHours(1);
         /** postgres only: rows deleted per statement, so a purge never holds long locks. */
         private int purgeBatchSize = 5000;
+        /**
+         * postgres only: max-age per tenant, overriding {@code max-age} for that
+         * tenant in either direction (a tenant may keep less, or more). A tenant
+         * listed here is never purged by the global {@code max-age}.
+         */
+        private java.util.Map<String, Duration> tenants = new java.util.LinkedHashMap<>();
 
+        public java.util.Map<String, Duration> getTenants() { return tenants; }
+        public void setTenants(java.util.Map<String, Duration> tenants) { this.tenants = tenants; }
         public Duration getMaxAge() { return maxAge; }
         public void setMaxAge(Duration maxAge) { this.maxAge = maxAge; }
         public Duration getPurgeInterval() { return purgeInterval; }

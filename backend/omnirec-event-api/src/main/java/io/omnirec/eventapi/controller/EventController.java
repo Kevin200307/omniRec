@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 package io.omnirec.eventapi.controller;
 
-import io.omnirec.commerce.model.CommerceData;
+import io.omnirec.commerce.model.EventData;
+import io.omnirec.commerce.model.EventSource;
 import io.omnirec.commerce.model.EventContext;
 import io.omnirec.commerce.model.EventIdentity;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.model.EventName;
 import io.omnirec.eventapi.config.EventApiProperties;
 import io.omnirec.eventapi.dto.EventBatchRequest;
 import io.omnirec.eventapi.dto.EventDto;
@@ -13,6 +15,12 @@ import io.omnirec.eventapi.dto.IngestResponse;
 import io.omnirec.eventapi.ingest.EventIngestionService;
 import io.omnirec.eventapi.normalize.EventNormalizer;
 import io.omnirec.eventapi.security.EventApiRequestFilter;
+import io.omnirec.eventapi.tenant.TenantCatalogs;
+import io.omnirec.commerce.catalog.EventDefinition;
+import io.omnirec.commerce.catalog.EventRegistry;
+import io.omnirec.commerce.validation.ValidationMode;
+import org.springframework.web.bind.annotation.GetMapping;
+import java.util.LinkedHashMap;
 import jakarta.servlet.http.HttpServletRequest;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.http.HttpHeaders;
@@ -51,10 +59,50 @@ public class EventController {
 
     private final EventIngestionService ingestionService;
     private final EventApiProperties properties;
+    private final TenantCatalogs catalogs;
 
     public EventController(EventIngestionService ingestionService, EventApiProperties properties) {
+        this(ingestionService, properties, null);
+    }
+
+    public EventController(EventIngestionService ingestionService, EventApiProperties properties,
+                           TenantCatalogs catalogs) {
         this.ingestionService = ingestionService;
         this.properties = properties;
+        this.catalogs = catalogs;
+    }
+
+    /**
+     * The events this tenant may send: the standard catalog plus its tracking
+     * plan. Used by SDK debug tooling for did-you-mean hints and field checks.
+     * Needs the same credentials as writing events; contains no event data.
+     */
+    @GetMapping(value = "/v1/catalog", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> catalog(HttpServletRequest httpRequest) {
+        String tenantId = tenantOf(httpRequest);
+        EventRegistry registry = catalogs == null ? EventRegistry.standard() : catalogs.forTenant(tenantId).registry();
+        ValidationMode mode = catalogs == null ? ValidationMode.STRICT : catalogs.forTenant(tenantId).validator().mode();
+
+        List<Map<String, Object>> events = new java.util.ArrayList<>();
+        for (EventDefinition event : registry.events()) {
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("name", event.name());
+            entry.put("domain", event.domain());
+            entry.put("version", event.version());
+            entry.put("kind", event.kind());
+            entry.put("sources", event.sources());
+            entry.put("aliases", event.aliases());
+            entry.put("required", event.required());
+            entry.put("fields", event.fields());
+            events.add(entry);
+        }
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("tenantId", tenantId);
+        body.put("catalogVersion", registry.catalogVersion());
+        body.put("validationMode", mode.name().toLowerCase(java.util.Locale.ROOT));
+        body.put("vocabularies", registry.vocabularies());
+        body.put("events", events);
+        return body;
     }
 
     @PostMapping(
@@ -110,10 +158,10 @@ public class EventController {
                     "anonymousId and userId are both required");
         }
 
-        EventDto dto = new EventDto(
+        EventDto dto = EventDto.v2(
                 UUID.randomUUID().toString(),
-                EventType.IDENTIFY,
-                null,
+                StandardEventNames.IDENTIFY,
+                EventSource.SERVER,
                 Instant.now(),
                 EventIdentity.authenticated(
                         request.anonymousId(),
@@ -122,7 +170,7 @@ public class EventController {
                         // session; synthesise one so the event still validates.
                         isBlank(request.sessionId()) ? "server_" + UUID.randomUUID() : request.sessionId()),
                 EventContext.server(),
-                CommerceData.empty(),
+                EventData.empty(),
                 request.traits() == null ? Map.of() : Map.of("traits", request.traits())
         );
 

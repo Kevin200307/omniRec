@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: cart_quantity_updated
+domain: cart_checkout
+version: 1
+sources: [browser]
+description: "The quantity of a cart line changed."
+blocks: [product, cart]
+properties:
+  product.id: { required: true }
+example:
+  product: { id: p123, quantity: 3 }
+  cart: { id: c1 }

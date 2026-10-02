@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 package io.omnirec.storage.postgres;
 
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.SmartLifecycle;
@@ -30,18 +33,39 @@ public class PostgresRetentionJob implements SmartLifecycle {
     private final Duration interval;
     private final int batchSize;
     private final Clock clock;
+    private final Map<String, Duration> tenantMaxAge;
 
     private ScheduledExecutorService executor;
 
     public PostgresRetentionJob(PostgresEventStore store, Duration maxAge, Duration interval, int batchSize) {
-        this(store, maxAge, interval, batchSize, Clock.systemUTC());
+        this(store, maxAge, Map.of(), interval, batchSize, Clock.systemUTC());
     }
 
-    /** @param maxAge null disables the job: nothing is ever deleted */
+    public PostgresRetentionJob(PostgresEventStore store, Duration maxAge, Map<String, Duration> tenantMaxAge,
+                                Duration interval, int batchSize) {
+        this(store, maxAge, tenantMaxAge, interval, batchSize, Clock.systemUTC());
+    }
+
     PostgresRetentionJob(PostgresEventStore store, Duration maxAge, Duration interval, int batchSize, Clock clock) {
+        this(store, maxAge, Map.of(), interval, batchSize, clock);
+    }
+
+    /**
+     * @param maxAge       null: no global purge
+     * @param tenantMaxAge per-tenant overrides; those tenants are skipped by the global purge
+     */
+    PostgresRetentionJob(PostgresEventStore store, Duration maxAge, Map<String, Duration> tenantMaxAge,
+                         Duration interval, int batchSize, Clock clock) {
         if (maxAge != null && (maxAge.isNegative() || maxAge.isZero())) {
             throw new IllegalArgumentException("omnirec.storage.retention.max-age must be positive");
         }
+        Map<String, Duration> overrides = tenantMaxAge == null ? Map.of() : Map.copyOf(tenantMaxAge);
+        overrides.forEach((tenant, age) -> {
+            if (age.isNegative() || age.isZero()) {
+                throw new IllegalArgumentException("omnirec.storage.retention.tenants." + tenant + " must be positive");
+            }
+        });
+        this.tenantMaxAge = overrides;
         if (interval == null || interval.isNegative() || interval.isZero()) {
             throw new IllegalArgumentException("omnirec.storage.retention.purge-interval must be positive");
         }
@@ -56,17 +80,29 @@ public class PostgresRetentionJob implements SmartLifecycle {
     }
 
     public boolean isEnabled() {
-        return maxAge != null;
+        return maxAge != null || !tenantMaxAge.isEmpty();
     }
 
-    /** One purge pass. Exposed for tests and operational use. */
+    /** One purge pass: each tenant override, then the global max-age for everyone else. */
     public long purgeNow() {
         if (!isEnabled()) return 0;
-        long deleted = store.deleteEventsOccurredBefore(clock.instant().minus(maxAge), batchSize);
-        if (deleted > 0) {
-            log.info("Retention: deleted {} historical event(s) older than {}", deleted, maxAge);
+        Instant now = clock.instant();
+        long total = 0;
+        for (Map.Entry<String, Duration> tenant : tenantMaxAge.entrySet()) {
+            long deleted = store.deleteEventsOccurredBefore(now.minus(tenant.getValue()), batchSize, tenant.getKey(), List.of());
+            if (deleted > 0) {
+                log.info("Retention: deleted {} event(s) of tenant {} older than {}", deleted, tenant.getKey(), tenant.getValue());
+            }
+            total += deleted;
         }
-        return deleted;
+        if (maxAge != null) {
+            long deleted = store.deleteEventsOccurredBefore(now.minus(maxAge), batchSize, null, tenantMaxAge.keySet());
+            if (deleted > 0) {
+                log.info("Retention: deleted {} historical event(s) older than {}", deleted, maxAge);
+            }
+            total += deleted;
+        }
+        return total;
     }
 
     private void runSafely() {
@@ -89,7 +125,8 @@ public class PostgresRetentionJob implements SmartLifecycle {
         // First pass soon after startup, not a full interval later.
         long initialDelay = Math.min(interval.toMillis(), Duration.ofMinutes(1).toMillis());
         executor.scheduleWithFixedDelay(this::runSafely, initialDelay, interval.toMillis(), TimeUnit.MILLISECONDS);
-        log.info("Retention: events older than {} are purged every {}", maxAge, interval);
+        log.info("Retention: events older than {} are purged every {}{}", maxAge, interval,
+                tenantMaxAge.isEmpty() ? "" : " (per tenant: " + tenantMaxAge + ")");
     }
 
     @Override

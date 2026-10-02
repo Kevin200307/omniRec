@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: shipping_information_changed
+domain: cart_checkout
+version: 1
+sources: [browser, server]
+description: "The shopper changed the shipping address. No address details are tracked."
+aliases: [shipping_address_changed]
+blocks: [cart]
+properties:
+  cart.id: { required: true }
+example:
+  cart: { id: id_1 }

@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: negative_feedback_response_sent
+domain: reviews_advocacy
+version: 1
+sources: [server]
+description: "The merchant responded to negative feedback."
+blocks: [order]
+properties:
+  order.id: { required: true }
+example:
+  order: { id: id_1 }

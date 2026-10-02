@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: channel_subscribed
+domain: account_retention
+version: 1
+sources: [browser, server]
+description: "The customer subscribed to email, SMS or push."
+aliases: [email_subscribed, sms_subscribed, push_opted_in]
+blocks: [message]
+properties:
+  message.channel: { required: true }
+example:
+  message: { channel: email }

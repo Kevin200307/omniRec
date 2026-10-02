@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: category
+description: A product category.
+fields:
+  id: { type: string, description: "Merchant category identifier." }
+  name: { type: string, description: "Human-readable category name." }

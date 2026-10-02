@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: complaint_submitted
+domain: support
+version: 1
+sources: [browser, server]
+description: "The customer made a formal complaint."
+blocks: [support, order]
+properties:
+  support.id: { required: true }
+example:
+  support: { id: id_1 }

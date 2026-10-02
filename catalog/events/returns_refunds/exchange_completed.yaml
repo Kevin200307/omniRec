@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: exchange_completed
+domain: returns_refunds
+version: 1
+sources: [server]
+description: "An exchange was completed."
+blocks: [return]
+properties:
+  return.id: { required: true }
+example:
+  return: { id: id_1 }

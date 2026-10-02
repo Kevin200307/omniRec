@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+name: subscription_option_selected
+domain: product_page
+version: 1
+sources: [browser]
+description: "The shopper chose a subscription, such as subscribe and save."
+aliases: [subscribe_and_save_selected, subscription_option_viewed]
+blocks: [product, subscription]
+properties:
+  product.id: { required: true }
+  subscription.interval: { required: true }
+example:
+  product: { id: id_1 }
+  subscription: { interval: interval_1 }

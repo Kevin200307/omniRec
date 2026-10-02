@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+name: brand_module_clicked
+domain: search_discovery
+version: 1
+sources: [browser]
+description: "The shopper clicked a module on a brand store page."
+aliases: [brand_store_module_clicked, brand_store_product_clicked]
+blocks: [brand, product]
+properties:
+  brand.id: { required: true }
+  moduleId: { type: string, required: true }
+example:
+  brand: { id: id_1 }
+  moduleId: module_1

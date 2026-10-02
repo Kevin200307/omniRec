@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+name: message_converted
+domain: acquisition_messaging
+version: 1
+sources: [derived]
+description: "A purchase was attributed to a message. Derived by the pipeline."
+aliases: [email_converted]
+blocks: [message, order]
+properties:
+  message.id: { required: true }
+  order.id: { required: true }
+example:
+  message: { id: id_1 }
+  order: { id: id_1 }

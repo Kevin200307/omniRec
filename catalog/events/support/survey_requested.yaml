@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: survey_requested
+domain: support
+version: 1
+sources: [server, webhook]
+description: "A satisfaction survey (CSAT, NPS or CES) was sent."
+aliases: [csat_requested, nps_requested]
+blocks: [survey, support]
+properties:
+  survey.type: { required: true }
+example:
+  survey: { type: csat }

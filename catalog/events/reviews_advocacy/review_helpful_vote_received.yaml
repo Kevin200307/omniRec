@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: review_helpful_vote_received
+domain: reviews_advocacy
+version: 1
+sources: [webhook]
+description: "A customer's review received a helpful vote."
+blocks: [review]
+properties:
+  review.id: { required: true }
+example:
+  review: { id: id_1 }

@@ -1,28 +1,54 @@
 // SPDX-License-Identifier: Apache-2.0
-export { CommerceClient, createCommerceClient, type IdentifyInput } from "./core/client";
-export { resolveConfig, type CommerceConfig, type ResolvedConfig } from "./core/config";
+export {
+  OmnirecClient,
+  createOmnirec,
+  type IdentifyInput,
+  type KnownEvents,
+  type OmnirecCustomEvents,
+  type TrackOptions,
+} from "./core/omnirec";
+export { runPipeline, type Middleware, type OmnirecPlugin, type PluginHost } from "./core/pipeline";
+export { CommerceClient, createCommerceClient } from "./core/client";
+export { resolveConfig, type CommerceConfig, type OmnirecConfig, type ResolvedConfig } from "./core/config";
+export { toData } from "./compat/v1";
 export { businessEventId, compact, type EmitOptions, type EventEmitter } from "./core/emitter";
 
 export {
   EVENT_TYPES,
   SCHEMA_VERSION,
-  type CartEventType,
-  type CheckoutEventType,
+  type SessionEngagementEventType,
+  type AcquisitionMessagingEventType,
+  type SearchDiscoveryEventType,
+  type ProductPageEventType,
+  type CartCheckoutEventType,
+  type OrdersPaymentsEventType,
+  type FulfilmentEventType,
+  type SupportEventType,
+  type ReturnsRefundsEventType,
+  type ReviewsAdvocacyEventType,
+  type AccountRetentionEventType,
+  type IdentityEventType,
   type CommerceData,
   type CommerceEvent,
   type CommerceItem,
   type DeviceType,
-  type DiscoveryEventType,
   type EventContext,
   type EventIdentity,
+  type EventSource,
   type EventType,
-  type IdentityEventType,
+  type EventData,
+  type EventDataMap,
+  type EventName,
+  type EventRule,
+  type FieldRule,
+  type ProductBlock,
+  type CategoryBlock,
+  type ListBlock,
+  type SearchBlock,
+  type CartBlock,
+  type OrderBlock,
+  type RecommendationBlock,
   type Platform,
-  type ProductInteractionEventType,
-  type PurchaseEventType,
-  type RecommendationEventType,
-  type SessionEventType,
-  type UserEventType,
 } from "./events/types";
 
 export {

@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+name: product
+description: The single product an event is about.
+fields:
+  id: { type: string, maxLength: 256, description: "Merchant product identifier." }
+  variantId: { type: string, description: "Selected variant (size, colour) when it differs from the product id." }
+  name: { type: string, description: "Product name as shown to the shopper." }
+  brand: { type: string }
+  price: { type: money, minimum: 0, description: "Unit price in currency." }
+  currency: { type: string, pattern: "^[A-Z]{3}$", description: "ISO 4217 code of price." }
+  quantity: { type: integer, minimum: 1, description: "Units involved in this event." }
+  sku: { type: string, description: "Merchant SKU." }
+  parentId: { type: string, description: "Parent product, for example a parent ASIN or a product group." }

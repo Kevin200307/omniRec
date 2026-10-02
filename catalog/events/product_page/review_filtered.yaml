@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+name: review_filtered
+domain: product_page
+version: 1
+sources: [browser]
+description: "The shopper filtered reviews, for example to one-star reviews."
+aliases: [one_star_review_viewed, five_star_review_viewed]
+blocks: [product]
+properties:
+  product.id: { required: true }
+  filter: { type: string, required: true }
+  rating: { type: integer, minimum: 1, maximum: 5 }
+example:
+  product: { id: id_1 }
+  filter: filter_1

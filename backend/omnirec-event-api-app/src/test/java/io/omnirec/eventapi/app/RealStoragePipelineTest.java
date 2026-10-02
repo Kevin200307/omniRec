@@ -384,6 +384,46 @@ class RealStoragePipelineTest {
         assertNull(storedUserId("tenant-a", second));
     }
 
+    @Test
+    void browserAndServerEventsForOneVisitorFormOneJourney() throws Exception {
+        String anon = unique("anon");
+        String user = unique("user");
+        String browserEvent = unique("evt");
+        send("pk_test_tenant_a", event(browserEvent, "product_viewed", anon, null, "p1", BASE));
+
+        // The backend SDK, inside the visitor's request: the identity filter would
+        // have read omnirec_anonymous_id and omnirec_session_id from the cookies.
+        List<io.omnirec.commerce.model.CommerceEvent> outbound = new ArrayList<>();
+        io.omnirec.tracker.OmnirecTracker tracker = new io.omnirec.tracker.OmnirecTracker(
+                new io.omnirec.tracker.ServerEventEmitter(outbound::add,
+                        new io.omnirec.commerce.validation.EventValidator(
+                                io.omnirec.commerce.catalog.EventRegistry.standard(),
+                                io.omnirec.commerce.validation.ValidationMode.PERMISSIVE),
+                        null, true));
+        io.omnirec.tracker.web.OmnirecRequestIdentity.runAs(
+                new io.omnirec.tracker.ServerEventEmitter.ServerIdentity(anon, null, "s_" + anon),
+                () -> tracker.track(io.omnirec.commerce.catalog.generated.StandardEvents.PURCHASE_COMPLETED,
+                        Map.of("order", Map.of("id", "o_" + anon, "total", "24.00", "currency", "USD",
+                                "items", List.of(Map.of("productId", "p1", "quantity", 1)))),
+                        user, "o_" + anon));
+        String serverEvent = outbound.get(0).eventId();
+        mockMvc.perform(post("/v1/events")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("X-Omnirec-Key", "pk_test_tenant_a")
+                        .content(objectMapper.writeValueAsString(Map.of("events", outbound))))
+                .andExpect(status().isAccepted());
+
+        await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> {
+            JsonNode journey = history(historyOf(user, "sk_test_tenant_a_secret"), 200);
+            assertEquals(List.of(serverEvent, browserEvent), eventIds(journey), journey.toString());
+            JsonNode purchase = journey.get("events").get(0);
+            assertEquals("purchase_completed", purchase.get("event").asText());
+            assertEquals("server", purchase.get("source").asText());
+            assertEquals(anon, purchase.get("anonymousId").asText(), "same visitor as the browsing");
+            assertEquals("24.00", purchase.get("data").get("order").get("total").asText());
+        });
+    }
+
     // ================================================================ tenant isolation
 
     @Test

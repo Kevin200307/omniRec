@@ -2,7 +2,8 @@
 package io.omnirec.tracker.trackers;
 
 import io.omnirec.commerce.model.CommerceData;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.model.EventName;
 import io.omnirec.tracker.ServerEventEmitter;
 import io.omnirec.tracker.ServerEventEmitter.ServerIdentity;
 
@@ -27,7 +28,7 @@ public class CheckoutTracker {
 
     public void started(String cartId, String userId, String anonymousId) {
         emitter.emit(
-                EventType.CHECKOUT_STARTED,
+                StandardEventNames.CHECKOUT_STARTED,
                 ServerIdentity.of(anonymousId, userId),
                 CommerceData.builder().cartId(cartId).build(),
                 Map.of());
@@ -35,7 +36,7 @@ public class CheckoutTracker {
 
     public void shippingInformationAdded(String cartId, String userId, String shippingMethod) {
         emitter.emit(
-                EventType.SHIPPING_INFORMATION_ADDED,
+                StandardEventNames.SHIPPING_INFORMATION_ADDED,
                 ServerIdentity.ofUser(userId),
                 CommerceData.builder().cartId(cartId).build(),
                 shippingMethod == null ? Map.of() : Map.of("shippingMethod", shippingMethod));
@@ -47,7 +48,7 @@ public class CheckoutTracker {
      */
     public void paymentInformationAdded(String cartId, String userId, String paymentMethod) {
         emitter.emit(
-                EventType.PAYMENT_INFORMATION_ADDED,
+                StandardEventNames.PAYMENT_INFORMATION_ADDED,
                 ServerIdentity.ofUser(userId),
                 CommerceData.builder().cartId(cartId).build(),
                 paymentMethod == null ? Map.of() : Map.of("paymentMethod", paymentMethod));
@@ -55,7 +56,7 @@ public class CheckoutTracker {
 
     public void completed(String cartId, String orderId, String userId) {
         emitter.emit(
-                EventType.CHECKOUT_COMPLETED,
+                StandardEventNames.CHECKOUT_COMPLETED,
                 ServerIdentity.ofUser(userId),
                 CommerceData.builder().cartId(cartId).orderId(orderId).build(),
                 Map.of(),
@@ -64,7 +65,7 @@ public class CheckoutTracker {
 
     public void failed(String cartId, String userId, String reason) {
         emitter.emit(
-                EventType.CHECKOUT_FAILED,
+                StandardEventNames.CHECKOUT_FAILED,
                 ServerIdentity.ofUser(userId),
                 CommerceData.builder().cartId(cartId).build(),
                 reason == null ? Map.of() : Map.of("reason", reason));

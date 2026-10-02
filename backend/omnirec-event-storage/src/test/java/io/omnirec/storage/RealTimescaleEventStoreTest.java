@@ -88,7 +88,7 @@ class RealTimescaleEventStoreTest {
                 + StorageSchemaMigrator.HISTORY_TABLE + " WHERE success AND version IS NOT NULL ORDER BY installed_rank");
 
         assertEquals(List.of("1:create commerce events", "2:create identity links",
-                "3:create customer history indexes", "4:timescale hypertable"), applied);
+                "3:create customer history indexes", "4:timescale hypertable", "5:v2 envelope columns", "6:erasure tombstones"), applied);
     }
 
     @Test

@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: cart_item_moved_to_wishlist
+domain: cart_checkout
+version: 1
+sources: [browser, server]
+description: "A cart item was moved to the wishlist."
+blocks: [product, cart]
+properties:
+  product.id: { required: true }
+example:
+  product: { id: id_1 }

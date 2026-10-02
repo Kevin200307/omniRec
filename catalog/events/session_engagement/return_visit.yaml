@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+name: return_visit
+domain: session_engagement
+version: 1
+sources: [derived]
+description: "A visitor came back in a new session after an earlier one. Derived by the pipeline."
+aliases: [returning_visit]

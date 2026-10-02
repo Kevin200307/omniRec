@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: faq_opened
+domain: support
+version: 1
+sources: [browser]
+description: "The customer opened a help article or FAQ entry."
+aliases: [faq_viewed]
+properties:
+  articleId: { type: string, required: true }
+example:
+  articleId: article_1

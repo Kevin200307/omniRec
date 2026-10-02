@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: promotion_applied
+domain: cart_checkout
+version: 1
+sources: [browser, server]
+description: "An automatic promotion was applied to the cart."
+aliases: [cart_promotion_applied]
+blocks: [cart, promotion]
+properties:
+  promotion.id: { required: true }
+example:
+  promotion: { id: id_1 }

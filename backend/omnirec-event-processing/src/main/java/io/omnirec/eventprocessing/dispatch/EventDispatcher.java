@@ -68,6 +68,10 @@ public class EventDispatcher {
         MDC.put("eventId", event.eventId());
         MDC.put("destination", destination.id());
         try {
+            if (event.isUnplanned() && !destination.acceptsUnplanned()) {
+                log.debug("Destination {} does not take unplanned events — skipping {}", destination.id(), event.eventType());
+                return;
+            }
             if (!destination.supports(event)) {
                 log.debug("Destination {} does not handle {} — skipping", destination.id(), event.eventType());
                 return;

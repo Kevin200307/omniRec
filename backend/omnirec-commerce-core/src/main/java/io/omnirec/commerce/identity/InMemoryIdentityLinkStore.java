@@ -68,6 +68,28 @@ public class InMemoryIdentityLinkStore implements IdentityLinkStore {
                 .orElseGet(List::of);
     }
 
+    @Override
+    public void forget(String tenantId, String userId, java.util.Collection<String> anonymousIds) {
+        String tenant = tenantKey(tenantId);
+        Map<String, List<IdentityLink>> anonymous = byAnonymousId.getOrDefault(tenant, Map.of());
+        Map<String, Set<String>> users = byUserId.getOrDefault(tenant, Map.of());
+        Set<String> devices = new LinkedHashSet<>(anonymousIds);
+        devices.addAll(users.getOrDefault(userId, Set.of()));
+        users.remove(userId);
+        for (String anonymousId : devices) {
+            List<IdentityLink> links = anonymous.remove(anonymousId);
+            if (links == null) continue;
+            // The device's other users lose it too: it belongs to the erased customer now.
+            for (IdentityLink link : links) {
+                users.computeIfPresent(link.userId(), (u, ids) -> {
+                    Set<String> rest = new LinkedHashSet<>(ids);
+                    rest.remove(anonymousId);
+                    return rest.isEmpty() ? null : Set.copyOf(rest);
+                });
+            }
+        }
+    }
+
     /** ConcurrentHashMap forbids null keys, and a single-tenant deployment legitimately has no tenant id. */
     private static String tenantKey(String tenantId) {
         return tenantId == null ? "__default__" : tenantId;

@@ -1,0 +1,43 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>omnirec fixture store</title>
+    <style>.spacer { height: 1500px; } .card { height: 200px; }</style>
+  </head>
+  <body>
+    <a id="promo" href="#sale" data-omnirec-impression="product_list_viewed"
+       data-omnirec-list="autumn_sale" data-omnirec-data='{"list":{"productIds":["P1","P2"]}}'>Autumn sale</a>
+
+    <div class="spacer"></div>
+
+    <section data-omnirec-list="home_featured">
+      <article class="card" data-omnirec-product="P100" data-omnirec-price="12.50" data-omnirec-currency="USD"
+               data-omnirec-position="1">
+        <a id="open" href="#p100" data-omnirec-event="product_clicked">Running shoe</a>
+        <button id="add" data-omnirec-event="product_added_to_cart" data-omnirec-quantity="1">
+          <span>Add to cart</span>
+        </button>
+      </article>
+    </section>
+
+    <script type="module">
+      import { createOmnirec } from "/sdk/web/index.js";
+      import { dom } from "/sdk/web/dom.js";
+      import { impressions } from "/sdk/web/impressions.js";
+      import { autocapture } from "/sdk/web/autocapture.js";
+
+      const errors = [];
+      const omnirec = createOmnirec({
+        endpoint: new URLSearchParams(location.search).get("endpoint") ?? "/collector",
+        autoTrackSessions: false,
+        maxWaitMs: 60000,
+        plugins: [dom(), impressions({ minVisibleMs: Number(new URLSearchParams(location.search).get("minVisibleMs") ?? 300) }), autocapture({ scrollDepth: false, dwellTime: false })],
+        onError: (e) => errors.push(String(e)),
+      });
+      window.__omnirec = { omnirec, errors };
+      document.body.dataset.ready = "true";
+    </script>
+  </body>
+</html>

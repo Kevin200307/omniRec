@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: cart_item_saved_for_later
+domain: cart_checkout
+version: 1
+sources: [browser, server]
+description: "A cart item was moved to saved for later."
+blocks: [product, cart]
+properties:
+  product.id: { required: true }
+example:
+  product: { id: id_1 }

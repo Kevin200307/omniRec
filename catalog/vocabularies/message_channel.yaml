@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+name: message_channel
+description: "Channel a message was sent through."
+values:
+  - value: email
+  - value: sms
+  - value: push
+  - value: in_app
+  - value: whatsapp

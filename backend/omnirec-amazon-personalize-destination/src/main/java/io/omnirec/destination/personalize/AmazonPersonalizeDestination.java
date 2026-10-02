@@ -4,7 +4,9 @@ package io.omnirec.destination.personalize;
 import io.omnirec.commerce.destination.DestinationException;
 import io.omnirec.commerce.destination.EventDestination;
 import io.omnirec.commerce.model.CommerceEvent;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.catalog.generated.StandardEvents;
+import io.omnirec.commerce.model.EventName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import software.amazon.awssdk.core.exception.SdkClientException;
@@ -41,16 +43,35 @@ public class AmazonPersonalizeDestination implements EventDestination {
     private static final int MAX_ID_LENGTH = 256;
 
     /**
-     * Event types with no useful analogue in an interactions dataset. Sending
-     * them costs money and dilutes the signal, so they're filtered before any
-     * mapping work happens.
+     * The shopper interactions Personalize learns from. An allowlist, not a
+     * denylist: the catalog has some 200 events, and support tickets, shipments
+     * or consent changes in an interactions dataset would cost money and dilute
+     * the signal. A new catalog event reaches Personalize only once added here.
      */
-    private static final Set<EventType> UNSUPPORTED = Set.of(
-            EventType.SESSION_STARTED,
-            EventType.SESSION_ENDED,
-            EventType.USER_LOGGED_OUT,
-            EventType.USER_PROFILE_UPDATED,
-            EventType.IDENTIFY
+    public static final Set<String> INTERACTIONS = Set.of(
+            // discovery and browsing
+            StandardEvents.PAGE_VIEWED, StandardEvents.HOME_PAGE_VIEWED, StandardEvents.SEARCH_PERFORMED,
+            StandardEvents.SEARCH_RESULT_CLICKED, StandardEvents.PRODUCT_LIST_VIEWED, StandardEvents.CATEGORY_VIEWED,
+            StandardEvents.PRODUCT_CLICKED, StandardEvents.FREQUENTLY_BOUGHT_TOGETHER_CLICKED,
+            StandardEvents.SIMILAR_PRODUCT_CLICKED,
+            // product page
+            StandardEvents.PRODUCT_VIEWED, StandardEvents.PRODUCT_WISHLISTED, StandardEvents.PRODUCT_SHARED,
+            StandardEvents.PRODUCT_COMPARED, StandardEvents.PRODUCT_REVIEW_VIEWED, StandardEvents.PRODUCT_REVIEW_SUBMITTED,
+            StandardEvents.PRODUCT_SAVED_FOR_LATER, StandardEvents.PRODUCT_ADDED_TO_LIST,
+            StandardEvents.BACK_IN_STOCK_REQUESTED, StandardEvents.VARIANT_SELECTED,
+            // cart and checkout
+            StandardEvents.CART_VIEWED, StandardEvents.PRODUCT_ADDED_TO_CART, StandardEvents.PRODUCT_REMOVED_FROM_CART,
+            StandardEvents.CART_QUANTITY_UPDATED, StandardEvents.CART_ABANDONED, StandardEvents.CART_ITEM_SAVED_FOR_LATER,
+            StandardEvents.CART_ITEM_MOVED_TO_WISHLIST, StandardEvents.BUY_NOW_CLICKED, StandardEvents.CHECKOUT_STARTED,
+            StandardEvents.SHIPPING_INFORMATION_ADDED, StandardEvents.PAYMENT_INFORMATION_ADDED,
+            StandardEvents.CHECKOUT_COMPLETED, StandardEvents.CHECKOUT_FAILED,
+            // orders
+            StandardEvents.PURCHASE_COMPLETED, StandardEvents.PURCHASE_FAILED, StandardEvents.ORDER_CANCELLED,
+            StandardEvents.ORDER_REFUNDED,
+            // recommendations and account
+            StandardEvents.RECOMMENDATION_IMPRESSION, StandardEvents.RECOMMENDATION_CLICKED,
+            StandardEvents.RECOMMENDATION_ADDED_TO_CART, StandardEvents.RECOMMENDATION_PURCHASED,
+            StandardEvents.USER_REGISTERED, StandardEvents.USER_LOGGED_IN
     );
 
     private final PersonalizeEventsClient client;
@@ -78,8 +99,11 @@ public class AmazonPersonalizeDestination implements EventDestination {
      */
     @Override
     public boolean supports(CommerceEvent event) {
+        // Custom events from a tracking plan are not interactions the Personalize
+        // dataset schema was built for; they stay out unless mapped explicitly.
         return !event.eventType().isControlEvent()
-                && !UNSUPPORTED.contains(event.eventType())
+                && !event.isCustom()
+                && INTERACTIONS.contains(event.eventType().wireName())
                 && !event.isEngagementUpdate();
     }
 

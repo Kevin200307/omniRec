@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: call_escalated
+domain: support
+version: 1
+sources: [webhook]
+description: "A call was escalated."
+blocks: [support]
+properties:
+  support.id: { required: true }
+example:
+  support: { id: id_1 }

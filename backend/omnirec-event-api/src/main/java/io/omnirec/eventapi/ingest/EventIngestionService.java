@@ -9,11 +9,13 @@ import io.omnirec.commerce.dedup.DeduplicationStore.ClaimResult;
 import io.omnirec.commerce.identity.IdentityResolver;
 import io.omnirec.commerce.metrics.EventMetrics;
 import io.omnirec.commerce.model.CommerceEvent;
+import io.omnirec.commerce.privacy.ErasureRegistry;
 import io.omnirec.commerce.validation.EventValidator;
 import io.omnirec.commerce.validation.ValidationResult;
 import io.omnirec.eventapi.dto.EventDto;
 import io.omnirec.eventapi.dto.IngestResponse;
 import io.omnirec.eventapi.normalize.EventNormalizer;
+import io.omnirec.eventapi.tenant.TenantCatalogs;
 import io.omnirec.eventapi.queue.EventPublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,6 +65,10 @@ public class EventIngestionService {
     private final EventMetrics metrics;
     private final Duration deduplicationWindow;
     private final ObjectMapper objectMapper;
+    /** Per-tenant registry and validator. Null means every tenant uses {@link #validator}. */
+    private final TenantCatalogs catalogs;
+    /** Tombstones of deleted customers; their events are dropped. */
+    private volatile ErasureRegistry erasures = ErasureRegistry.none();
 
     public EventIngestionService(
             EventNormalizer normalizer,
@@ -82,6 +88,35 @@ public class EventIngestionService {
         this.metrics = metrics;
         this.deduplicationWindow = deduplicationWindow;
         this.objectMapper = objectMapper;
+        this.catalogs = null;
+    }
+
+    /** Validates each tenant's events against its own catalog view and mode. */
+    public EventIngestionService(
+            EventNormalizer normalizer,
+            TenantCatalogs catalogs,
+            DeduplicationStore deduplicationStore,
+            IdentityResolver identityResolver,
+            EventPublisher publisher,
+            EventMetrics metrics,
+            Duration deduplicationWindow,
+            ObjectMapper objectMapper
+    ) {
+        this.normalizer = normalizer;
+        this.validator = null;
+        this.deduplicationStore = deduplicationStore;
+        this.identityResolver = identityResolver;
+        this.publisher = publisher;
+        this.metrics = metrics;
+        this.deduplicationWindow = deduplicationWindow;
+        this.objectMapper = objectMapper;
+        this.catalogs = catalogs;
+    }
+
+    /** Drops events of erased customers from now on (see DELETE /v1/customers/{id}). */
+    public EventIngestionService withErasures(ErasureRegistry erasures) {
+        this.erasures = erasures == null ? ErasureRegistry.none() : erasures;
+        return this;
     }
 
     /** Raw JSON events, as received from the wire. */
@@ -115,8 +150,16 @@ public class EventIngestionService {
 
     private void ingestOne(EventDto dto, String tenantId, EventNormalizer.RequestMetadata request, Tally tally) {
         CommerceEvent event;
+        EventValidator tenantValidator;
         try {
-            event = normalizer.normalize(dto, tenantId, request);
+            if (catalogs != null) {
+                TenantCatalogs.TenantCatalog catalog = catalogs.forTenant(tenantId);
+                tenantValidator = catalog.validator();
+                event = normalizer.normalize(dto, tenantId, request, catalog.registry());
+            } else {
+                tenantValidator = validator;
+                event = normalizer.normalize(dto, tenantId, request, validator.registry());
+            }
         } catch (RuntimeException e) {
             // Never echo the payload back — it may hold whatever the merchant put in it.
             metrics.eventsRejected(tenantId, "malformed", 1);
@@ -124,7 +167,16 @@ public class EventIngestionService {
             return;
         }
 
-        ValidationResult validation = validator.validate(event);
+        if (erasures.isErased(tenantId, event.identity())) {
+            // The customer asked to be deleted. Acknowledge, so the SDK stops
+            // retrying, and keep nothing.
+            metrics.eventsRejected(tenantId, "erased", 1);
+            log.debug("Dropped event {} for tenant {}: its customer was erased", event.eventId(), tenantId);
+            tally.accepted++;
+            return;
+        }
+
+        ValidationResult validation = tenantValidator.validate(event);
         if (!validation.valid()) {
             metrics.eventsRejected(tenantId, "invalid", 1);
             tally.errors.add(new IngestResponse.EventError(event.eventId(), validation.describe()));
@@ -132,6 +184,12 @@ public class EventIngestionService {
             return;
         }
         metrics.eventsValidated(tenantId, 1);
+        if (validation.unplanned()) {
+            // Accepted in permissive mode. Flagged so destinations can skip it and
+            // so the merchant can find events missing from their tracking plan.
+            event = event.toBuilder().unplanned(true).kind(CommerceEvent.KIND_CUSTOM).build();
+            log.debug("Accepted unplanned event {} '{}' for tenant {}", event.eventId(), event.eventType(), tenantId);
+        }
 
         String dedupKey = DeduplicationStore.key(DEDUP_STAGE, tenantId, event.eventId());
         ClaimResult claim = deduplicationStore.claim(dedupKey, INGEST_LEASE);

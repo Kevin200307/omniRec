@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: review_replied
+domain: reviews_advocacy
+version: 1
+sources: [server]
+description: "The merchant replied to a review."
+aliases: [review_replied_to]
+blocks: [review, product]
+properties:
+  review.id: { required: true }
+example:
+  review: { id: id_1 }

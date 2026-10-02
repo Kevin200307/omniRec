@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: cart_viewed
+domain: cart_checkout
+version: 1
+sources: [browser]
+description: "The cart was opened."
+blocks: [cart]
+properties:
+  cart.id: { required: true }
+example:
+  cart: { id: c1 }

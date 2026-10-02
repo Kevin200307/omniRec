@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: back_in_stock_requested
+domain: product_page
+version: 1
+sources: [browser, server]
+description: "The shopper asked to be told when the product is back."
+aliases: [back_in_stock_notification_requested]
+blocks: [product]
+properties:
+  product.id: { required: true }
+example:
+  product: { id: id_1 }

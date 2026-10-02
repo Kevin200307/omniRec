@@ -5,7 +5,8 @@ import io.omnirec.commerce.destination.DestinationException;
 import io.omnirec.commerce.model.CommerceData;
 import io.omnirec.commerce.model.CommerceEvent;
 import io.omnirec.commerce.model.EventIdentity;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.model.EventName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -30,7 +31,7 @@ class RecentlyViewedDestinationTest {
                 : EventIdentity.authenticated("anon_1", userId, "s1");
         return CommerceEvent.builder()
                 .eventId("evt_" + IDS.incrementAndGet())
-                .eventType(EventType.PRODUCT_VIEWED)
+                .eventType(StandardEventNames.PRODUCT_VIEWED)
                 .timestamp(at)
                 .tenantId(tenant)
                 .identity(identity)
@@ -62,7 +63,7 @@ class RecentlyViewedDestinationTest {
         void aDwellFollowUpIsNotASecondView() {
             CommerceEvent view = view("t", "u1", "p1", T0);
             CommerceEvent dwell = CommerceEvent.builder()
-                    .eventId("evt_dwell").eventType(EventType.PRODUCT_VIEWED).timestamp(T0).tenantId("t")
+                    .eventId("evt_dwell").eventType(StandardEventNames.PRODUCT_VIEWED).timestamp(T0).tenantId("t")
                     .identity(view.identity()).commerce(view.commerce())
                     .properties(Map.of(CommerceEvent.PROPERTY_VIEW_EVENT_ID, view.eventId(),
                             CommerceEvent.PROPERTY_DWELL_TIME_MS, 4000))
@@ -73,7 +74,7 @@ class RecentlyViewedDestinationTest {
         @Test
         void otherEventTypesAreSkipped() {
             CommerceEvent cart = CommerceEvent.builder()
-                    .eventId("evt_cart").eventType(EventType.PRODUCT_ADDED_TO_CART).tenantId("t")
+                    .eventId("evt_cart").eventType(StandardEventNames.PRODUCT_ADDED_TO_CART).tenantId("t")
                     .identity(EventIdentity.authenticated("a", "u1", "s"))
                     .commerce(CommerceData.builder().productId("p1").build())
                     .build();

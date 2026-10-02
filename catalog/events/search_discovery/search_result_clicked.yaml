@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+name: search_result_clicked
+domain: search_discovery
+version: 1
+sources: [browser]
+description: "The shopper opened a product from search results."
+blocks: [product, search]
+properties:
+  search.query: { required: true }
+  product.id: { required: true }
+example:
+  product: { id: p123 }
+  search: { query: "running shoes" }

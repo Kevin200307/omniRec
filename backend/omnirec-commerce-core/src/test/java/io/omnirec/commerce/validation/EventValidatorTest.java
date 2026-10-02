@@ -6,7 +6,8 @@ import io.omnirec.commerce.model.CommerceData;
 import io.omnirec.commerce.model.CommerceEvent;
 import io.omnirec.commerce.model.CommerceItem;
 import io.omnirec.commerce.model.EventIdentity;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.model.EventName;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -44,14 +45,14 @@ class EventValidatorTest {
 
         @Test
         void rejectsABlankEventId() {
-            CommerceEvent event = CommerceEventFixtures.base(EventType.PAGE_VIEWED).eventId("  ").build();
+            CommerceEvent event = CommerceEventFixtures.base(StandardEventNames.PAGE_VIEWED).eventId("  ").build();
 
             assertTrue(fieldsOf(event).contains("eventId"));
         }
 
         @Test
         void rejectsAMissingAnonymousId() {
-            CommerceEvent event = CommerceEventFixtures.base(EventType.PAGE_VIEWED)
+            CommerceEvent event = CommerceEventFixtures.base(StandardEventNames.PAGE_VIEWED)
                     .identity(EventIdentity.anonymous(null, "s1"))
                     .build();
 
@@ -60,7 +61,7 @@ class EventValidatorTest {
 
         @Test
         void rejectsAMissingSessionId() {
-            CommerceEvent event = CommerceEventFixtures.base(EventType.PAGE_VIEWED)
+            CommerceEvent event = CommerceEventFixtures.base(StandardEventNames.PAGE_VIEWED)
                     .identity(EventIdentity.anonymous("anon_A", null))
                     .build();
 
@@ -69,25 +70,25 @@ class EventValidatorTest {
 
         @Test
         void doesNotDemandCommerceFieldsForSessionEvents() {
-            assertTrue(isValid(CommerceEventFixtures.base(EventType.SESSION_STARTED).build()));
-            assertTrue(isValid(CommerceEventFixtures.base(EventType.PAGE_VIEWED).build()));
-            assertTrue(isValid(CommerceEventFixtures.base(EventType.HOME_PAGE_VIEWED).build()));
+            assertTrue(isValid(CommerceEventFixtures.base(StandardEventNames.SESSION_STARTED).build()));
+            assertTrue(isValid(CommerceEventFixtures.base(StandardEventNames.PAGE_VIEWED).build()));
+            assertTrue(isValid(CommerceEventFixtures.base(StandardEventNames.HOME_PAGE_VIEWED).build()));
         }
 
         @Test
         void collectsEveryProblemRatherThanStoppingAtTheFirst() {
-            CommerceEvent event = CommerceEventFixtures.base(EventType.PRODUCT_ADDED_TO_CART).build();
+            CommerceEvent event = CommerceEventFixtures.base(StandardEventNames.PRODUCT_ADDED_TO_CART).build();
 
             assertEquals(2, validator.validate(event).errors().size());
         }
 
         @Test
         void describesFailuresWithoutLeakingValues() {
-            CommerceEvent event = CommerceEventFixtures.base(EventType.PRODUCT_VIEWED).build();
+            CommerceEvent event = CommerceEventFixtures.base(StandardEventNames.PRODUCT_VIEWED).build();
 
             String description = validator.validate(event).describe();
 
-            assertTrue(description.contains("commerce.productId"));
+            assertTrue(description.contains("data.product.id"));
             assertFalse(description.contains("anon_A"), "diagnostics must never echo identity values");
         }
     }
@@ -98,27 +99,27 @@ class EventValidatorTest {
 
         @Test
         void productViewedRequiresProductId() {
-            assertFalse(isValid(CommerceEventFixtures.base(EventType.PRODUCT_VIEWED).build()));
+            assertFalse(isValid(CommerceEventFixtures.base(StandardEventNames.PRODUCT_VIEWED).build()));
         }
 
         @Test
         void categoryViewedRequiresCategoryId() {
-            assertFalse(isValid(CommerceEventFixtures.base(EventType.CATEGORY_VIEWED).build()));
-            assertTrue(isValid(CommerceEventFixtures.base(EventType.CATEGORY_VIEWED)
+            assertFalse(isValid(CommerceEventFixtures.base(StandardEventNames.CATEGORY_VIEWED).build()));
+            assertTrue(isValid(CommerceEventFixtures.base(StandardEventNames.CATEGORY_VIEWED)
                     .commerce(CommerceData.builder().categoryId("c1").build()).build()));
         }
 
         @Test
         void productListViewedRequiresANonEmptyProductIdList() {
-            assertFalse(isValid(CommerceEventFixtures.base(EventType.PRODUCT_LIST_VIEWED)
+            assertFalse(isValid(CommerceEventFixtures.base(StandardEventNames.PRODUCT_LIST_VIEWED)
                     .commerce(CommerceData.builder().productIds(List.of()).build()).build()));
-            assertTrue(isValid(CommerceEventFixtures.base(EventType.PRODUCT_LIST_VIEWED)
+            assertTrue(isValid(CommerceEventFixtures.base(StandardEventNames.PRODUCT_LIST_VIEWED)
                     .commerce(CommerceData.builder().productIds(List.of("p1")).build()).build()));
         }
 
         @Test
         void searchPerformedRequiresAQuery() {
-            assertFalse(isValid(CommerceEventFixtures.base(EventType.SEARCH_PERFORMED).build()));
+            assertFalse(isValid(CommerceEventFixtures.base(StandardEventNames.SEARCH_PERFORMED).build()));
             assertTrue(isValid(CommerceEventFixtures.searchPerformed()));
         }
     }
@@ -134,16 +135,16 @@ class EventValidatorTest {
 
         @Test
         void requiresProductIdAndQuantity() {
-            List<String> fields = fieldsOf(CommerceEventFixtures.base(EventType.PRODUCT_ADDED_TO_CART).build());
+            List<String> fields = fieldsOf(CommerceEventFixtures.base(StandardEventNames.PRODUCT_ADDED_TO_CART).build());
 
-            assertTrue(fields.contains("commerce.productId"));
-            assertTrue(fields.contains("commerce.quantity"));
+            assertTrue(fields.contains("data.product.id"));
+            assertTrue(fields.contains("data.product.quantity"));
         }
 
         @ParameterizedTest
         @ValueSource(ints = {0, -1, -100})
         void rejectsANonPositiveQuantity(int quantity) {
-            CommerceEvent event = CommerceEventFixtures.base(EventType.PRODUCT_ADDED_TO_CART)
+            CommerceEvent event = CommerceEventFixtures.base(StandardEventNames.PRODUCT_ADDED_TO_CART)
                     .commerce(CommerceData.builder().productId("p1").quantity(quantity).build())
                     .build();
 
@@ -152,8 +153,8 @@ class EventValidatorTest {
 
         @Test
         void cartViewedAndAbandonedRequireACartId() {
-            assertFalse(isValid(CommerceEventFixtures.base(EventType.CART_VIEWED).build()));
-            assertFalse(isValid(CommerceEventFixtures.base(EventType.CART_ABANDONED).build()));
+            assertFalse(isValid(CommerceEventFixtures.base(StandardEventNames.CART_VIEWED).build()));
+            assertFalse(isValid(CommerceEventFixtures.base(StandardEventNames.CART_ABANDONED).build()));
         }
     }
 
@@ -170,7 +171,7 @@ class EventValidatorTest {
         }
 
         private CommerceEvent purchaseWith(CommerceData commerce) {
-            return CommerceEventFixtures.base(EventType.PURCHASE_COMPLETED)
+            return CommerceEventFixtures.base(StandardEventNames.PURCHASE_COMPLETED)
                     .identity(EventIdentity.authenticated("anon_A", "customer_123", "s1"))
                     .commerce(commerce)
                     .build();
@@ -184,19 +185,19 @@ class EventValidatorTest {
         @Test
         void requiresOrderId() {
             assertTrue(fieldsOf(purchaseWith(validPurchase().orderId(null).build()))
-                    .contains("commerce.orderId"));
+                    .contains("data.order.id"));
         }
 
         @Test
         void requiresANonEmptyItemList() {
             assertTrue(fieldsOf(purchaseWith(validPurchase().items(List.of()).build()))
-                    .contains("commerce.items"));
+                    .contains("data.order.items"));
         }
 
         @Test
         void requiresCurrency() {
             assertTrue(fieldsOf(purchaseWith(validPurchase().currency(null).build()))
-                    .contains("commerce.currency"));
+                    .contains("data.order.currency"));
         }
 
         @ParameterizedTest
@@ -208,13 +209,13 @@ class EventValidatorTest {
         @Test
         void requiresTotal() {
             assertTrue(fieldsOf(purchaseWith(validPurchase().total(null).build()))
-                    .contains("commerce.total"));
+                    .contains("data.order.total"));
         }
 
         @Test
         void rejectsANegativeTotal() {
             assertTrue(fieldsOf(purchaseWith(validPurchase().total(new BigDecimal("-5.00")).build()))
-                    .contains("commerce.total"));
+                    .contains("data.order.total"));
         }
 
         @Test
@@ -230,7 +231,7 @@ class EventValidatorTest {
                             new CommerceItem("", 1, BigDecimal.ONE, "USD", null)))
                     .build();
 
-            assertTrue(fieldsOf(purchaseWith(commerce)).contains("commerce.items[1].productId"));
+            assertTrue(fieldsOf(purchaseWith(commerce)).contains("data.order.items[1].productId"));
         }
 
         @Test
@@ -239,7 +240,7 @@ class EventValidatorTest {
                     .items(List.of(new CommerceItem("p1", 0, BigDecimal.ONE, "USD", null)))
                     .build();
 
-            assertTrue(fieldsOf(purchaseWith(commerce)).contains("commerce.items[0].quantity"));
+            assertTrue(fieldsOf(purchaseWith(commerce)).contains("data.order.items[0].quantity"));
         }
     }
 
@@ -249,10 +250,10 @@ class EventValidatorTest {
 
         @Test
         void impressionRequiresRecommendationIdAndProducts() {
-            List<String> fields = fieldsOf(CommerceEventFixtures.base(EventType.RECOMMENDATION_IMPRESSION).build());
+            List<String> fields = fieldsOf(CommerceEventFixtures.base(StandardEventNames.RECOMMENDATION_IMPRESSION).build());
 
-            assertTrue(fields.contains("commerce.recommendationId"));
-            assertTrue(fields.contains("commerce.productIds"));
+            assertTrue(fields.contains("data.recommendation.id"));
+            assertTrue(fields.contains("data.list.productIds"));
         }
 
         @Test
@@ -262,15 +263,15 @@ class EventValidatorTest {
 
         @Test
         void identityBearingEventsRequireAUserId() {
-            for (EventType type : List.of(EventType.USER_REGISTERED, EventType.USER_LOGGED_IN,
-                    EventType.USER_PROFILE_UPDATED, EventType.IDENTIFY)) {
+            for (EventName type : List.of(StandardEventNames.USER_REGISTERED, StandardEventNames.USER_LOGGED_IN,
+                    StandardEventNames.USER_PROFILE_UPDATED, StandardEventNames.IDENTIFY)) {
                 assertFalse(isValid(CommerceEventFixtures.base(type).build()), type + " without userId");
             }
         }
 
         @Test
         void loggingOutDoesNotRequireAUserId() {
-            assertTrue(isValid(CommerceEventFixtures.base(EventType.USER_LOGGED_OUT).build()));
+            assertTrue(isValid(CommerceEventFixtures.base(StandardEventNames.USER_LOGGED_OUT).build()));
         }
     }
 
@@ -279,7 +280,7 @@ class EventValidatorTest {
     class SensitiveData {
 
         private CommerceEvent withProperties(Map<String, Object> properties) {
-            return CommerceEventFixtures.base(EventType.PAYMENT_INFORMATION_ADDED)
+            return CommerceEventFixtures.base(StandardEventNames.PAYMENT_INFORMATION_ADDED)
                     .commerce(CommerceData.builder().cartId("cart_1").build())
                     .properties(properties)
                     .build();

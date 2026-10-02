@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: call_abandoned
+domain: support
+version: 1
+sources: [webhook]
+description: "The caller hung up before an answer."
+aliases: [phone_call_abandoned]
+blocks: [support]
+properties:
+  support.id: { required: true }
+example:
+  support: { id: id_1 }

@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: complaint_resolved
+domain: support
+version: 1
+sources: [server, webhook]
+description: "A complaint was resolved."
+blocks: [support]
+properties:
+  support.id: { required: true }
+example:
+  support: { id: id_1 }

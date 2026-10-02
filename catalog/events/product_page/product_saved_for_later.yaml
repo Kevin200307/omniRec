@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: product_saved_for_later
+domain: product_page
+version: 1
+sources: [browser, server]
+description: "The shopper saved the product for later."
+blocks: [product]
+properties:
+  product.id: { required: true }
+example:
+  product: { id: id_1 }

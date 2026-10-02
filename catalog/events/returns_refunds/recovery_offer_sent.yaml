@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: recovery_offer_sent
+domain: returns_refunds
+version: 1
+sources: [server]
+description: "A goodwill offer was sent after a problem."
+blocks: [promotion, order]
+properties:
+  promotion.id: { required: true }
+example:
+  promotion: { id: id_1 }

@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+name: message_sent
+domain: acquisition_messaging
+version: 1
+sources: [server, webhook]
+description: "A message was sent to the customer."
+aliases: [push_notification_sent, replenishment_reminder_sent, win_back_campaign_sent, price_drop_alert_sent, back_in_stock_alert_sent, review_request_sent]
+blocks: [message]
+properties:
+  message.id: { required: true }
+  message.channel: { required: true }
+example:
+  message: { id: id_1, channel: email }

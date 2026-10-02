@@ -188,6 +188,27 @@ public class EventProcessingAutoConfiguration {
             return new Declarables(declarables);
         }
 
+        /** Moves dead-lettered events back for another try; see DeadLetterEndpoint. */
+        @Bean
+        @ConditionalOnMissingBean
+        public io.omnirec.eventprocessing.queue.DeadLetterReplayer omnirecDeadLetterReplayer(
+                ConnectionFactory connectionFactory, List<EventDestination> destinations) {
+            return new io.omnirec.eventprocessing.queue.DeadLetterReplayer(connectionFactory,
+                    destinations.stream().map(EventDestination::id).toList());
+        }
+
+        @Configuration(proxyBeanMethods = false)
+        @org.springframework.boot.autoconfigure.condition.ConditionalOnClass(
+                name = "org.springframework.boot.actuate.endpoint.annotation.Endpoint")
+        static class DeadLetterEndpointConfiguration {
+            @Bean
+            @ConditionalOnMissingBean
+            public io.omnirec.eventprocessing.queue.DeadLetterEndpoint omnirecDeadLetterEndpoint(
+                    io.omnirec.eventprocessing.queue.DeadLetterReplayer replayer) {
+                return new io.omnirec.eventprocessing.queue.DeadLetterEndpoint(replayer);
+            }
+        }
+
         @Bean
         @ConditionalOnMissingBean
         public EventPublisher rabbitEventPublisher(ConfirmedPublisher publisher, List<EventDestination> destinations) {

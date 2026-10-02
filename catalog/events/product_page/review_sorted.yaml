@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+name: review_sorted
+domain: product_page
+version: 1
+sources: [browser]
+description: "The shopper changed the review sort order."
+blocks: [product]
+properties:
+  product.id: { required: true }
+  sortBy: { type: string, required: true }
+example:
+  product: { id: id_1 }
+  sortBy: sortby_1

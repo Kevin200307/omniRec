@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: preference_center_viewed
+domain: account_retention
+version: 1
+sources: [browser]
+description: "The customer opened communication preferences."

@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+name: review
+description: "A review of a product or seller."
+fields:
+  id: { type: string }
+  rating: { type: integer, minimum: 1, maximum: 5 }
+  hasMedia: { type: boolean }
+  verifiedPurchase: { type: boolean }
+  textLength: { type: integer, minimum: 0 }

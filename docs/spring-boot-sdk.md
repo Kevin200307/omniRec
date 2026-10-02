@@ -9,17 +9,83 @@ authoritative business events.
 <dependency>
     <groupId>io.omnirec</groupId>
     <artifactId>commerce-tracker-spring-boot</artifactId>
-    <version>1.0.0</version>
+    <version>2.0.0</version>
 </dependency>
 ```
 
 ```yaml
 omnirec:
   tracker:
-    endpoint: https://events.example.com
-    api-key: ${OMNIREC_API_KEY}
-    tenant-id: my-store
+    endpoint: https://events.example.com   # the only required setting
+    api-key: ${OMNIREC_API_KEY:}           # only when the collector runs in keys mode
 ```
+
+## Quick start (v2)
+
+Inject `OmnirecTracker` and track in one line. The visitor's browsing identity
+comes from the `omnirec_anonymous_id` and `omnirec_session_id` cookies the
+browser SDK sets, so server events join the same journey with no plumbing:
+
+```java
+@PostMapping("/api/cart")
+public Cart add(@RequestBody AddItem req) {
+    Cart cart = carts.add(req.productId(), req.quantity());
+    tracker.track(StandardEvents.PRODUCT_ADDED_TO_CART,
+            Map.of("product", Map.of("id", req.productId(), "quantity", req.quantity()),
+                   "cart", Map.of("id", cart.id())));
+    return cart;
+}
+```
+
+- **Known customer:** `tracker.track(event, data, customerId)`.
+- **Business key:** `tracker.track(event, data, customerId, order.getId())` derives
+  a stable eventId (`evt:purchase_completed:<id>`), so a retried call deduplicates.
+- **No request** (jobs, webhooks): pass a `ServerIdentity` explicitly.
+- **Annotation:** `@TrackEvent` tracks after a method returns, with SpEL over
+  parameters and `#result`:
+
+```java
+@Transactional
+@TrackEvent(value = StandardEvents.PURCHASE_COMPLETED,
+            data = "{order: {id: #result.id, total: #result.total, currency: #result.currency, items: #result.lines}}",
+            userId = "#result.customerId", businessKey = "#result.id")
+public Order placeOrder(Cart cart) { ... }
+```
+
+### Transactional outbox
+
+```yaml
+omnirec.tracker.outbox.enabled: true   # PostgreSQL DataSource required
+```
+
+Events tracked inside a transaction are written to `omnirec_outbox` with that
+transaction and sent after it commits. A rolled-back order never reports a
+purchase; a committed one always does, even if the collector is down at commit
+or the process dies right after. A relay retries leftover rows with backoff;
+several application instances can run it at once (`FOR UPDATE SKIP LOCKED`).
+
+### Testing your application
+
+```java
+@SpringBootTest
+@AutoConfigureOmnirecTest
+class CheckoutTest {
+    @Autowired OmnirecTestRecorder omnirec;
+
+    @Test
+    void placingAnOrderTracksThePurchase() {
+        checkout.placeOrder(cart);
+        omnirec.assertThat("purchase_completed").withData("order.id", "o1").withUserId("c_1");
+    }
+}
+```
+
+### Without Spring
+
+`omnirec-tracker-java` has the same API with no framework:
+`OmnirecClient.builder().endpoint(url).build().track(event, data, identity)`.
+
+## v1 helpers (deprecated)
 
 The SDK is auto-configured; inject `CommerceTracker` to use it. No AWS or Google
 credentials are required, because the merchant application communicates only

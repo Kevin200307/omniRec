@@ -11,10 +11,10 @@
  * shapes are produced by mappers behind `EventDestination`, never by the SDK.
  */
 
-import { EVENT_NAMES, type EventName } from "./generated/catalog";
+import { EVENT_NAMES, type EventData, type EventName } from "./generated/catalog";
 
 /** Bumped only on a breaking change to the event shape. Consumers branch on this. */
-export const SCHEMA_VERSION = "1.0";
+export const SCHEMA_VERSION = "2.0";
 
 /**
  * Event names come from the catalog (`catalog/events`), generated into
@@ -23,16 +23,31 @@ export const SCHEMA_VERSION = "1.0";
  * always exported.
  */
 export type {
-  CartEventType,
-  CheckoutEventType,
-  DiscoveryEventType,
-  EventDomain,
+  SessionEngagementEventType,
+  AcquisitionMessagingEventType,
+  SearchDiscoveryEventType,
+  ProductPageEventType,
+  CartCheckoutEventType,
+  OrdersPaymentsEventType,
+  FulfilmentEventType,
+  SupportEventType,
+  ReturnsRefundsEventType,
+  ReviewsAdvocacyEventType,
+  AccountRetentionEventType,
   IdentityEventType,
-  ProductInteractionEventType,
-  PurchaseEventType,
-  RecommendationEventType,
-  SessionEventType,
-  UserEventType,
+  EventDomain,
+  EventData,
+  EventDataMap,
+  EventName,
+  EventRule,
+  FieldRule,
+  ProductBlock,
+  CategoryBlock,
+  ListBlock,
+  SearchBlock,
+  CartBlock,
+  OrderBlock,
+  RecommendationBlock,
 } from "./generated/catalog";
 
 export type EventType = EventName;
@@ -74,6 +89,18 @@ export interface EventContext {
   ip?: string;
   /** Server-derived only. */
   country?: string;
+  /** Marketing attribution from the landing URL, persisted for the session. */
+  campaign?: {
+    source?: string;
+    medium?: string;
+    name?: string;
+    term?: string;
+    content?: string;
+    clickId?: string;
+    clickIdType?: "gclid" | "fbclid" | "msclkid" | "ttclid";
+  };
+  /** Page kind the storefront declared, for example product or cart. */
+  page?: { type?: string; title?: string };
 }
 
 export interface CommerceItem {
@@ -85,9 +112,9 @@ export interface CommerceItem {
 }
 
 /**
- * The commerce payload. Every field is optional here; what is actually required
- * is decided per event type by the EventValidator, because "productId required"
- * is true for product_viewed and meaningless for session_started.
+ * The v1 flat commerce payload. Still accepted by the per-event helper methods
+ * (`commerce.cart.productAdded(...)`), which convert it to v2 blocks with
+ * `toData()`. New code passes v2 `data` to `track()` instead.
  */
 export interface CommerceData {
   productId?: string;
@@ -108,15 +135,21 @@ export interface CommerceData {
   total?: number;
 }
 
+export type EventSource = "browser" | "server" | "webhook" | "derived" | "import";
+
+/** An event as the SDK sends it: envelope v2. */
 export interface CommerceEvent {
   eventId: string;
-  eventType: EventType;
+  /** A catalog name, or a custom name from the tracking plan. */
+  event: string;
   schemaVersion: string;
+  source: EventSource;
   /** ISO-8601, client capture time. The server records its own receive time separately. */
   timestamp: string;
   identity: EventIdentity;
   context: EventContext;
-  commerce: CommerceData;
+  /** Catalog blocks (product, cart, order, ...) and plan-declared fields. */
+  data: EventData;
   /** Free-form merchant attributes. Never put payment credentials here — see docs/security.md. */
   properties: Record<string, unknown>;
 }

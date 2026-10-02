@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Build context is the repo root (see docker-compose.yml) so this stage can see
 # the whole Maven reactor — the app depends on its sibling modules, not just itself.
 FROM maven:3.9-eclipse-temurin-17 AS build
@@ -14,7 +15,9 @@ COPY backend/omnirec-event-storage/pom.xml backend/omnirec-event-storage/pom.xml
 COPY backend/omnirec-event-api-app/pom.xml backend/omnirec-event-api-app/pom.xml
 
 COPY backend backend
-RUN mvn -f backend/pom.xml -pl omnirec-event-api-app -am package -DskipTests -q
+# The cache mount keeps ~/.m2 between builds, so a rebuild downloads nothing new.
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn -f backend/pom.xml -pl omnirec-event-api-app -am package -DskipTests -q -B
 
 FROM eclipse-temurin:17-jre
 WORKDIR /app

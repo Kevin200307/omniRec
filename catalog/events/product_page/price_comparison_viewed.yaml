@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: price_comparison_viewed
+domain: product_page
+version: 1
+sources: [browser]
+description: "The shopper viewed price history or a price comparison."
+aliases: [price_history_or_comparison_viewed, price_viewed]
+blocks: [product]
+properties:
+  product.id: { required: true }
+example:
+  product: { id: id_1 }

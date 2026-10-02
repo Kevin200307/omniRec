@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: loyalty_status_changed
+domain: account_retention
+version: 1
+sources: [server]
+description: "The customer moved to a different loyalty tier."
+blocks: [loyalty]
+properties:
+  loyalty.tier: { required: true }
+example:
+  loyalty: { tier: tier_1 }

@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: delivery_estimate_changed
+domain: fulfilment
+version: 1
+sources: [server, webhook]
+description: "The estimated delivery time changed."
+blocks: [shipment]
+properties:
+  shipment.id: { required: true }
+  shipment.estimatedDeliveryAt: { required: true }
+example:
+  shipment: { id: id_1, estimatedDeliveryAt: "2026-10-02T12:00:00Z" }

@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+name: fulfilment_method
+description: "Who fulfils the order."
+values:
+  - value: merchant
+  - value: marketplace
+  - value: third_party_logistics
+  - value: store_pickup
+  - value: dropship

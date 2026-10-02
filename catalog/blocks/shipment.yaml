@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+name: shipment
+description: "A shipment of an order."
+fields:
+  id: { type: string }
+  orderId: { type: string }
+  carrier: { type: string }
+  method: { type: string, description: "For example standard, express, same_day, pickup." }
+  estimatedDeliveryAt: { type: timestamp }
+  fulfilmentMethod: { type: enum, vocabulary: fulfilment_method }

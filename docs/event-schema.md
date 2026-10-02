@@ -12,13 +12,20 @@ The envelope itself, meaning the fields every event shares, is still defined in
 `CanonicalSchemaContractTest` parses all three and fails the build if they
 disagree.
 
-## Structure
+## Structure (envelope v2)
+
+The wire contract is [`schema/commerce-event.schema.json`](../schema/commerce-event.schema.json),
+generated from the catalog. Envelope v1 is frozen at
+[`schema/v1/commerce-event.schema.json`](../schema/v1/commerce-event.schema.json).
 
 ```jsonc
 {
   "eventId": "9f1c...",            // unique; the deduplication key
-  "eventType": "product_viewed",
-  "schemaVersion": "1.0",
+  "event": "product_viewed",       // a catalog name, an alias, or a custom name from a tracking plan
+  "eventVersion": 1,               // version of the event definition; defaults from the catalog
+  "kind": "standard",              // set by the server: standard or custom
+  "schemaVersion": "2.0",
+  "source": "browser",             // browser | server | webhook | derived | import
   "timestamp": "2026-01-01T12:00:00.000Z",
   "tenantId": "demo-store",        // set by the server from the API key
 
@@ -37,14 +44,14 @@ disagree.
     "locale": "en-GB",
     "timezone": "Europe/London",
     "ip": null,                    // derived by the server, discarded by default
-    "country": "GB"                // derived by the server
+    "country": "GB",               // derived by the server
+    "campaign": { "source": "google", "medium": "cpc", "clickId": "abc", "clickIdType": "gclid" },
+    "page": { "type": "product" }
   },
 
-  "commerce": {
-    "productId": "p123",
-    "categoryId": "laptops",
-    "price": 1500.00,
-    "currency": "USD"
+  "data": {                        // catalog blocks; see docs/events/README.md
+    "product": { "id": "p123", "price": "1500.00", "currency": "USD" },
+    "category": { "id": "laptops" }
   },
 
   "properties": { "dwellTimeMs": 42500 },
@@ -53,8 +60,32 @@ disagree.
 }
 ```
 
-The fields `tenantId`, `ip`, `country`, and `receivedAt` are owned by the
-server. Client-supplied values for these fields are discarded.
+The fields `tenantId`, `kind`, `unplanned`, `ip`, `country`, and `receivedAt`
+are owned by the server. Client-supplied values for these fields are discarded.
+
+Money is exact end to end. Send it as a JSON number or a decimal string; the
+server keeps the value and its scale (`2400.00` stays `2400.00`) through the
+queue, storage and destinations.
+
+### v1 compatibility
+
+The collector still accepts v1 events (`eventType` plus a flat `commerce`
+object) and converts them to v2 at the edge, so everything downstream sees v2.
+The conversion is fixed:
+
+| v1 field | v2 path |
+|---|---|
+| `productId`, `price`, `quantity` | `product.id`, `product.price`, `product.quantity` |
+| `categoryId`, `category` | `category.id`, `category.name` |
+| `listId`, `productIds` | `list.id`, `list.productIds` |
+| `searchQuery` | `search.query` |
+| `cartId`, `orderId` | `cart.id`, `order.id` |
+| `recommendationId`, `recommendationProvider` | `recommendation.id`, `recommendation.provider` |
+| `total`, `items` | `order.*` when there is an `orderId`, else `cart.*` when there is a `cartId`, else `order.*` |
+| `currency` | every block holding an amount: `product` with a price, `order` or `cart` with a total or items |
+
+Validation errors name the v2 path, for example `data.product.id`. The customer
+history API returns both `data` and the v1 `commerce` view for one release.
 
 ## Taxonomy
 

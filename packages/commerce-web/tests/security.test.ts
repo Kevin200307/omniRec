@@ -9,12 +9,13 @@ const validator = new EventValidator();
 function eventWithProperties(properties: Record<string, unknown>): CommerceEvent {
   return {
     eventId: "evt_1",
-    eventType: "payment_information_added",
+    event: "payment_information_added",
+    source: "browser",
     schemaVersion: SCHEMA_VERSION,
     timestamp: "2026-01-01T00:00:00.000Z",
     identity: { anonymousId: "anon_A", userId: null, sessionId: "session_1" },
     context: { platform: "web" },
-    commerce: { cartId: "cart_1" },
+    data: { cart: { id: "cart_1" } },
     properties,
   };
 }
@@ -107,16 +108,27 @@ describe("provider credentials cannot be configured in the browser", () => {
 });
 
 describe("configuration validation", () => {
-  it("requires an apiKey", () => {
-    expect(() => resolveConfig({ endpoint: "https://e.example.com" } as never)).toThrow(/apiKey is required/);
+  it("needs no apiKey: open-mode collectors take keyless events", () => {
+    const config = resolveConfig({ endpoint: "https://e.example.com" });
+    expect(config.apiKey).toBeUndefined();
+  });
+
+  it("rejects an empty apiKey rather than silently sending none", () => {
+    expect(() => resolveConfig({ endpoint: "https://e.example.com", apiKey: "  " })).toThrow(/non-empty/);
   });
 
   it("requires an endpoint", () => {
     expect(() => resolveConfig({ apiKey: "pk_live_x" } as never)).toThrow(/endpoint is required/);
   });
 
-  it("requires an absolute endpoint URL", () => {
-    expect(() => resolveConfig({ apiKey: "pk_live_x", endpoint: "/v1/events" })).toThrow(/absolute http/);
+  it("accepts a same-site path for a proxied collector", () => {
+    expect(resolveConfig({ endpoint: "/omnirec" }).endpoint).toBe("/omnirec");
+  });
+
+  it("rejects an endpoint that is neither an http(s) URL nor a site path", () => {
+    expect(() => resolveConfig({ endpoint: "events.example.com" })).toThrow(/absolute http/);
+    expect(() => resolveConfig({ endpoint: "//cdn.example.com/x" })).toThrow(/absolute http/);
+    expect(() => resolveConfig({ endpoint: "ftp://x.example" })).toThrow(/absolute http/);
   });
 
   it("rejects a non-positive batch size", () => {

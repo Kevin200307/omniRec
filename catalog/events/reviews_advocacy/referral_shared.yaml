@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: referral_shared
+domain: reviews_advocacy
+version: 1
+sources: [browser]
+description: "The customer shared a referral link."
+blocks: [referral]
+properties:
+  referral.code: { required: true }
+example:
+  referral: { code: code_1 }

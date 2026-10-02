@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+name: ad
+description: "An ad the shopper saw or clicked."
+fields:
+  id: { type: string, description: "Ad or creative identifier." }
+  campaignId: { type: string }
+  adGroupId: { type: string }
+  network: { type: string, description: "Ad network, for example google_ads, meta, amazon_ads." }
+  format: { type: enum, vocabulary: ad_format }
+  placement: { type: string }
+  keyword: { type: string }
+  targetingType: { type: string }
+  position: { type: integer, minimum: 1 }

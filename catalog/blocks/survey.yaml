@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+name: survey
+description: "A satisfaction survey."
+fields:
+  id: { type: string }
+  type: { type: enum, vocabulary: survey_type }
+  score: { type: integer, minimum: 0, maximum: 10 }

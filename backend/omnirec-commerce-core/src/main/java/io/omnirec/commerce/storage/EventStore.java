@@ -51,4 +51,24 @@ public interface EventStore {
      * @param customerId the userId
      */
     CustomerEventPage findCustomerEvents(String tenantId, String customerId, EventQuery query);
+
+    /** What a customer deletion removed. */
+    record CustomerErasure(long eventsDeleted, long identityLinksDeleted, java.util.List<String> anonymousIds) {
+    }
+
+    /**
+     * The anonymous ids of every device known to belong to the customer: the
+     * identity links, and the anonymous ids on the customer's own events.
+     */
+    default java.util.List<String> anonymousIdsOf(String tenantId, String customerId) {
+        throw new UnsupportedOperationException(getClass().getSimpleName() + " does not support customer deletion");
+    }
+
+    /**
+     * Deletes the customer's events, the anonymous events of the given devices,
+     * and every identity link of either, in one transaction.
+     */
+    default CustomerErasure eraseCustomer(String tenantId, String customerId, java.util.Collection<String> anonymousIds) {
+        throw new UnsupportedOperationException(getClass().getSimpleName() + " does not support customer deletion");
+    }
 }

@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+name: stock_status
+description: "Availability shown to the shopper."
+values:
+  - value: in_stock
+  - value: low_stock
+  - value: out_of_stock
+  - value: preorder
+  - value: backorder

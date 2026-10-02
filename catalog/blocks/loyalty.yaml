@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+name: loyalty
+description: "Loyalty programme status."
+fields:
+  tier: { type: string }
+  previousTier: { type: string }
+  points: { type: integer }
+  rewardId: { type: string }

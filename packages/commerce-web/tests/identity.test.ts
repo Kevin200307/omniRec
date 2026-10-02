@@ -215,17 +215,29 @@ describe("IdentityManager — the day-1 / day-2 / login journey", () => {
 });
 
 describe("IdentityManager — session listeners", () => {
+  it("replays a first session that began before anyone subscribed, exactly once", () => {
+    const manager = managerWith().create();
+    const first = vi.fn();
+    const second = vi.fn();
+    manager.onSessionStart(first);
+    manager.onSessionStart(second);
+    expect(first).toHaveBeenCalledTimes(1);
+    expect(second).not.toHaveBeenCalled();
+  });
+
   it("notifies on the first session and on each rotation", () => {
     const harness = managerWith();
     const manager = harness.create();
     const listener = vi.fn();
 
+    // The first session began in the constructor, before the subscription;
+    // it is replayed to the first listener rather than lost.
     manager.onSessionStart(listener);
     manager.startNewSession();
     harness.clock.advance(31 * 60 * 1000);
     manager.current();
 
-    expect(listener).toHaveBeenCalledTimes(2);
+    expect(listener).toHaveBeenCalledTimes(3);
   });
 
   it("stops notifying after unsubscribe", () => {
@@ -233,10 +245,11 @@ describe("IdentityManager — session listeners", () => {
     const listener = vi.fn();
 
     const unsubscribe = manager.onSessionStart(listener);
+    expect(listener).toHaveBeenCalledTimes(1); // the replayed first session
     unsubscribe();
     manager.startNewSession();
 
-    expect(listener).not.toHaveBeenCalled();
+    expect(listener).toHaveBeenCalledTimes(1);
   });
 });
 

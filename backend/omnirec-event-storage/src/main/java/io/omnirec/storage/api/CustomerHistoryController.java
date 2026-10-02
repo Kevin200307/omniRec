@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 package io.omnirec.storage.api;
 
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.catalog.EventRegistry;
+import io.omnirec.commerce.model.EventName;
 import io.omnirec.commerce.storage.CustomerEventPage;
 import io.omnirec.commerce.storage.EventCursor;
 import io.omnirec.commerce.storage.EventQuery;
@@ -133,14 +135,15 @@ public class CustomerHistoryController {
         }
     }
 
-    private static Set<EventType> eventTypes(List<String> values) {
-        Set<EventType> types = new LinkedHashSet<>();
+    private static Set<EventName> eventTypes(List<String> values) {
+        Set<EventName> types = new LinkedHashSet<>();
         if (values == null) return types;
         for (String value : values) {
             for (String name : value.split(",")) {
                 if (name.isBlank()) continue;
-                types.add(EventType.find(name.trim()).orElseThrow(() ->
-                        new ResponseStatusException(HttpStatus.BAD_REQUEST, "unknown eventType")));
+                types.add(EventName.parse(name.trim())
+                        .filter(n -> EventRegistry.standard().isKnown(n.wireName()))
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "unknown eventType")));
             }
         }
         return types;

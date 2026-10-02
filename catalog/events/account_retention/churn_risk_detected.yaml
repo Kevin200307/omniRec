@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+name: churn_risk_detected
+domain: account_retention
+version: 1
+sources: [derived]
+description: "The customer was scored as likely to churn. Derived."
+properties:
+  score: { type: number, required: true, minimum: 0, maximum: 1 }
+example:
+  score: 0.7

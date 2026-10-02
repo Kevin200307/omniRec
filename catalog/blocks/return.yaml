@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+name: return
+description: "A return."
+fields:
+  id: { type: string }
+  orderId: { type: string }
+  reason: { type: enum, vocabulary: return_reason }
+  method: { type: string }
+  refundAmount: { type: money, minimum: 0 }
+  currency: { type: string, pattern: "^[A-Z]{3}$" }
+  items:
+    type: array
+    items: { type: object, fields: { productId: { type: string, required: true }, quantity: { type: integer, minimum: 1 } } }

@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: coupon_applied
+domain: cart_checkout
+version: 1
+sources: [browser, server]
+description: "A coupon code was accepted."
+aliases: [cart_coupon_applied]
+blocks: [cart, promotion]
+properties:
+  promotion.couponCode: { required: true }
+example:
+  promotion: { couponCode: couponcode_1 }

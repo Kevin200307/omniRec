@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+name: deal_claimed
+domain: product_page
+version: 1
+sources: [browser, server]
+description: "The shopper claimed a time-limited deal."
+blocks: [product, promotion]
+properties:
+  product.id: { required: true }
+  promotion.id: { required: true }
+example:
+  product: { id: id_1 }
+  promotion: { id: id_1 }

@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: loyalty_reward_redeemed
+domain: account_retention
+version: 1
+sources: [browser, server]
+description: "The customer redeemed a loyalty reward or offer."
+aliases: [loyalty_offer_redeemed, win_back_offer_redeemed]
+blocks: [loyalty, promotion]
+properties:
+  loyalty.rewardId: { required: true }
+example:
+  loyalty: { rewardId: reward_1 }

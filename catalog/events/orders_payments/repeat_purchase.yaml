@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: repeat_purchase
+domain: orders_payments
+version: 1
+sources: [derived]
+description: "A customer bought again. Derived from purchase history."
+blocks: [order]
+properties:
+  order.id: { required: true }
+example:
+  order: { id: id_1 }

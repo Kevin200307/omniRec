@@ -69,6 +69,36 @@ export function generateJava(catalog: Catalog): GeneratedFile[] {
 
   return [
     { path: PATHS.javaStandardEvents, content: lines.join("\n") },
+    { path: PATHS.javaStandardEventNames, content: generateEventNames(catalog) },
     { path: PATHS.javaCatalogJson, content: runtimeCatalogJson(catalog) },
   ];
+}
+
+/**
+ * `StandardEventNames`: the same names as typed {@code EventName} values, for
+ * code that compares or builds events. `StandardEvents` keeps the plain strings
+ * because annotations need compile-time constants.
+ */
+function generateEventNames(catalog: Catalog): string {
+  const lines: string[] = [];
+  lines.push("// SPDX-License-Identifier: Apache-2.0");
+  lines.push(`// ${GENERATED_NOTICE}`);
+  lines.push("package io.omnirec.commerce.catalog.generated;");
+  lines.push("");
+  lines.push("import io.omnirec.commerce.model.EventName;");
+  lines.push("");
+  lines.push("/** Every standard event as a typed {@link EventName}. String forms are in {@link StandardEvents}. */");
+  lines.push("public final class StandardEventNames {");
+  for (const event of catalog.events) {
+    const constant = javaConstantName(event.name);
+    lines.push("");
+    lines.push(`    /** ${javadoc(event.description)} */`);
+    lines.push(`    public static final EventName ${constant} = EventName.of(StandardEvents.${constant});`);
+  }
+  lines.push("");
+  lines.push("    private StandardEventNames() {");
+  lines.push("    }");
+  lines.push("}");
+  lines.push("");
+  return lines.join("\n");
 }

@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+name: search_filter_applied
+domain: search_discovery
+version: 1
+sources: [browser]
+description: "The shopper applied a filter to results."
+aliases: [search_refined]
+blocks: [search]
+properties:
+  filterName: { type: string, required: true }
+  filterValue: { type: string, required: true }
+example:
+  filterName: filtername_1
+  filterValue: filtervalue_1

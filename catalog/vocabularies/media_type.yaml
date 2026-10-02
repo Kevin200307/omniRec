@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+name: media_type
+description: "Kind of product media."
+values:
+  - value: image
+  - value: video
+  - value: spin_360
+  - value: ar
+  - value: document

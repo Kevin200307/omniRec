@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: product_review_submitted
+domain: reviews_advocacy
+version: 1
+sources: [browser, server]
+description: "The shopper submitted a review of a product."
+aliases: [review_submitted]
+blocks: [product]
+properties:
+  product.id: { required: true }
+example:
+  product: { id: p123 }

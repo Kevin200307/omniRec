@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: category_viewed
+domain: search_discovery
+version: 1
+sources: [browser]
+description: "A category page was viewed."
+blocks: [category]
+properties:
+  category.id: { required: true }
+example:
+  category: { id: shoes, name: Shoes }

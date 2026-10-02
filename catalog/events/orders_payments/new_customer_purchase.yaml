@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: new_customer_purchase
+domain: orders_payments
+version: 1
+sources: [derived]
+description: "A customer's first purchase. Derived from purchase history."
+aliases: [new_to_brand_purchase, first_purchase]
+blocks: [order]
+properties:
+  order.id: { required: true }
+example:
+  order: { id: id_1 }

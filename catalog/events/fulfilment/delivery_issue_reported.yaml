@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+name: delivery_issue_reported
+domain: fulfilment
+version: 1
+sources: [browser, server]
+description: "The customer reported a problem with a delivery."
+aliases: [package_damaged_reported, wrong_item_received_reported, missing_item_reported]
+blocks: [order, shipment]
+properties:
+  order.id: { required: true }
+  issue: { type: enum, required: true, vocabulary: delivery_issue }
+example:
+  order: { id: id_1 }
+  issue: damaged

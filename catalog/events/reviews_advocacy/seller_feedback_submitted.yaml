@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+name: seller_feedback_submitted
+domain: reviews_advocacy
+version: 1
+sources: [browser, server, webhook]
+description: "The customer rated the seller."
+aliases: [seller_feedback_rating_given]
+blocks: [order, review]
+properties:
+  order.id: { required: true }
+  review.rating: { required: true }
+example:
+  order: { id: id_1 }
+  review: { rating: 1 }

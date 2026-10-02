@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: refund_requested
+domain: returns_refunds
+version: 1
+sources: [browser, server]
+description: "The customer asked for a refund."
+blocks: [order, payment]
+properties:
+  order.id: { required: true }
+example:
+  order: { id: id_1 }

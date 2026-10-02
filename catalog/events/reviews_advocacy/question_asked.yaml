@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: question_asked
+domain: reviews_advocacy
+version: 1
+sources: [browser, server]
+description: "A customer asked a question about a product."
+aliases: [customer_question_submitted]
+blocks: [product]
+properties:
+  product.id: { required: true }
+example:
+  product: { id: id_1 }

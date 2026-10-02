@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+name: saved_for_later_viewed
+domain: search_discovery
+version: 1
+sources: [browser]
+description: "The shopper viewed items saved for later."
+aliases: [saved_for_later_item_viewed]
+blocks: [list]

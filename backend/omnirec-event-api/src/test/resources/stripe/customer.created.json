@@ -1,0 +1,11 @@
+{
+  "id": "evt_1PxCustomer0001",
+  "object": "event",
+  "api_version": "2024-06-20",
+  "created": 1790000300,
+  "livemode": false,
+  "type": "customer.created",
+  "data": {
+    "object": { "id": "cus_Q2Customer", "object": "customer", "email": null }
+  }
+}

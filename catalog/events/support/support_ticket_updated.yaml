@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: support_ticket_updated
+domain: support
+version: 1
+sources: [webhook]
+description: "A support ticket was updated."
+aliases: [email_support_replied]
+blocks: [support]
+properties:
+  support.id: { required: true }
+example:
+  support: { id: id_1 }

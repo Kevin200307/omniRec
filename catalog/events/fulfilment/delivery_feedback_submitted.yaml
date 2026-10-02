@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+name: delivery_feedback_submitted
+domain: fulfilment
+version: 1
+sources: [browser, server]
+description: "The customer rated the delivery."
+blocks: [shipment]
+properties:
+  shipment.id: { required: true }
+  rating: { type: integer, required: true, minimum: 1, maximum: 5 }
+example:
+  shipment: { id: id_1 }
+  rating: 1

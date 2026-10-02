@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: ad_viewable_impression
+domain: acquisition_messaging
+version: 1
+sources: [browser, webhook]
+description: "An ad met the viewability standard (at least half visible for a second, or two seconds for video)."
+blocks: [ad]
+properties:
+  ad.id: { required: true }
+example:
+  ad: { id: id_1 }

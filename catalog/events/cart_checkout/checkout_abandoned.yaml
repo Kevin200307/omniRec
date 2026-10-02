@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: checkout_abandoned
+domain: cart_checkout
+version: 1
+sources: [derived]
+description: "Checkout began but no order followed in time. Derived by the pipeline."
+blocks: [cart]
+properties:
+  cart.id: { required: true }
+example:
+  cart: { id: id_1 }

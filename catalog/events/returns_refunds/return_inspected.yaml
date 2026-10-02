@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: return_inspected
+domain: returns_refunds
+version: 1
+sources: [server]
+description: "The returned items were inspected."
+blocks: [return]
+properties:
+  return.id: { required: true }
+example:
+  return: { id: id_1 }

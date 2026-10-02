@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+name: replacement_order_created
+domain: orders_payments
+version: 1
+sources: [server]
+description: "A replacement order was created for an earlier one."
+blocks: [order]
+properties:
+  order.id: { required: true }
+  originalOrderId: { type: string, required: true }
+example:
+  order: { id: id_1 }
+  originalOrderId: originalorder_1

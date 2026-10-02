@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: live_chat_resolved
+domain: support
+version: 1
+sources: [webhook]
+description: "A live chat ended resolved."
+blocks: [support]
+properties:
+  support.id: { required: true }
+example:
+  support: { id: id_1 }

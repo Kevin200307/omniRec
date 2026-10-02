@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: seller_message_replied
+domain: support
+version: 1
+sources: [webhook]
+description: "The seller replied to a customer message."
+blocks: [support]
+properties:
+  support.id: { required: true }
+example:
+  support: { id: id_1 }

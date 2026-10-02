@@ -3,7 +3,8 @@ package io.omnirec.storage;
 
 import io.omnirec.commerce.model.CommerceEvent;
 import io.omnirec.commerce.model.EventIdentity;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.model.EventName;
 import io.omnirec.commerce.storage.CustomerEventPage;
 import io.omnirec.commerce.storage.EventQuery;
 import io.omnirec.commerce.storage.EventStore.SaveOutcome;
@@ -115,7 +116,7 @@ class RealPostgresEventStoreTest {
                     "1:create commerce events",
                     "2:create identity links",
                     "3:create customer history indexes",
-                    "4:postgres event key and retention index"), applied);
+                    "4:postgres event key and retention index", "5:v2 envelope columns", "6:erasure tombstones"), applied);
         }
 
         @Test
@@ -232,7 +233,7 @@ class RealPostgresEventStoreTest {
         void aRowTheDatabaseCanNeverAcceptIsAPermanentFailure() throws SQLException {
             String tenant = tenant();
             CommerceEvent poisoned = CommerceEvent.builder()
-                    .eventId(eventId()).eventType(EventType.PRODUCT_VIEWED).timestamp(T0).tenantId(tenant)
+                    .eventId(eventId()).eventType(StandardEventNames.PRODUCT_VIEWED).timestamp(T0).tenantId(tenant)
                     .identity(EventIdentity.anonymous("anon_1", "s1"))
                     .properties(Map.of("note", "nul\u0000byte"))
                     .build();
@@ -405,7 +406,7 @@ class RealPostgresEventStoreTest {
             }
 
             List<CommerceEvent> all = allPages(store, tenant, "user_p", page(5)).stream()
-                    .filter(e -> e.eventType() != EventType.IDENTIFY).toList();
+                    .filter(e -> !e.eventType().equals(StandardEventNames.IDENTIFY)).toList();
 
             List<String> ids = all.stream().map(CommerceEvent::eventId).toList();
             assertEquals(new HashSet<>(ids).size(), ids.size(), "no event may appear on two pages");
@@ -438,14 +439,14 @@ class RealPostgresEventStoreTest {
         void filtersByEventType() {
             String tenant = tenant();
             store.save(userView(tenant, "a", "u", "p1", T0));
-            store.save(event(tenant, EventType.PRODUCT_ADDED_TO_CART, EventIdentity.authenticated("a", "u", "s"), "p2", T0));
-            store.save(event(tenant, EventType.SEARCH_PERFORMED, EventIdentity.authenticated("a", "u", "s"), null, T0));
+            store.save(event(tenant, StandardEventNames.PRODUCT_ADDED_TO_CART, EventIdentity.authenticated("a", "u", "s"), "p2", T0));
+            store.save(event(tenant, StandardEventNames.SEARCH_PERFORMED, EventIdentity.authenticated("a", "u", "s"), null, T0));
 
-            List<EventType> types = store.findCustomerEvents(tenant, "u",
-                            new EventQuery(50, null, null, null, Set.of(EventType.PRODUCT_VIEWED, EventType.PRODUCT_ADDED_TO_CART)))
+            List<EventName> types = store.findCustomerEvents(tenant, "u",
+                            new EventQuery(50, null, null, null, Set.of(StandardEventNames.PRODUCT_VIEWED, StandardEventNames.PRODUCT_ADDED_TO_CART)))
                     .events().stream().map(CommerceEvent::eventType).toList();
 
-            assertEquals(Set.of(EventType.PRODUCT_VIEWED, EventType.PRODUCT_ADDED_TO_CART), new HashSet<>(types));
+            assertEquals(Set.of(StandardEventNames.PRODUCT_VIEWED, StandardEventNames.PRODUCT_ADDED_TO_CART), new HashSet<>(types));
             assertEquals(2, types.size());
         }
 
@@ -469,7 +470,7 @@ class RealPostgresEventStoreTest {
             store.save(identify(tenant, "anon_f", "user_f", T0.plusSeconds(1)));
 
             List<String> products = store.findCustomerEvents(tenant, "user_f",
-                            new EventQuery(50, null, T0.minusSeconds(60), null, Set.of(EventType.PRODUCT_VIEWED)))
+                            new EventQuery(50, null, T0.minusSeconds(60), null, Set.of(StandardEventNames.PRODUCT_VIEWED)))
                     .events().stream().map(e -> e.commerce().productId()).toList();
 
             assertEquals(List.of("p_new"), products);
@@ -494,6 +495,38 @@ class RealPostgresEventStoreTest {
             assertEquals(List.of("fresh"), remaining);
             assertEquals(1, count("SELECT count(*) FROM omnirec.identity_links WHERE tenant_id = ?", tenant),
                     "links outlive events; they are not part of the purge");
+        }
+
+        @Test
+        void tenantsWithTheirOwnRetentionArePrunedIndependently() {
+            Instant now = Instant.now();
+            String shortLived = tenant(), longLived = tenant(), standard = tenant();
+            store.save(userView(shortLived, "a", "u", "60d", now.minus(Duration.ofDays(60))));
+            store.save(userView(shortLived, "a", "u", "1d", now.minus(Duration.ofDays(1))));
+            store.save(userView(longLived, "a", "u", "500d", now.minus(Duration.ofDays(500))));
+            store.save(userView(standard, "a", "u", "500d", now.minus(Duration.ofDays(500))));
+            store.save(userView(standard, "a", "u", "1d", now.minus(Duration.ofDays(1))));
+
+            io.omnirec.storage.postgres.PostgresRetentionJob job = new io.omnirec.storage.postgres.PostgresRetentionJob(
+                    store, Duration.ofDays(400), java.util.Map.of(shortLived, Duration.ofDays(30), longLived, Duration.ofDays(1000)),
+                    Duration.ofHours(1), 2);
+            assertTrue(job.isEnabled());
+            job.purgeNow();
+
+            java.util.function.Function<String, List<String>> left = t -> store.findCustomerEvents(t, "u", page(50))
+                    .events().stream().map(e -> e.commerce().productId()).toList();
+            assertEquals(List.of("1d"), left.apply(shortLived), "a shorter tenant retention wins");
+            assertEquals(List.of("500d"), left.apply(longLived), "a longer one is not cut by the global max-age");
+            assertEquals(List.of("1d"), left.apply(standard), "everyone else gets the global max-age");
+        }
+
+        @Test
+        void perTenantRetentionAloneEnablesTheJob() {
+            var job = new io.omnirec.storage.postgres.PostgresRetentionJob(store, null,
+                    java.util.Map.of("t", Duration.ofDays(1)), Duration.ofHours(1), 10);
+            assertTrue(job.isEnabled());
+            assertThrows(IllegalArgumentException.class, () -> new io.omnirec.storage.postgres.PostgresRetentionJob(
+                    store, null, java.util.Map.of("t", Duration.ZERO), Duration.ofHours(1), 10));
         }
     }
 }

@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: consent_revoked
+domain: account_retention
+version: 1
+sources: [browser, server]
+description: "The customer withdrew consent for a purpose."
+aliases: [marketing_consent_revoked]
+properties:
+  purpose: { type: enum, required: true, vocabulary: consent_category }
+example:
+  purpose: analytics

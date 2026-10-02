@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: delivery_failed
+domain: fulfilment
+version: 1
+sources: [webhook]
+description: "The shipment could not be delivered."
+blocks: [shipment]
+properties:
+  shipment.id: { required: true }
+  reason: { type: string }
+example:
+  shipment: { id: id_1 }

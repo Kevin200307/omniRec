@@ -39,8 +39,16 @@ public class HistoryAccessAuthenticator {
     }
 
     private final Map<String, Grant> grantsByKey;
+    /** Secret keys of tenants kept outside configuration (tenant-source: jdbc). May be null. */
+    private final io.omnirec.eventapi.tenant.TenantRegistry tenantRegistry;
 
     public HistoryAccessAuthenticator(EventApiProperties events, EventStorageProperties.HistoryApi historyApi) {
+        this(events, historyApi, null);
+    }
+
+    public HistoryAccessAuthenticator(EventApiProperties events, EventStorageProperties.HistoryApi historyApi,
+                                      io.omnirec.eventapi.tenant.TenantRegistry tenantRegistry) {
+        this.tenantRegistry = tenantRegistry;
         Set<String> publishableKeys = new HashSet<>();
         Set<String> enabledTenants = new LinkedHashSet<>();
         events.getTenants().forEach((tenantId, tenant) -> {
@@ -107,11 +115,15 @@ public class HistoryAccessAuthenticator {
                 match = entry.getValue();
             }
         }
+        if (match == null && tenantRegistry != null) {
+            return tenantRegistry.tenantForSecretKey(presentedKey)
+                    .map(tenantId -> new Grant("tenant:" + tenantId, Set.of(tenantId)));
+        }
         return Optional.ofNullable(match);
     }
 
     public boolean hasAnyKeyConfigured() {
-        return !grantsByKey.isEmpty();
+        return !grantsByKey.isEmpty() || tenantRegistry != null;
     }
 
     private static boolean isBlank(String value) {

@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: Apache-2.0
+name: content_section
+description: "A section of the product page."
+values:
+  - value: description
+  - value: bullet_points
+  - value: a_plus
+  - value: comparison_chart
+  - value: technical_details
+  - value: ingredients_or_materials
+  - value: safety
+  - value: dimensions
+  - value: size_chart
+  - value: compatibility
+  - value: warranty
+  - value: return_policy
+  - value: seller
+  - value: shipping
+  - value: faq

@@ -5,7 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.omnirec.commerce.destination.EventDestination;
 import io.omnirec.commerce.identity.IdentityLinkStore;
 import io.omnirec.commerce.model.CommerceEvent;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.model.EventName;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -220,7 +221,7 @@ class EndToEndPipelineTest {
 
             assertEquals(1, destination.received.size());
             CommerceEvent delivered = destination.received.get(0);
-            assertEquals(EventType.PRODUCT_VIEWED, delivered.eventType());
+            assertEquals(StandardEventNames.PRODUCT_VIEWED, delivered.eventType());
             assertEquals("p123", delivered.commerce().productId());
             assertEquals(anon("anon_A"), delivered.identity().anonymousId());
             assertEquals("session_1", delivered.identity().sessionId());

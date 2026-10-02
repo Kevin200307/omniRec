@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 import { StrictMode, useEffect } from "react";
 import { act, cleanup, render, renderHook } from "@testing-library/react";
-import { CommerceProvider, useCommerce, useProductView } from "../src";
+import { CommerceProvider, useCommerce, useOmnirec, useProductView } from "../src";
 
 interface SentEvent {
-  eventType: string;
-  commerce?: { productId?: string };
+  event: string;
+  data?: { product?: { id?: string } };
 }
 
 function fakeFetch() {
@@ -42,6 +42,7 @@ describe("CommerceProvider", () => {
   it("throws a clear error when useCommerce is used outside the provider", () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     expect(() => renderHook(() => useCommerce())).toThrow(/inside <CommerceProvider>/);
+    expect(() => renderHook(() => useOmnirec())).toThrow(/inside <OmnirecProvider>/);
     spy.mockRestore();
   });
 
@@ -65,8 +66,8 @@ describe("CommerceProvider", () => {
       await client!.flush();
     });
 
-    expect(sent.map((e) => e.eventType)).toEqual(["product_clicked"]);
-    expect(sent[0].commerce?.productId).toBe("p1");
+    expect(sent.map((e) => e.event)).toEqual(["product_clicked"]);
+    expect(sent[0].data?.product?.id).toBe("p1");
   });
 
   it("useProductView emits product_viewed on mount and again when the product changes", async () => {
@@ -100,16 +101,14 @@ describe("CommerceProvider", () => {
       await client!.flush();
     });
 
-    const views = sent.filter((e) => e.eventType === "product_viewed").map((e) => e.commerce?.productId);
+    const views = sent.filter((e) => e.event === "product_viewed").map((e) => e.data?.product?.id);
     expect(views).toEqual(["p1", "p2"]);
   });
 
-  // KNOWN BUG, recorded in planning/baseline.md and fixed in plan task 7.1.
-  // Strict Mode runs effects twice in development (Next.js enables it by
-  // default). The provider's cleanup destroys the client and nothing recreates
-  // it, so every event after mount is dropped. `it.fails` passes while the bug
-  // exists and starts failing once it is fixed, as a reminder to flip it.
-  it.fails("keeps a working client under React StrictMode", async () => {
+  // Regression test for the bug found in Phase 0: Strict Mode runs effects
+  // twice in development (Next.js enables it by default), and the provider used
+  // to destroy its client in the first cleanup, dropping every later event.
+  it("keeps a working client under React StrictMode", async () => {
     const { sent, fetchImpl } = fakeFetch();
     const onError = vi.fn();
     let client: ReturnType<typeof useCommerce> | undefined;
@@ -136,6 +135,6 @@ describe("CommerceProvider", () => {
     });
 
     expect(onError).not.toHaveBeenCalled();
-    expect(sent.map((e) => e.eventType)).toEqual(["product_clicked"]);
+    expect(sent.map((e) => e.event)).toEqual(["product_clicked"]);
   });
 });

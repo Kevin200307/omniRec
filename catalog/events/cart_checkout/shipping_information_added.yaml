@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: shipping_information_added
+domain: cart_checkout
+version: 1
+sources: [browser, server]
+description: "Shipping details were provided during checkout."
+aliases: [shipping_address_added]
+blocks: [cart]
+properties:
+  cart.id: { required: true }
+example:
+  cart: { id: c1 }

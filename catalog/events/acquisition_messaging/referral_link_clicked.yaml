@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: referral_link_clicked
+domain: acquisition_messaging
+version: 1
+sources: [browser]
+description: "The shopper arrived through a referral link."
+aliases: [referral_link_click]
+blocks: [referral]
+properties:
+  referral.code: { required: true }
+example:
+  referral: { code: code_1 }

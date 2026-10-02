@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: promotion_clicked
+domain: product_page
+version: 1
+sources: [browser]
+description: "The shopper clicked a promotion or deal badge."
+blocks: [product, promotion]
+properties:
+  promotion.id: { required: true }
+example:
+  promotion: { id: id_1 }

@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+name: product_media_viewed
+domain: product_page
+version: 1
+sources: [browser]
+description: "The shopper viewed product media: the main image, the gallery, a 360 spin or AR."
+aliases: [main_image_view, image_gallery_opened]
+blocks: [product]
+properties:
+  product.id: { required: true }
+  mediaType: { type: enum, required: true, vocabulary: media_type }
+  mediaIndex: { type: integer, minimum: 0 }
+example:
+  product: { id: id_1 }
+  mediaType: image

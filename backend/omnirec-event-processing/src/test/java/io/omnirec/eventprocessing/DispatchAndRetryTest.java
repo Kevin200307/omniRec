@@ -10,7 +10,8 @@ import io.omnirec.commerce.model.CommerceData;
 import io.omnirec.commerce.model.CommerceEvent;
 import io.omnirec.commerce.model.EventContext;
 import io.omnirec.commerce.model.EventIdentity;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.model.EventName;
 import io.omnirec.eventprocessing.consumer.DestinationConsumer;
 import io.omnirec.eventprocessing.dispatch.EventDispatcher;
 import io.omnirec.eventprocessing.queue.ConfirmedPublisher;
@@ -99,7 +100,7 @@ class DispatchAndRetryTest {
     private CommerceEvent event(String eventId) {
         return CommerceEvent.builder()
                 .eventId(eventId)
-                .eventType(EventType.PRODUCT_VIEWED)
+                .eventType(StandardEventNames.PRODUCT_VIEWED)
                 .timestamp(Instant.parse("2026-01-01T00:00:00Z"))
                 .tenantId("demo-store")
                 .identity(EventIdentity.anonymous("anon_A", "session_1"))

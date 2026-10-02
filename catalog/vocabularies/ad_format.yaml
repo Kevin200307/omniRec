@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: Apache-2.0
+name: ad_format
+description: "Kind of ad."
+values:
+  - value: search
+  - value: display
+  - value: video
+  - value: shopping
+  - value: sponsored_product
+  - value: sponsored_brand
+  - value: sponsored_display
+  - value: social
+  - value: retargeting
+  - value: native
+  - value: other

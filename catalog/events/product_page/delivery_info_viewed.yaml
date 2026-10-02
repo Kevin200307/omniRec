@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: delivery_info_viewed
+domain: product_page
+version: 1
+sources: [browser]
+description: "The shopper viewed delivery dates, shipping options or free-shipping eligibility."
+aliases: [delivery_date_viewed, shipping_option_viewed, free_shipping_eligibility_checked, prime_eligibility_viewed]
+blocks: [product, shipment]
+properties:
+  product.id: { required: true }
+example:
+  product: { id: id_1 }

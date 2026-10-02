@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: referral
+description: "A referral."
+fields:
+  code: { type: string, maxLength: 64 }
+  channel: { type: string }

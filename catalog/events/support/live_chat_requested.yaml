@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: live_chat_requested
+domain: support
+version: 1
+sources: [browser, webhook]
+description: "The customer asked for a human agent."
+blocks: [support]
+properties:
+  support.id: { required: true }
+example:
+  support: { id: id_1 }

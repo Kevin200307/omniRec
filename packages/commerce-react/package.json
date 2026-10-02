@@ -1,13 +1,13 @@
 {
   "name": "@omnirec/commerce-react",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Kevin200307/omniRec.git",
     "directory": "packages/commerce-react"
   },
-  "description": "React bindings for @omnirec/commerce-web - CommerceProvider and useCommerce().",
+  "description": "React bindings for @omnirec/commerce-web: OmnirecProvider, useTrack, useImpression and <Track>.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -16,8 +16,8 @@
   ],
   "sideEffects": false,
   "scripts": {
-    "build": "tsup src/index.tsx --format esm,cjs --dts --clean --external react",
-    "dev": "tsup src/index.tsx --format esm,cjs --dts --watch --external react",
+    "build": "tsup",
+    "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -26,7 +26,7 @@
     "react": ">=18"
   },
   "dependencies": {
-    "@omnirec/commerce-web": "1.0.0"
+    "@omnirec/commerce-web": "2.0.0"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.2",
@@ -39,5 +39,12 @@
     "tsup": "^8.3.0",
     "typescript": "^5.6.3",
     "vitest": "^2.1.9"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
   }
 }

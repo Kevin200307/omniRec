@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: product_shared
+domain: product_page
+version: 1
+sources: [browser]
+description: "A product was shared. The channel goes in properties."
+blocks: [product]
+properties:
+  product.id: { required: true }
+example:
+  product: { id: p123 }

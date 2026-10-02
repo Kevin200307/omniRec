@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+name: recommendation_purchased
+domain: search_discovery
+version: 1
+sources: [browser, server]
+description: "A recommended product was purchased."
+blocks: [product, order, recommendation]
+properties:
+  recommendation.id: { required: true }
+  product.id: { required: true }
+example:
+  product: { id: p456 }
+  order: { id: o1 }
+  recommendation: { id: rec_42 }

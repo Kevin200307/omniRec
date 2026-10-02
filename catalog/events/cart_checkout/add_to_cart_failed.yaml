@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: Apache-2.0
+name: add_to_cart_failed
+domain: cart_checkout
+version: 1
+sources: [browser, server]
+description: "Adding to the cart failed, for example because the item went out of stock."
+blocks: [product, cart]
+properties:
+  product.id: { required: true }
+  reason: { type: string, required: true }
+example:
+  product: { id: id_1 }
+  reason: reason_1

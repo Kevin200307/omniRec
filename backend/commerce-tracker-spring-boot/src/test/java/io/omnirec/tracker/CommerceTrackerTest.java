@@ -3,7 +3,8 @@ package io.omnirec.tracker;
 
 import io.omnirec.commerce.model.CommerceEvent;
 import io.omnirec.commerce.model.CommerceItem;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.model.EventName;
 import io.omnirec.commerce.model.Platform;
 import io.omnirec.commerce.validation.EventValidator;
 import io.omnirec.tracker.trackers.PurchaseTracker.PurchaseCompleted;
@@ -63,7 +64,7 @@ class CommerceTrackerTest {
             commerce.purchase.completed(purchase().build());
 
             CommerceEvent event = only();
-            assertEquals(EventType.PURCHASE_COMPLETED, event.eventType());
+            assertEquals(StandardEventNames.PURCHASE_COMPLETED, event.eventType());
             assertEquals("order_1", event.commerce().orderId());
             assertEquals(new BigDecimal("100.00"), event.commerce().total());
             assertEquals("USD", event.commerce().currency());
@@ -91,7 +92,7 @@ class CommerceTrackerTest {
             commerce.purchase.orderCancelled("order_2", "customer_123", "out of stock");
             commerce.purchase.orderRefunded("order_3", "customer_123", new BigDecimal("50.00"), "USD");
 
-            assertEquals(List.of(EventType.PURCHASE_FAILED, EventType.ORDER_CANCELLED, EventType.ORDER_REFUNDED),
+            assertEquals(List.of(StandardEventNames.PURCHASE_FAILED, StandardEventNames.ORDER_CANCELLED, StandardEventNames.ORDER_REFUNDED),
                     sender.sent.stream().map(CommerceEvent::eventType).toList());
         }
     }
@@ -209,7 +210,7 @@ class CommerceTrackerTest {
             commerce.identify("anon_A", "customer_123");
 
             CommerceEvent event = only();
-            assertEquals(EventType.IDENTIFY, event.eventType());
+            assertEquals(StandardEventNames.IDENTIFY, event.eventType());
             assertEquals("anon_A", event.identity().anonymousId());
             assertEquals("customer_123", event.identity().userId());
         }
@@ -235,7 +236,7 @@ class CommerceTrackerTest {
             IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class,
                     () -> commerce.purchase.completed(purchase().total(null).build()));
 
-            assertTrue(thrown.getMessage().contains("commerce.total"));
+            assertTrue(thrown.getMessage().contains("data.order.total"));
             assertTrue(sender.sent.isEmpty());
         }
 
@@ -274,7 +275,7 @@ class CommerceTrackerTest {
         void recordsAnAcceptedReview() {
             commerce.product.reviewSubmitted("p1", "customer_123", "review_1", 5);
 
-            assertEquals(EventType.PRODUCT_REVIEW_SUBMITTED, only().eventType());
+            assertEquals(StandardEventNames.PRODUCT_REVIEW_SUBMITTED, only().eventType());
             assertEquals(5, only().properties().get("rating"));
         }
 
@@ -282,7 +283,7 @@ class CommerceTrackerTest {
         void recordsRegistrationWithTheBrowsingIdentityThatPrecededIt() {
             commerce.user.registered("customer_123", "anon_A");
 
-            assertEquals(EventType.USER_REGISTERED, only().eventType());
+            assertEquals(StandardEventNames.USER_REGISTERED, only().eventType());
             assertEquals("anon_A", only().identity().anonymousId(),
                     "this is what connects pre-signup browsing to the new account");
         }
@@ -292,7 +293,7 @@ class CommerceTrackerTest {
             commerce.cart.abandoned("cart_1", "customer_123", "anon_A",
                     List.of(CommerceItem.of("p1", 1, new BigDecimal("10.00"), "USD")));
 
-            assertEquals(EventType.CART_ABANDONED, only().eventType());
+            assertEquals(StandardEventNames.CART_ABANDONED, only().eventType());
             assertEquals("cart_1", only().commerce().cartId());
         }
 
@@ -302,8 +303,8 @@ class CommerceTrackerTest {
             commerce.checkout.shippingInformationAdded("cart_1", "customer_123", "express");
             commerce.checkout.completed("cart_1", "order_1", "customer_123");
 
-            assertEquals(List.of(EventType.CHECKOUT_STARTED, EventType.SHIPPING_INFORMATION_ADDED,
-                            EventType.CHECKOUT_COMPLETED),
+            assertEquals(List.of(StandardEventNames.CHECKOUT_STARTED, StandardEventNames.SHIPPING_INFORMATION_ADDED,
+                            StandardEventNames.CHECKOUT_COMPLETED),
                     sender.sent.stream().map(CommerceEvent::eventType).toList());
         }
 
@@ -312,7 +313,7 @@ class CommerceTrackerTest {
             commerce.recommendation.purchased("rec_1", "p1", "order_1", "customer_123", "anon_A");
 
             CommerceEvent event = only();
-            assertEquals(EventType.RECOMMENDATION_PURCHASED, event.eventType());
+            assertEquals(StandardEventNames.RECOMMENDATION_PURCHASED, event.eventType());
             assertEquals("rec_1", event.commerce().recommendationId());
             assertEquals("p1", event.commerce().productId());
         }

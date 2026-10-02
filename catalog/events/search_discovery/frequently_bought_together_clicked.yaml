@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: frequently_bought_together_clicked
+domain: search_discovery
+version: 1
+sources: [browser]
+description: "The shopper clicked a frequently-bought-together suggestion."
+blocks: [product, recommendation]
+properties:
+  product.id: { required: true }
+example:
+  product: { id: id_1 }

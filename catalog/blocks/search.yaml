@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: search
+description: A search the shopper ran.
+fields:
+  query: { type: string, maxLength: 1024, description: "The text searched for." }
+  resultsCount: { type: integer, minimum: 0 }

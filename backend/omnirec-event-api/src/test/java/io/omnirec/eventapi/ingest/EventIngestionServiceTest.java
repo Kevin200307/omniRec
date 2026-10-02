@@ -11,7 +11,8 @@ import io.omnirec.commerce.model.CommerceEvent;
 import io.omnirec.commerce.model.CommerceItem;
 import io.omnirec.commerce.model.EventContext;
 import io.omnirec.commerce.model.EventIdentity;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.model.EventName;
 import io.omnirec.commerce.validation.EventValidator;
 import io.omnirec.eventapi.dto.EventDto;
 import io.omnirec.eventapi.dto.IngestResponse;
@@ -75,13 +76,13 @@ class EventIngestionServiceTest {
                 JSON);
     }
 
-    private EventDto dto(String eventId, EventType type, CommerceData commerce, EventIdentity identity) {
+    private EventDto dto(String eventId, EventName type, CommerceData commerce, EventIdentity identity) {
         return new EventDto(eventId, type, "1.0", Instant.parse("2026-01-01T11:59:00Z"),
                 identity, EventContext.empty(), commerce, Map.of());
     }
 
     private EventDto productViewed(String eventId) {
-        return dto(eventId, EventType.PRODUCT_VIEWED,
+        return dto(eventId, StandardEventNames.PRODUCT_VIEWED,
                 CommerceData.builder().productId("p1").build(),
                 EventIdentity.anonymous("anon_A", "session_1"));
     }
@@ -141,7 +142,7 @@ class EventIngestionServiceTest {
                     "https://shop.example/reset?token=abc&email=a%40b.com&utm_source=mail#access_token=x",
                     "/reset", "https://user:pw@mail.example/inbox?sid=123",
                     null, null, null, null, null, null, null, null, null);
-            ingest(new EventDto("evt_url", EventType.PAGE_VIEWED, "1.0", Instant.parse("2026-01-01T11:59:00Z"),
+            ingest(new EventDto("evt_url", StandardEventNames.PAGE_VIEWED, "1.0", Instant.parse("2026-01-01T11:59:00Z"),
                     EventIdentity.anonymous("anon_A", "s1"), raw, CommerceData.empty(), Map.of()));
 
             EventContext stored = publisher.published.get(0).context();
@@ -165,7 +166,7 @@ class EventIngestionServiceTest {
 
         @Test
         void rejectsAnInvalidEventWithoutQueueingIt() {
-            IngestResponse response = ingest(dto("evt_1", EventType.PRODUCT_VIEWED,
+            IngestResponse response = ingest(dto("evt_1", StandardEventNames.PRODUCT_VIEWED,
                     CommerceData.empty(), EventIdentity.anonymous("anon_A", "session_1")));
 
             assertEquals(0, response.accepted());
@@ -175,10 +176,10 @@ class EventIngestionServiceTest {
 
         @Test
         void namesTheOffendingFieldInTheResponse() {
-            IngestResponse response = ingest(dto("evt_1", EventType.PRODUCT_VIEWED,
+            IngestResponse response = ingest(dto("evt_1", StandardEventNames.PRODUCT_VIEWED,
                     CommerceData.empty(), EventIdentity.anonymous("anon_A", "session_1")));
 
-            assertTrue(response.errors().get(0).reason().contains("commerce.productId"));
+            assertTrue(response.errors().get(0).reason().contains("data.product.id"));
         }
 
         /**
@@ -189,7 +190,7 @@ class EventIngestionServiceTest {
         void oneInvalidEventDoesNotSinkTheRestOfTheBatch() {
             IngestResponse response = ingest(
                     productViewed("evt_1"),
-                    dto("evt_bad", EventType.PRODUCT_VIEWED, CommerceData.empty(),
+                    dto("evt_bad", StandardEventNames.PRODUCT_VIEWED, CommerceData.empty(),
                             EventIdentity.anonymous("anon_A", "session_1")),
                     productViewed("evt_3"));
 
@@ -200,7 +201,7 @@ class EventIngestionServiceTest {
 
         @Test
         void refusesAnEventCarryingSensitivePaymentData() {
-            EventDto unsafe = new EventDto("evt_1", EventType.PAYMENT_INFORMATION_ADDED, "1.0",
+            EventDto unsafe = new EventDto("evt_1", StandardEventNames.PAYMENT_INFORMATION_ADDED, "1.0",
                     Instant.parse("2026-01-01T11:59:00Z"),
                     EventIdentity.anonymous("anon_A", "session_1"),
                     EventContext.empty(),
@@ -215,7 +216,7 @@ class EventIngestionServiceTest {
 
         @Test
         void rejectsAPurchaseMissingItsRequiredFields() {
-            EventDto incomplete = dto("evt_1", EventType.PURCHASE_COMPLETED,
+            EventDto incomplete = dto("evt_1", StandardEventNames.PURCHASE_COMPLETED,
                     CommerceData.builder().orderId("order_1").build(),
                     EventIdentity.authenticated("anon_A", "customer_123", "session_1"));
 
@@ -248,7 +249,7 @@ class EventIngestionServiceTest {
 
         @Test
         void neverForwardsADuplicatePurchase() {
-            EventDto purchase = dto("evt_purchase", EventType.PURCHASE_COMPLETED,
+            EventDto purchase = dto("evt_purchase", StandardEventNames.PURCHASE_COMPLETED,
                     CommerceData.builder()
                             .orderId("order_1")
                             .items(List.of(CommerceItem.of("p1", 1, new BigDecimal("10.00"), "USD")))
@@ -288,7 +289,7 @@ class EventIngestionServiceTest {
          */
         @Test
         void aRejectedEventDoesNotConsumeItsDeduplicationKey() {
-            ingest(dto("evt_1", EventType.PRODUCT_VIEWED, CommerceData.empty(),
+            ingest(dto("evt_1", StandardEventNames.PRODUCT_VIEWED, CommerceData.empty(),
                     EventIdentity.anonymous("anon_A", "session_1")));
 
             IngestResponse corrected = ingest(productViewed("evt_1"));
@@ -316,7 +317,7 @@ class EventIngestionServiceTest {
          */
         @Test
         void anIdentifyEventLinksAndIsPublishedOnlyAsAControlEvent() {
-            EventDto identify = dto("evt_identify", EventType.IDENTIFY, CommerceData.empty(),
+            EventDto identify = dto("evt_identify", StandardEventNames.IDENTIFY, CommerceData.empty(),
                     EventIdentity.authenticated("anon_A", "customer_123", "session_1"));
 
             IngestResponse response = ingest(identify);
@@ -325,12 +326,12 @@ class EventIngestionServiceTest {
             assertEquals(java.util.Optional.of("customer_123"), linkStore.resolveUserId(TENANT, "anon_A"));
             assertTrue(behavioural().isEmpty(), "a control event carries no behavioural signal");
             assertEquals(1, publisher.published.size());
-            assertEquals(EventType.IDENTIFY, publisher.published.get(0).eventType());
+            assertEquals(StandardEventNames.IDENTIFY, publisher.published.get(0).eventType());
         }
 
         @Test
         void aLaterAnonymousEventInheritsTheLinkedUserId() {
-            ingest(dto("evt_identify", EventType.IDENTIFY, CommerceData.empty(),
+            ingest(dto("evt_identify", StandardEventNames.IDENTIFY, CommerceData.empty(),
                     EventIdentity.authenticated("anon_A", "customer_123", "session_1")));
 
             ingest(productViewed("evt_after"));
@@ -340,7 +341,7 @@ class EventIngestionServiceTest {
 
         @Test
         void resolutionHappensBeforeQueueingSoConsumersNeedNoLookup() {
-            ingest(dto("evt_identify", EventType.IDENTIFY, CommerceData.empty(),
+            ingest(dto("evt_identify", StandardEventNames.IDENTIFY, CommerceData.empty(),
                     EventIdentity.authenticated("anon_A", "customer_123", "session_1")));
             ingest(productViewed("evt_after"));
 

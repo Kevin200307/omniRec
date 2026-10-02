@@ -21,6 +21,14 @@ export interface IdentityManagerOptions {
   /** Injected in tests; defaults to real browser storage. */
   anonymousStore?: KeyValueStore;
   sessionStore?: KeyValueStore;
+  /**
+   * Where the session id is mirrored for server-side code on the same site
+   * (the Spring Boot and Node SDKs read the omnirec_session_id cookie).
+   * Defaults to a first-party cookie.
+   */
+  sessionCookieStore?: KeyValueStore;
+  /** Cookie domain for the anonymous-id and session cookies, e.g. ".shop.example". */
+  cookieDomain?: string;
   /** Injected in tests so session expiry can be driven without real time passing. */
   now?: () => number;
 }
@@ -48,6 +56,10 @@ export type SessionStartListener = (sessionId: string, previousSessionId: string
  * across tabs and end a session the moment someone closes a tab to come back
  * two minutes later. The idle timeout is the policy; tab lifetime is not.
  *
+ * The session id is also mirrored to a first-party `omnirec_session_id` cookie
+ * so the merchant's own backend (Spring Boot or Node SDK) can attach its events
+ * to the same session.
+ *
  * ## userId
  * Supplied by the merchant via `identify()`. The SDK never invents one.
  *
@@ -58,9 +70,16 @@ export type SessionStartListener = (sessionId: string, previousSessionId: string
 export class IdentityManager {
   private readonly anonymousStore: KeyValueStore;
   private readonly sessionStore: KeyValueStore;
+  private readonly sessionCookie: KeyValueStore;
   private readonly sessionTimeoutMs: number;
   private readonly now: () => number;
   private readonly sessionListeners: SessionStartListener[] = [];
+  /**
+   * A session that began before anyone subscribed. The constructor resolves the
+   * session immediately, so on a first visit the session starts before the
+   * client can listen; without this, new visitors never got session_started.
+   */
+  private unannounced: { sessionId: string; previous: string | null } | null = null;
 
   private anonymousId: string;
   private sessionId: string;
@@ -69,8 +88,9 @@ export class IdentityManager {
   constructor(options: IdentityManagerOptions = {}) {
     this.sessionTimeoutMs = options.sessionTimeoutMs ?? DEFAULT_SESSION_TIMEOUT_MS;
     this.now = options.now ?? (() => Date.now());
-    this.anonymousStore = options.anonymousStore ?? defaultAnonymousStore();
+    this.anonymousStore = options.anonymousStore ?? defaultAnonymousStore(options.cookieDomain);
     this.sessionStore = options.sessionStore ?? defaultSessionStore();
+    this.sessionCookie = options.sessionCookieStore ?? defaultSessionCookie(options.cookieDomain);
 
     this.anonymousId = this.anonymousStore.get(ANON_KEY) ?? "";
     if (!this.anonymousId) {
@@ -89,6 +109,11 @@ export class IdentityManager {
    */
   onSessionStart(listener: SessionStartListener): () => void {
     this.sessionListeners.push(listener);
+    if (this.unannounced) {
+      const { sessionId, previous } = this.unannounced;
+      this.unannounced = null;
+      listener(sessionId, previous);
+    }
     return () => {
       const index = this.sessionListeners.indexOf(listener);
       if (index >= 0) this.sessionListeners.splice(index, 1);
@@ -153,7 +178,11 @@ export class IdentityManager {
     const previousSessionId = this.sessionId || null;
     this.sessionId = uuid();
     this.sessionStore.set(SESSION_KEY, this.sessionId);
+    this.sessionCookie.set(SESSION_KEY, this.sessionId);
     this.touch();
+    if (this.sessionListeners.length === 0) {
+      this.unannounced = { sessionId: this.sessionId, previous: previousSessionId };
+    }
     for (const listener of [...this.sessionListeners]) {
       listener(this.sessionId, previousSessionId);
     }
@@ -173,6 +202,9 @@ export class IdentityManager {
       return this.startNewSession();
     }
     this.sessionId = stored;
+    // Re-mirror on every read: the cookie may have been cleared or expired
+    // while the stored session is still live.
+    if (this.sessionCookie.get(SESSION_KEY) !== stored) this.sessionCookie.set(SESSION_KEY, stored);
     return stored;
   }
 
@@ -181,9 +213,15 @@ export class IdentityManager {
   }
 }
 
-function defaultAnonymousStore(): KeyValueStore {
+function defaultAnonymousStore(domain?: string): KeyValueStore {
   if (typeof document === "undefined") return new MemoryStore();
-  return new CookieStore(ONE_YEAR_SECONDS);
+  return new CookieStore(ONE_YEAR_SECONDS, domain);
+}
+
+/** One day: long enough to outlive any session, short enough not to linger. Rewritten whenever the session changes. */
+function defaultSessionCookie(domain?: string): KeyValueStore {
+  if (typeof document === "undefined") return new MemoryStore();
+  return new CookieStore(60 * 60 * 24, domain);
 }
 
 function defaultSessionStore(): KeyValueStore {

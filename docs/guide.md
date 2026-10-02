@@ -185,8 +185,19 @@ IP addresses and device fingerprints are never used as identity signals. See
 
 ## 3. Running locally
 
-Requirements: Docker, Node.js 20 or later, and (for backend builds) JDK 17 with
-Maven.
+**Fastest: the CLI, with no Java or Docker.**
+
+```bash
+npx @omnirec/cli init      # starter tracking plan + setup for your framework
+npx @omnirec/cli dev       # collector on http://localhost:8124, live list at /
+```
+
+`omnirec dev` validates against the catalog and your plan with the collector's
+rules, and prints each event as it arrives. See
+[tools/cli/README.md](../tools/cli/README.md).
+
+**The full stack.** This needs Docker, Node.js 20 or later, and JDK 17 with
+Maven for backend builds.
 
 ```bash
 docker-compose up -d        # RabbitMQ, Redis, Event API (8081), serving API (8080)
@@ -196,36 +207,36 @@ cd examples/nextjs-demo-store && cp .env.local.example .env.local && cd ../..
 npx turbo run dev --filter=nextjs-demo-store
 ```
 
-Open `http://localhost:3000` and interact with the demo storefront. The
-following are then observable:
+Open `http://localhost:3000` and use the demo storefront. You can then observe:
 
-- event batches posted to `http://localhost:8081/v1/events/batch`;
+- event batches posted to `http://localhost:8081/v1/events/batch`
 - the `omnirec.events.*` queues in the RabbitMQ management interface at
-  `http://localhost:15672` (default credentials `guest` / `guest`);
+  `http://localhost:15672` (default credentials `guest` / `guest`)
 - recently-viewed results for an authenticated user:
-  `curl "http://localhost:8080/v1/recently-viewed?tenantId=demo-store&userId=<id>"`.
+  `curl "http://localhost:8080/v1/recently-viewed?tenantId=demo-store&userId=<id>"`
 
-No cloud account is required. All provider destinations are disabled by default.
+No cloud account is required: all provider destinations are disabled by
+default. To run the collector the way you would in production, see
+[self-hosting.md](self-hosting.md) (`deploy/lite`, `deploy/standard`).
 
-If ports 5672, 6379, 8080, or 8081 are already in use, stop the conflicting
-service or change the port mappings in `docker-compose.yml`.
+If ports 5672, 6379, 8080 or 8081 are in use, stop the conflicting service or
+change the port mappings in `docker-compose.yml`.
 
 ### Submitting an event directly
 
 ```bash
-curl -i http://localhost:8081/v1/events/batch \
+curl -i http://localhost:8081/v1/events \
   -H "Content-Type: application/json" \
   -H "X-Omnirec-Key: pk_test_demo_store" \
   -d '{
     "events": [{
       "eventId": "evt_manual_1",
-      "eventType": "product_viewed",
-      "schemaVersion": "1.0",
-      "timestamp": "2026-09-19T10:00:00Z",
-      "identity": { "anonymousId": "anon_1", "sessionId": "s1", "userId": null },
-      "context":  { "platform": "web", "url": "https://shop.example/p/123" },
-      "commerce": { "productId": "p123" },
-      "properties": {}
+      "event": "product_viewed",
+      "schemaVersion": "2.0",
+      "timestamp": "2026-10-01T10:00:00Z",
+      "identity": { "anonymousId": "anon_1", "sessionId": "s1" },
+      "context":  { "url": "https://shop.example/p/123" },
+      "data":     { "product": { "id": "p123", "price": 15.00, "currency": "USD" } }
     }]
   }'
 ```
@@ -236,7 +247,8 @@ The service responds with `202 Accepted` and a summary:
 { "accepted": 1, "rejected": 0, "duplicates": 0, "retryLater": 0, "errors": [] }
 ```
 
-Repeating the request returns `"duplicates": 1`.
+Repeating the request returns `"duplicates": 1`. A rejected event names the
+field, for example `data.product.id: id is required`.
 
 ### End-to-end verification
 
@@ -244,20 +256,28 @@ Repeating the request returns `"duplicates": 1`.
 bash scripts/e2e/run.sh
 ```
 
-This script drives the built browser SDK through a two-day anonymous journey
-followed by authentication, against a running Event API, RabbitMQ, and Redis.
-Amazon Personalize is replaced by a local capture server, so no cloud account is
-required. The script asserts nine conditions, covering identity, session
-behaviour, rejection of payment card data, dwell-time handling, and the
-recently-viewed feed. It uses dedicated ports and removes its containers on
-exit.
+This drives the built browser SDK through a two-day anonymous journey followed
+by authentication, against a running Event API, RabbitMQ and Redis. A local
+capture server stands in for Amazon Personalize, and a second one for a webhook
+receiver, so no cloud account is needed. It asserts eleven conditions:
+
+- identity and session behaviour
+- rejection of payment card data
+- dwell-time handling
+- the recently-viewed feed
+- an abandoned cart derived with Redis timers, then delivered by a signed
+  webhook
 
 ## 4. Storefront integration
 
-### Step 1: Configure a tenant
+### Step 1: Decide how the browser authenticates
 
-A tenant represents one storefront and is defined in the Event API
-configuration:
+For one store, nothing is needed. The collector runs in **open mode**, and
+accepts browser events from `omnirec.events.cors.allowed-origins`, or from its
+own origin when you proxy a `/omnirec` path on your site to it
+([self-hosting.md](self-hosting.md#1-choose-how-browsers-authenticate)).
+
+For several stores in one collector, give each tenant a publishable key:
 
 ```yaml
 omnirec:
@@ -265,14 +285,12 @@ omnirec:
     tenants:
       my-store:
         api-key: ${MY_STORE_API_KEY}     # publishable, for example pk_live_7f3c...
-    cors:
-      allowed-origins:
-        - https://www.my-store.com
+        allowed-origins: [https://www.my-store.com]
 ```
 
-The key authorizes event submission for a single tenant and nothing further,
-which is why it may be embedded in browser code. Setting `enabled: false` on a
-tenant revokes its key.
+A publishable key authorizes event submission for one tenant and nothing more,
+which is why it may be embedded in browser code. Setting `enabled: false`
+revokes it.
 
 ### Step 2: Create the client
 
@@ -281,125 +299,134 @@ npm install @omnirec/commerce-web
 ```
 
 ```js
-import { createCommerceClient } from "@omnirec/commerce-web";
+import { createOmnirec } from "@omnirec/commerce-web";
+import { autocapture } from "@omnirec/commerce-web/autocapture";
+import { dom } from "@omnirec/commerce-web/dom";
 
-export const commerce = createCommerceClient({
-  apiKey: "pk_live_xxxxx",
-  endpoint: "https://events.my-store.com",
+export const omnirec = createOmnirec({
+  endpoint: "/omnirec",              // or https://events.my-store.com
+  // apiKey: "pk_live_xxxxx",        // keys mode only
+  plugins: [autocapture(), dom()],
 });
 ```
 
-No further configuration is required. The SDK throws during initialization if
-`apiKey` resembles a secret credential, such as a value prefixed with `sk_`, an
-AWS access key identifier, or a PEM block.
+`autocapture()` records page views (including single-page navigation),
+campaign parameters, scroll depth and dwell time. `dom()` turns
+`data-omnirec-*` attributes into events ([html-attributes.md](html-attributes.md)).
+The SDK refuses to start if `apiKey` looks like a secret, such as `sk_…`, an AWS
+access key or a PEM block. Without a bundler, use the script tag build
+(`dist/omnirec.min.js`, see [frontend-sdk.md](frontend-sdk.md)).
 
 ### Step 3: Record interactions
 
 ```js
-commerce.page.viewed();
-commerce.search.performed({ query: "gaming laptop", resultCount: 24 });
-commerce.category.viewed({ categoryId: "laptops" });
-commerce.product.viewed({ productId: "p123", price: 1500, currency: "USD" });
-commerce.cart.productAdded({ cartId: "c1", productId: "p123", quantity: 1, price: 1500, currency: "USD" });
-commerce.checkout.started({ cartId: "c1" });
+omnirec.track("search_performed", { search: { query: "gaming laptop", resultsCount: 24 } });
+omnirec.track("category_viewed", { category: { id: "laptops" } });
+omnirec.track("product_viewed", { product: { id: "p123", price: 1500, currency: "USD" } });
+omnirec.track("add_to_cart", { product: { id: "p123", quantity: 1 }, cart: { id: "c1" } });
+omnirec.track("checkout_started", { cart: { id: "c1" } });
 ```
 
-A tracker method exists for each of the 37 event types. The complete list is in
-[frontend-sdk.md](frontend-sdk.md#the-trackers), and the required fields for each
-type are documented in [event-schema.md](event-schema.md#validation-rules).
+`track()` is typed from the catalog. TypeScript knows every event, its aliases
+(`add_to_cart` is `product_added_to_cart`) and its required fields. Your own
+events come from the tracking plan ([custom-events.md](custom-events.md)).
+Identifiers, timestamps, URLs and device attributes are attached by the SDK.
+The full list of events is in the [event reference](events/README.md).
 
-Identifiers, timestamps, URLs, and device attributes are attached by the SDK and
-must not be passed by the caller.
+Or, without JavaScript:
+
+```html
+<button data-omnirec-event="product_added_to_cart" data-omnirec-product="p123" data-omnirec-quantity="1">
+  Add to cart
+</button>
+```
 
 ### Step 4: Identify the visitor
 
 ```js
-// After successful authentication, or on each page load once the user is known:
-commerce.user.loggedIn({ userId: "customer_123" });   // equivalently, commerce.identify({ userId })
-
-// On sign-out:
-commerce.user.loggedOut();
+omnirec.identify("customer_123");   // after sign-in, or on each page load once known
+omnirec.logout();                   // on sign-out: a fresh anonymous id from here on
 ```
 
-Calling `identify` on every page load is supported; repeated calls for an
-already-identified user emit no additional events. Use a stable internal
-customer identifier rather than an email address.
+Calling `identify` on every page load is fine: repeated calls for the same user
+emit nothing. Use a stable internal customer id, not an email address. The
+anonymous id and session id are also kept in first-party cookies
+(`omnirec_anonymous_id`, `omnirec_session_id`), so your server's events join
+the same journey ([§5](#5-server-side-integration)).
 
-### Step 5: Single-page applications
+### Step 5: Consent
 
-Call `commerce.page.viewed()` on each route change. In addition to recording the
-navigation, this ends any dwell-time measurement in progress. Without it, the
-measurement continues across navigation.
+```js
+import { consent } from "@omnirec/commerce-web/consent";
+const cmp = consent();
+const omnirec = createOmnirec({ endpoint: "/omnirec", plugins: [cmp] });
+cmp.set({ analytics: true, marketing: false });   // from your consent banner
+```
+
+Events wait until the visitor decides. They are then sent or dropped, by
+category.
 
 ### React and Next.js
 
-```bash
-npm install @omnirec/commerce-react
-```
-
 ```tsx
-// app/providers.tsx
-"use client";
-import { CommerceProvider } from "@omnirec/commerce-react";
+// Next.js: app/layout.tsx
+import { OmnirecNextProvider } from "@omnirec/commerce-next";
+<OmnirecNextProvider endpoint="/omnirec">{children}</OmnirecNextProvider>
 
-export function Providers({ children }: { children: React.ReactNode }) {
-  return (
-    <CommerceProvider
-      apiKey={process.env.NEXT_PUBLIC_OMNIREC_API_KEY!}
-      endpoint={process.env.NEXT_PUBLIC_OMNIREC_ENDPOINT!}
-    >
-      {children}
-    </CommerceProvider>
-  );
-}
+// React
+import { OmnirecProvider } from "@omnirec/commerce-react";
+<OmnirecProvider endpoint="/omnirec"><App /></OmnirecProvider>
 ```
 
 ```tsx
 "use client";
-import { useCommerce, useProductView } from "@omnirec/commerce-react";
+import { useRef } from "react";
+import { useTrack, useImpression, Track } from "@omnirec/commerce-react";
 
-export function ProductPage({ product }) {
-  // Records the view on mount and ends dwell measurement on unmount.
-  useProductView({ productId: product.id, price: product.price, currency: "USD" });
-
-  const commerce = useCommerce();
+export function ProductCard({ product }) {
+  const track = useTrack();
+  const ref = useRef<HTMLDivElement>(null);
+  useImpression(ref, "product_list_viewed", { list: { id: "home", productIds: [product.id] } });
   return (
-    <button onClick={() => commerce.cart.productAdded({
-      cartId: "c1", productId: product.id, quantity: 1, price: product.price, currency: "USD",
-    })}>
-      Add to cart
-    </button>
+    <div ref={ref}>
+      <Track event="product_clicked" data={{ product: { id: product.id } }}>
+        <a href={product.url}>{product.name}</a>
+      </Track>
+      <button onClick={() => track("add_to_cart", { product: { id: product.id, quantity: 1 } })}>Add</button>
+    </div>
   );
 }
 ```
 
-The `NEXT_PUBLIC_` prefix is appropriate because the publishable key is intended
-to be exposed. Importing the SDK during server rendering is safe; the client
-should be created within a `"use client"` component.
+The provider is safe under React Strict Mode. The Next.js package also tracks
+App Router navigation, and gives server code the visitor's identity
+(`@omnirec/commerce-next/server`). For Vue, use `@omnirec/commerce-vue`
+(`app.use(OmnirecPlugin, { endpoint })`, `v-track`, `v-impression`).
 
 ### Recommendation attribution
 
-When recommendations are displayed, identify the provider that produced them so
-that attribution is forwarded only to that provider:
+Name the provider that produced a recommendation list, so attribution is
+forwarded only to that provider:
 
 ```js
-commerce.recommendation.impression({
-  recommendationId: "rec_123",
-  recommendationProvider: "amazon-personalize",   // or "google-retail"
-  productIds: ["p1", "p2"],
-  source: "homepage",
+omnirec.track("recommendation_impression", {
+  recommendation: { id: "rec_123", provider: "amazon-personalize" },   // or "google-retail"
+  list: { id: "homepage", productIds: ["p1", "p2"] },
 });
-commerce.recommendation.clicked({ recommendationId: "rec_123", productId: "p2" });
+omnirec.track("recommendation_clicked", { recommendation: { id: "rec_123" }, product: { id: "p2" } });
 ```
 
 ### Diagnostics
 
 ```js
-createCommerceClient({ apiKey, endpoint, debug: true, onError: (e) => console.warn(e) });
+import { debug } from "@omnirec/commerce-web/debug";
+createOmnirec({ endpoint: "/omnirec", plugins: [debug()] });
 ```
 
-With `debug` enabled, each event is logged as it is constructed. The `onError`
-callback reports validation failures and discarded batches.
+In development, `debug()` logs each event and warns about anything the
+collector will reject: a missing field, a negative quantity, a misspelt event
+name (with a suggestion). The production bundle checks only required fields.
+`omnirec dev` shows the same problems from the collector's side.
 
 ## 5. Server-side integration
 
@@ -410,7 +437,7 @@ cancelled orders, and verified reviews, are reported from the merchant backend.
 <dependency>
   <groupId>io.omnirec</groupId>
   <artifactId>commerce-tracker-spring-boot</artifactId>
-  <version>1.0.0</version>
+  <version>2.0.0</version>
 </dependency>
 ```
 

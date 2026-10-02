@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+name: survey_type
+description: "Kind of satisfaction survey."
+values:
+  - value: csat
+  - value: nps
+  - value: ces

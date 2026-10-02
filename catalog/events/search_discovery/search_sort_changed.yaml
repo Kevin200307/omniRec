@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: search_sort_changed
+domain: search_discovery
+version: 1
+sources: [browser]
+description: "The shopper changed the sort order."
+blocks: [search]
+properties:
+  sortBy: { type: string, required: true }
+example:
+  sortBy: sortby_1

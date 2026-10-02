@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: search_filter_removed
+domain: search_discovery
+version: 1
+sources: [browser]
+description: "The shopper removed a filter."
+blocks: [search]
+properties:
+  filterName: { type: string, required: true }
+example:
+  filterName: filtername_1

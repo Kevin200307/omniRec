@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: Apache-2.0
+name: gift_delivery_confirmed
+domain: fulfilment
+version: 1
+sources: [server, webhook]
+description: "A gift was confirmed delivered."
+blocks: [order]
+properties:
+  order.id: { required: true }
+example:
+  order: { id: id_1 }

@@ -1,0 +1,37 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# omniRec lite: the collector alone. No RabbitMQ, Redis or database.
+#
+#   docker compose -f deploy/lite/docker-compose.yml up -d --build
+#   curl http://localhost:8081/actuator/health
+#
+# Open mode: no API key needed. Browsers must come from OMNIREC_ALLOWED_ORIGINS
+# or reach the collector through a same-origin path on your site (/omnirec).
+# Events are delivered inline and nothing is retried; use deploy/standard
+# before you rely on delivery to a provider. See docs/self-hosting.md.
+name: omnirec-lite
+
+services:
+  event-api:
+    build:
+      context: ../..
+      dockerfile: backend/omnirec-event-api-app/Dockerfile
+    image: omnirec/event-api:2.0.0
+    ports:
+      - "${OMNIREC_PORT:-8081}:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: lite
+      OMNIREC_ALLOWED_ORIGINS: ${OMNIREC_ALLOWED_ORIGINS:-http://localhost:3000}
+      OMNIREC_DEFAULT_TENANT: ${OMNIREC_DEFAULT_TENANT:-default}
+      # Optional: a destination, for example Amazon Personalize.
+      PERSONALIZE_ENABLED: ${PERSONALIZE_ENABLED:-false}
+      GOOGLE_RETAIL_ENABLED: ${GOOGLE_RETAIL_ENABLED:-false}
+      # Optional: abandoned carts, return visits, new vs repeat customers (timers in memory).
+      DERIVED_EVENTS_ENABLED: ${DERIVED_EVENTS_ENABLED:-false}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8081/actuator/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 40s
+    restart: unless-stopped

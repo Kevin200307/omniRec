@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: recommendation
+description: The recommendation list an interaction came from, for attribution back to the provider that served it.
+fields:
+  id: { type: string, description: "Recommendation id issued by the provider." }
+  provider: { type: string, description: "Who served the list, for example amazon-personalize. Attribution goes only to this provider." }

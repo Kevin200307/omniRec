@@ -16,8 +16,6 @@ Links the current anonymous visitor to a customer id. Recorded as an identity li
 |---|---|---|---|
 | `identity.userId` | string | yes |  |
 
-Other fields come from the `commerce` block.
-
 ```json
 {
   "identity": {

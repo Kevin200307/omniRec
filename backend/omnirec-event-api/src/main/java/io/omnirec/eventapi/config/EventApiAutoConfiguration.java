@@ -19,8 +19,19 @@ import io.omnirec.eventapi.ingest.EventIngestionService;
 import io.omnirec.eventapi.metrics.MicrometerEventMetrics;
 import io.omnirec.eventapi.normalize.EventNormalizer;
 import io.omnirec.eventapi.queue.EventPublisher;
-import io.omnirec.eventapi.security.ApiKeyAuthenticator;
+import io.omnirec.eventapi.plan.PlanLoader;
+import io.omnirec.eventapi.tenant.FileTenantRegistry;
+import io.omnirec.eventapi.tenant.JdbcTenantRegistry;
+import io.omnirec.eventapi.tenant.TenantCatalogs;
+import io.omnirec.eventapi.tenant.TenantRegistry;
+import io.omnirec.commerce.catalog.EventRegistry;
 import io.omnirec.eventapi.security.RateLimiter;
+import io.omnirec.eventapi.webhook.GenericJsonWebhookAdapter;
+import io.omnirec.eventapi.webhook.StripeWebhookAdapter;
+import io.omnirec.eventapi.webhook.WebhookAdapter;
+import io.omnirec.eventapi.webhook.WebhookController;
+import io.omnirec.eventapi.webhook.WebhookProperties;
+import org.springframework.beans.factory.ObjectProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -60,7 +71,7 @@ import java.util.List;
                 "org.springframework.boot.actuate.autoconfigure.metrics.export.simple.SimpleMetricsExportAutoConfiguration"
         }
 )
-@EnableConfigurationProperties(EventApiProperties.class)
+@EnableConfigurationProperties({EventApiProperties.class, WebhookProperties.class})
 public class EventApiAutoConfiguration {
 
     private static final Logger log = LoggerFactory.getLogger(EventApiAutoConfiguration.class);
@@ -77,7 +88,32 @@ public class EventApiAutoConfiguration {
                 .modules(new JavaTimeModule())
                 .featuresToDisable(
                         com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                .featuresToEnable(com.fasterxml.jackson.databind.DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
+                .postConfigurer(EventApiAutoConfiguration::keepDecimalScale)
                 .build();
+    }
+
+    /**
+     * Money must keep its exact value and scale ({@code 2400.00}) all the way
+     * from the request body through the queue to storage. Jackson buffers record
+     * properties before construction, and without this feature that buffer
+     * turns every decimal into a double. Applied to Spring Boot's own mapper too,
+     * in case it is the one in use.
+     */
+    @Bean
+    public org.springframework.boot.autoconfigure.jackson.Jackson2ObjectMapperBuilderCustomizer omnirecExactDecimals() {
+        return builder -> builder
+                .featuresToEnable(com.fasterxml.jackson.databind.DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
+                .postConfigurer(EventApiAutoConfiguration::keepDecimalScale);
+    }
+
+    /**
+     * Events are bound one at a time from a JSON tree, so a malformed event
+     * fails alone. The default tree factory strips trailing zeros (2400.00
+     * becomes 2.4E+3); the exact factory keeps the value as sent.
+     */
+    static void keepDecimalScale(ObjectMapper mapper) {
+        mapper.setNodeFactory(com.fasterxml.jackson.databind.node.JsonNodeFactory.withExactBigDecimals(true));
     }
 
     @Bean
@@ -134,29 +170,51 @@ public class EventApiAutoConfiguration {
     }
 
     /**
-     * Fails startup if anonymous ingestion is left on outside development.
-     * Shipping with tenant isolation silently disabled is exactly the kind of
-     * mistake that should never reach production quietly.
+     * Where tenants come from. Replace it with your own {@link TenantRegistry}
+     * bean to keep tenants in another system.
      */
     @Bean
     @ConditionalOnMissingBean
-    public ApiKeyAuthenticator apiKeyAuthenticator(EventApiProperties properties, Environment environment) {
-        boolean isDevelopment = Arrays.stream(environment.getActiveProfiles())
-                .anyMatch(profile -> profile.equals("dev") || profile.equals("test") || profile.equals("local"));
-
-        if (properties.isAllowAnonymousIngestion() && !isDevelopment) {
-            throw new IllegalStateException(
-                    "omnirec.events.allow-anonymous-ingestion=true disables tenant isolation and is only "
-                            + "permitted under the dev, test, or local profile. Configure "
-                            + "omnirec.events.tenants.<id>.api-key instead.");
+    @SuppressWarnings("deprecation")
+    public TenantRegistry tenantRegistry(EventApiProperties properties) {
+        TenantRegistry registry = switch (properties.getTenantSource()) {
+            case FILE -> new FileTenantRegistry(properties);
+            case JDBC -> new JdbcTenantRegistry(properties.getJdbc().getUrl(), properties.getJdbc().getUsername(),
+                    properties.getJdbc().getPassword(), properties.getJdbc().getTable(),
+                    properties.getJdbc().getRefreshInterval(), properties.getDefaultValidationMode(),
+                    java.time.Clock.systemUTC());
+        };
+        if (properties.isAllowAnonymousIngestion()) {
+            log.warn("omnirec.events.allow-anonymous-ingestion is deprecated; use omnirec.events.auth-mode=open.");
         }
-
-        ApiKeyAuthenticator authenticator = new ApiKeyAuthenticator(properties);
-        if (!authenticator.hasAnyKeyConfigured() && !properties.isAllowAnonymousIngestion()) {
-            log.warn("No tenant API keys are configured — every ingestion request will be rejected with 401. "
-                    + "Set omnirec.events.tenants.<id>.api-key.");
+        EventApiProperties.AuthMode mode = EventApiRequestFilter.effectiveMode(properties, registry);
+        if (mode == EventApiProperties.AuthMode.OPEN) {
+            boolean anyOrigins = !properties.getCors().getAllowedOrigins().isEmpty()
+                    || registry.tenants().stream().anyMatch(t -> !t.allowedOrigins().isEmpty());
+            log.info("Event API auth mode: open. Requests without a key go to tenant {}.{}",
+                    properties.getDefaultTenantId(), anyOrigins ? ""
+                            : " No allowed origins are configured, so browsers may only send events from this"
+                            + " collector's own origin, for example through a /omnirec proxy path.");
+        } else {
+            log.info("Event API auth mode: keys ({} tenant(s)).", registry.tenants().size());
         }
-        return authenticator;
+        return registry;
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public PlanLoader planLoader(org.springframework.core.io.ResourceLoader resourceLoader) {
+        return new PlanLoader(resourceLoader);
+    }
+
+    /** Fails startup on an invalid tracking plan rather than on the first request. */
+    @Bean
+    @ConditionalOnMissingBean
+    public TenantCatalogs tenantCatalogs(TenantRegistry tenants, PlanLoader planLoader, EventApiProperties properties) {
+        TenantCatalogs catalogs = new TenantCatalogs(tenants, planLoader, EventRegistry.standard(),
+                properties.getDefaultValidationMode(), properties.getDefaultPlanPaths());
+        catalogs.validateAll();
+        return catalogs;
     }
 
     @Bean
@@ -169,22 +227,48 @@ public class EventApiAutoConfiguration {
     @ConditionalOnMissingBean
     public EventIngestionService eventIngestionService(
             EventNormalizer normalizer,
-            EventValidator validator,
+            TenantCatalogs catalogs,
             DeduplicationStore deduplicationStore,
             IdentityResolver identityResolver,
             EventPublisher publisher,
             EventMetrics metrics,
             EventApiProperties properties,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            ObjectProvider<io.omnirec.commerce.privacy.ErasureRegistry> erasures
     ) {
-        return new EventIngestionService(normalizer, validator, deduplicationStore,
-                identityResolver, publisher, metrics, properties.getDeduplicationWindow(), objectMapper);
+        return new EventIngestionService(normalizer, catalogs, deduplicationStore,
+                identityResolver, publisher, metrics, properties.getDeduplicationWindow(), objectMapper)
+                .withErasures(erasures.getIfAvailable());
     }
 
     @Bean
     @ConditionalOnMissingBean
-    public EventController eventController(EventIngestionService ingestionService, EventApiProperties properties) {
-        return new EventController(ingestionService, properties);
+    public EventController eventController(EventIngestionService ingestionService, EventApiProperties properties,
+                                           TenantCatalogs catalogs) {
+        return new EventController(ingestionService, properties, catalogs);
+    }
+
+    /**
+     * {@code POST /v1/webhooks/{source}}: the configured Stripe and JSON
+     * sources plus any {@link WebhookAdapter} beans the application defines.
+     * Without any source the endpoint answers 404 for everything.
+     */
+    @Bean
+    @ConditionalOnMissingBean
+    public WebhookController webhookController(WebhookProperties webhooks, ObjectProvider<WebhookAdapter> customAdapters,
+                                               EventIngestionService ingestionService, TenantRegistry tenants,
+                                               EventApiProperties properties, ObjectMapper objectMapper) {
+        List<WebhookAdapter> adapters = new ArrayList<>(customAdapters.orderedStream().toList());
+        if (webhooks.getStripe().isEnabled()) {
+            adapters.add(new StripeWebhookAdapter(webhooks.getStripe(), properties.getDefaultTenantId(), objectMapper,
+                    java.time.Clock.systemUTC()));
+        }
+        webhooks.getJson().forEach((source, config) -> adapters.add(
+                new GenericJsonWebhookAdapter(source, config, properties.getDefaultTenantId(), objectMapper)));
+        WebhookController controller = new WebhookController(adapters, ingestionService, tenants,
+                properties.getDefaultTenantId(), properties.getMaxPayloadBytes(), java.time.Clock.systemUTC());
+        if (!controller.sources().isEmpty()) log.info("Webhook sources: {}", controller.sources());
+        return controller;
     }
 
     /**
@@ -194,10 +278,10 @@ public class EventApiAutoConfiguration {
      */
     @Bean
     public FilterRegistrationBean<EventApiRequestFilter> omnirecEventApiRequestFilter(
-            ApiKeyAuthenticator authenticator, RateLimiter rateLimiter, EventApiProperties properties) {
+            TenantRegistry tenants, RateLimiter rateLimiter, EventApiProperties properties) {
         FilterRegistrationBean<EventApiRequestFilter> registration =
-                new FilterRegistrationBean<>(new EventApiRequestFilter(authenticator, rateLimiter, properties));
-        registration.addUrlPatterns("/v1/events", "/v1/events/batch", "/v1/identify");
+                new FilterRegistrationBean<>(new EventApiRequestFilter(tenants, rateLimiter, properties));
+        registration.addUrlPatterns("/v1/events", "/v1/events/batch", "/v1/identify", "/v1/catalog");
         // After CORS (which answers preflights) but before anything that reads the body.
         registration.setOrder(org.springframework.core.Ordered.HIGHEST_PRECEDENCE + 50);
         return registration;
@@ -215,18 +299,29 @@ public class EventApiAutoConfiguration {
      * header, so there is no reason to let the browser attach cookies.
      */
     @Bean
-    public WebMvcConfigurer omnirecEventApiCorsConfigurer(EventApiProperties properties) {
+    public WebMvcConfigurer omnirecEventApiCorsConfigurer(EventApiProperties properties, TenantRegistry tenants) {
         return new WebMvcConfigurer() {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
-                if (properties.getCors().getAllowedOrigins().isEmpty()) return;
+                // Global origins plus every tenant's own. A tenant added later through
+                // JDBC still passes the origin check in the filter; CORS response
+                // headers for it need a restart or a global entry.
+                java.util.Set<String> origins = new java.util.LinkedHashSet<>(properties.getCors().getAllowedOrigins());
+                tenants.tenants().forEach(t -> origins.addAll(t.allowedOrigins()));
+                if (origins.isEmpty()) return;
+                String[] allowed = origins.toArray(new String[0]);
+                registry.addMapping("/v1/catalog")
+                        .allowedOrigins(allowed)
+                        .allowedMethods("GET")
+                        .allowedHeaders("X-Omnirec-Key")
+                        .allowCredentials(false);
                 registry.addMapping("/v1/events/**")
-                        .allowedOrigins(properties.getCors().getAllowedOrigins().toArray(new String[0]))
+                        .allowedOrigins(allowed)
                         .allowedMethods("POST")
                         .allowedHeaders("Content-Type", "X-Omnirec-Key", "X-Omnirec-Tenant")
                         .allowCredentials(false);
                 registry.addMapping("/v1/identify")
-                        .allowedOrigins(properties.getCors().getAllowedOrigins().toArray(new String[0]))
+                        .allowedOrigins(allowed)
                         .allowedMethods("POST")
                         .allowedHeaders("Content-Type", "X-Omnirec-Key", "X-Omnirec-Tenant")
                         .allowCredentials(false);

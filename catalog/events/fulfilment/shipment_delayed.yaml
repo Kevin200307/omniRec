@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+name: shipment_delayed
+domain: fulfilment
+version: 1
+sources: [server, webhook]
+description: "A shipment is running late."
+aliases: [delivery_delay_notified]
+blocks: [shipment]
+properties:
+  shipment.id: { required: true }
+example:
+  shipment: { id: id_1 }

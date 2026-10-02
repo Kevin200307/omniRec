@@ -2,7 +2,8 @@
 package io.omnirec.tracker.trackers;
 
 import io.omnirec.commerce.model.CommerceData;
-import io.omnirec.commerce.model.EventType;
+import io.omnirec.commerce.catalog.generated.StandardEventNames;
+import io.omnirec.commerce.model.EventName;
 import io.omnirec.tracker.ServerEventEmitter;
 import io.omnirec.tracker.ServerEventEmitter.ServerIdentity;
 
@@ -31,7 +32,7 @@ public class UserTracker {
 
     public void registered(String userId, String anonymousId, Map<String, Object> traits) {
         emitter.emit(
-                EventType.USER_REGISTERED,
+                StandardEventNames.USER_REGISTERED,
                 ServerIdentity.of(anonymousId, userId),
                 CommerceData.empty(),
                 traits,
@@ -42,7 +43,7 @@ public class UserTracker {
 
     public void loggedIn(String userId, String anonymousId) {
         emitter.emit(
-                EventType.USER_LOGGED_IN,
+                StandardEventNames.USER_LOGGED_IN,
                 ServerIdentity.of(anonymousId, userId),
                 CommerceData.empty(),
                 Map.of());
@@ -50,7 +51,7 @@ public class UserTracker {
 
     public void profileUpdated(String userId, Map<String, Object> changedFields) {
         emitter.emit(
-                EventType.USER_PROFILE_UPDATED,
+                StandardEventNames.USER_PROFILE_UPDATED,
                 ServerIdentity.ofUser(userId),
                 CommerceData.empty(),
                 changedFields == null ? Map.of() : changedFields);

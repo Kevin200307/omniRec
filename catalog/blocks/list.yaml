@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: Apache-2.0
+name: list
+description: A list or placement of several products, such as a grid, carousel or promotion row.
+fields:
+  id: { type: string, description: "Identifier of the list or placement." }
+  name: { type: string }
+  position: { type: integer, minimum: 1, description: "1-based position of the product the event is about, within the list." }
+  productIds: { type: array, items: { type: string }, description: "Products shown, in display order." }
+  type: { type: string, description: "For example search, category, best_sellers, deals, coupons, carousel." }

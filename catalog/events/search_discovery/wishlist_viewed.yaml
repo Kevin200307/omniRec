@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: Apache-2.0
+name: wishlist_viewed
+domain: search_discovery
+version: 1
+sources: [browser]
+description: "The shopper opened a wishlist or saved list."
+aliases: [wishlist_or_list_page_viewed]
+blocks: [list]

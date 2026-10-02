@@ -1,0 +1,23 @@
+<!doctype html>
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>omnirec keyless</title>
+  </head>
+  <body>
+    <script type="module">
+      import { createOmnirec } from "/sdk/web/index.js";
+
+      const errors = [];
+      const omnirec = createOmnirec({
+        endpoint: "/collector",
+        autoTrackSessions: true,
+        onError: (e) => errors.push(String(e)),
+      });
+      omnirec.track("product_viewed", { product: { id: "P100", price: "12.50", currency: "USD" } });
+      window.__omnirec = { omnirec, errors };
+      document.body.dataset.ready = "true";
+    </script>
+  </body>
+</html>

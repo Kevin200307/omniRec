@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+name: help_center_viewed
+domain: support
+version: 1
+sources: [browser]
+description: "The customer opened the help centre."

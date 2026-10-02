@@ -11,8 +11,11 @@ export type SendOutcome =
 
 export interface TransportOptions {
   endpoint: string;
-  /** Public, non-secret key. Never a provider credential — see docs/security.md. */
-  apiKey: string;
+  /**
+   * Public, non-secret key. Never a provider credential — see docs/security.md.
+   * Omitted when the collector runs in open mode.
+   */
+  apiKey?: string;
   tenantId?: string;
   maxRetries?: number;
   /** First backoff step; doubles each attempt, with jitter. */
@@ -42,7 +45,7 @@ const KEEPALIVE_MAX_BYTES = 60_000;
  */
 export class Transport {
   private readonly endpoint: string;
-  private readonly apiKey: string;
+  private readonly apiKey?: string;
   private readonly tenantId?: string;
   private readonly maxRetries: number;
   private readonly retryBaseMs: number;
@@ -126,8 +129,10 @@ export class Transport {
    * writes for one tenant and nothing else.
    */
   private beaconUrl(): string {
-    const url = `${this.batchUrl()}?api_key=${encodeURIComponent(this.apiKey)}`;
-    return this.tenantId ? `${url}&tenant_id=${encodeURIComponent(this.tenantId)}` : url;
+    const params: string[] = [];
+    if (this.apiKey) params.push(`api_key=${encodeURIComponent(this.apiKey)}`);
+    if (this.tenantId) params.push(`tenant_id=${encodeURIComponent(this.tenantId)}`);
+    return params.length ? `${this.batchUrl()}?${params.join("&")}` : this.batchUrl();
   }
 
   backoffMs(attempt: number): number {
@@ -136,10 +141,8 @@ export class Transport {
   }
 
   private headers(): Record<string, string> {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      "X-Omnirec-Key": this.apiKey,
-    };
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (this.apiKey) headers["X-Omnirec-Key"] = this.apiKey;
     if (this.tenantId) headers["X-Omnirec-Tenant"] = this.tenantId;
     return headers;
   }

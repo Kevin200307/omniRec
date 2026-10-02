@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+vocabularies:
+  variant: [a, b]
+events:
+  action_x_clicked:
+    description: "Shopper clicked the X button."
+    domain: engagement
+    sources: [browser]
+    properties:
+      variant: { type: enum, vocabulary: variant, required: true }

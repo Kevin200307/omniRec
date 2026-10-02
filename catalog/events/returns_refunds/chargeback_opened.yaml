@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+name: chargeback_opened
+domain: returns_refunds
+version: 1
+sources: [webhook]
+description: "The customer disputed a payment with their bank."
+blocks: [order, payment]
+properties:
+  order.id: { required: true }
+  payment.amount: { required: true }
+  payment.currency: { required: true }
+example:
+  order: { id: id_1 }
+  payment: { amount: "24.00", currency: USD }

@@ -1,7 +1,0 @@
-# SPDX-License-Identifier: Apache-2.0
-name: session_ended
-domain: session
-version: 1
-sources: [browser]
-description: "The browsing session ended, through inactivity or logout."
-blocks: [commerce]
